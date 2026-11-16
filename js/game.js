@@ -116,9 +116,15 @@
     cloudLoad();
   }
   // ---- family profiles: a link with kids=Name,Name gives each child their own save and character ----
+  // The kids list belongs to a family code, so opening a different family's link never mixes the two.
   function readKids() {
-    const m = /kids=([^&#]+)/.exec(location.hash) || /kids=([^&#]+)/.exec(location.search); let k = '';
-    try { if (m) { k = decodeURIComponent(m[1]); localStorage.setItem('tt_kids', k); } else k = localStorage.getItem('tt_kids') || ''; } catch (e) { if (m) k = decodeURIComponent(m[1]); }
+    const src = location.hash + '&' + location.search, rm = /room=([A-Za-z0-9]{3,12})/.exec(src), km = /kids=([^&#]+)/.exec(src); let room = rm ? rm[1].toUpperCase() : '', k = '';
+    try {
+      localStorage.removeItem('tt_kids');                                   // old, shared-by-mistake setting
+      if (!room) room = localStorage.getItem('tt_room') || '';
+      if (rm && km) { k = decodeURIComponent(km[1]); localStorage.setItem('tt_kids_' + room, k); }
+      else k = localStorage.getItem('tt_kids_' + room) || '';
+    } catch (e) { if (km) k = decodeURIComponent(km[1]); }
     return k.split(',').map(x => x.trim().replace(/[^A-Za-z0-9 '-]/g, '').slice(0, 14)).filter(Boolean).slice(0, 6);
   }
   const duoPic = ch => TT.portrait('t_' + ch, () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[ch]), c = TT.creature(STARTER[ch]); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; }, true);
