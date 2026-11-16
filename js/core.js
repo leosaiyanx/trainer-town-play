@@ -164,8 +164,9 @@
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (ac.state === 'suspended') ac.resume();
+    if (ac.state === 'suspended' && !TT.paused) ac.resume();
   };
+  TT.audioPause = on => { if (ac) try { on ? ac.suspend() : ac.resume(); } catch (e) { } };
   TT.setMuted = m => { TT.muted = m; if (master) master.gain.value = m ? 0 : 0.9; };
   const N = n => 440 * Math.pow(2, (n - 69) / 12);
   function voice(bus, type, f, t, d, vol, o) {

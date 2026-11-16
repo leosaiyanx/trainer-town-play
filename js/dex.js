@@ -332,7 +332,7 @@
 
   // name, type, hp, atk, def, moves [name,type,power,level], evo [to, level]
   const D = TT.DEX = {
-    pikachu: ['Pikachu', 'electric', 35, 55, 40, [['Thunder Shock', 'electric', 40, 1], ['Quick Attack', 'normal', 35, 1], ['Thunderbolt', 'electric', 70, 8], ['Iron Tail', 'normal', 60, 11]]],
+    pikachu: ['Pikachu', 'electric', 35, 55, 40, [['Thunder Shock', 'electric', 40, 1], ['Quick Attack', 'normal', 35, 1], ['Iron Tail', 'normal', 65, 6], ['Thunderbolt', 'electric', 70, 8]]],
     sprigatito: ['Sprigatito', 'grass', 40, 61, 54, [['Leafage', 'grass', 40, 1], ['Scratch', 'normal', 35, 1], ['Magical Leaf', 'grass', 60, 7], ['Bite', 'dark', 50, 9]], ['floragato', 8]],
     floragato: ['Floragato', 'grass', 61, 80, 63, [['Magical Leaf', 'grass', 60, 1], ['Slash', 'normal', 55, 1], ['Seed Bomb', 'grass', 75, 10], ['Bite', 'dark', 50, 1]]],
     meowth: ['Meowth', 'normal', 40, 45, 35, [['Scratch', 'normal', 35, 1], ['Bite', 'dark', 40, 1]]],

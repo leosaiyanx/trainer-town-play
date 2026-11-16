@@ -110,7 +110,7 @@
     ch = S.ch; TT.S = S;
     player.root = wrap(TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), 0.42); player.x = cam.x = ch === 'ash' ? 1.5 : -1.5; player.z = cam.z = 8; player.h = Math.PI;
     setFollower(); W.setGate(!!S.flags.city);
-    $('title').classList.add('hide'); for (const id of ['hud', 'joy', 'act']) $(id).classList.remove('hide');
+    $('title').classList.add('hide'); for (const id of ['hud', 'joy', 'act', 'bPause']) $(id).classList.remove('hide');
     mode = 'play'; TT.music('town'); setMini(miniOn); friendsDirty = true; nextRocket = S.caught.length ? 60 : 150; hud();
     if (fresh) intro();
     cloudLoad();
@@ -198,11 +198,20 @@
   }
 
   // ---------- talking ----------
+  function nearestWild() { let best = null, bd = 3.6; for (const w of wilds) { const d = Math.hypot(w.x - player.x, w.z - player.z); if (d < bd) { bd = d; best = w; } } return best; }
   function nearestNpc() { let best = null, bd = 2.9; for (const n of npcs) { const d = dist(n, player); if (d < bd) { bd = d; best = n; } } return best; }
   async function talk(n) {
     busy = true; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
     const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
     if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk();
+    else if (!n.human) {
+      await TT.say([[n.name, n.lines[0]]]);
+      if (S.party.some(m => m.hp > 0) && await petAsk(n)) {
+        const foe = TT.mon(mdl.userData.sp, Math.max(3, S.party[0].lvl - 1)), r = await TT.Battle.start({ foes: [foe], wild: true });
+        if (r === 'caught') { foe.hp = TT.maxHp(foe); addMon(foe); scene.remove(n.root); npcs.splice(npcs.indexOf(n), 1); } else if (r === 'lose') await whiteOut();
+        battleCd = 2.5; if (follower.sp !== S.party[0].sp) setFollower();
+      }
+    }
     else await TT.say([[n.name, n.lines[n.i++ % n.lines.length]]]);
     mdl.userData.gesture = null; busy = false; hud(); save();
   }
@@ -356,7 +365,15 @@
   }
   const hex = n => '#' + n.toString(16).padStart(6, '0');
   function openPanel(html) { $('panelIn').innerHTML = html; $('panel').classList.remove('hide'); panelOpen = true; stopInput(); const c = $('pClose'); if (c) c.onclick = closePanel; }
-  function closePanel() { $('panel').classList.add('hide'); panelOpen = false; }
+  let panelDone = null;
+  function closePanel() { $('panel').classList.add('hide'); panelOpen = false; if (panelDone) { const f = panelDone; panelDone = null; f(false); } }
+  // friendly Pokémon in town: after saying hello, the player can choose to battle (and even catch) it
+  function petAsk(n) {
+    return new Promise(res => {
+      openPanel('<h3>' + n.name + ' wants to play! <button id="pClose">✕</button></h3><button class="opt" id="pbY">⚔ Battle ' + n.name + '</button><button class="opt" id="pbN">👋 Not now</button>');
+      panelDone = res; $('pbY').onclick = () => { panelDone = null; closePanel(); res(true); }; $('pbN').onclick = closePanel;
+    });
+  }
   function showTeam() {
     let h = '<h3>My Team <button id="pClose">✕</button></h3>';
     S.party.forEach((m, i) => {
@@ -380,6 +397,25 @@
     $('pReset').onclick = () => { if (confirm('Erase ' + pname + "'s saved game and start over?")) { localStorage.removeItem(slot); const u = cloudUrl(); if (u) fetch(u, { method: 'DELETE', keepalive: true }).catch(() => { }); setTimeout(() => location.reload(), 300); } };
   }
 
+  // ---------- new-version check: offer a one-tap update without leaving the game ----------
+  let myVer = null;
+  const verFetch = () => fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => j && j.v).catch(() => null);
+  verFetch().then(v => { myVer = v; });
+  setInterval(() => { if (!myVer || document.hidden) return; verFetch().then(v => { if (v && v !== myVer) $('bUpdate').classList.remove('hide'); }); }, 150000);
+  function doUpdate() {
+    if (TT.Battle.active) { TT.toast('Finish this battle first, then tap update.'); return; }
+    if (S) { save(); cloudPush(); try { sessionStorage.setItem('tt_resume', JSON.stringify({ ch: S.ch, slot, name: pname })); } catch (e) { } }
+    $('bUpdate').textContent = 'Updating…'; setTimeout(() => location.reload(), 350);
+  }
+
+  // ---------- pause ----------
+  function setPause(on) {
+    if (on && (mode !== 'play' || TT.paused)) return;
+    TT.paused = on; stopInput(); input.keys = {};
+    $('pause').classList.toggle('hide', !on); TT.audioPause(on);
+    if (on) save(); else { last = performance.now(); TT.audioInit(); }
+  }
+
   // ---------- menu, main-menu return ----------
   function showMenu() {
     const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); };
@@ -395,7 +431,7 @@
     save(); closePanel(); stopInput(); TT.hush(); setDest(null);
     scene.remove(player.root); if (follower) scene.remove(follower.root); follower = null; eggObj.visible = false; player.root = null;
     S = null; TT.S = null; mode = 'title';
-    for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn']) $(id).classList.add('hide');
+    for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn', 'bPause']) $(id).classList.add('hide');
     $('friends').innerHTML = ''; friendsDirty = true; cloudPush(); if (kidsList.length) buildProfiles();
     $('title').classList.remove('hide');
   }
@@ -503,13 +539,18 @@
     $('act').addEventListener('pointerdown', e => { e.preventDefault(); TT.audioInit(); interact(); });
     $('bTeam').onclick = () => { if (!busy && S) showTeam(); }; $('bMap').onclick = () => { if (!busy && S) showMap(); };
     $('bMenu').onclick = () => { TT.audioInit(); if (!busy && S) showMenu(); };
+    $('bUpdate').onclick = doUpdate;
+    $('bPause').onclick = () => setPause(true); $('bResume').onclick = () => setPause(false);
+    $('pause').addEventListener('pointerdown', e => { if (e.target === $('pause')) setPause(false); });
     $('mini').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); setMini(false); });
     $('miniBtn').onclick = () => setMini(true);
     $('panel').addEventListener('pointerdown', e => { if (e.target === $('panel')) closePanel(); });
     window.addEventListener('keydown', e => {
       input.keys[e.code] = 1;
+      if (TT.paused && e.code !== 'KeyP') { if (e.code === 'Space' || e.code === 'Enter') setPause(false); return; }
       if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyE') { e.preventDefault(); TT.audioInit(); interact(); }
       if (e.code === 'Escape' && panelOpen) closePanel();
+      if (e.code === 'KeyP') setPause(!TT.paused);
     });
     window.addEventListener('keyup', e => { input.keys[e.code] = 0; });
     window.addEventListener('blur', () => { input.keys = {}; stopInput(); });
@@ -518,7 +559,8 @@
   function interact() {
     if (TT.dialogOpen) { TT.dialogNext(); return; }
     if (mode !== 'play' || busy || panelOpen) return;
-    const n = nearestNpc(); if (n) talk(n);
+    const n = nearestNpc(), w = nearestWild();
+    if (w && (!n || dist(w, player) < dist(n, player))) wildBattle(w); else if (n) talk(n);
   }
 
   // ---------- friends: jump to them, join their battle, Dad's cheer + gifts ----------
@@ -646,8 +688,8 @@
 
     if (miniOn && !TT.Battle.active && (miniT += dt) > 0.12) { miniT = 0; drawMini(); }
     if (dest) { beacon.rotation.y = t * 2; beacon.children[1].position.y = 3.2 + Math.sin(t * 4) * 0.4; if (idle && Math.hypot(dest.x - player.x, dest.z - player.z) < 2.6) { TT.sfx.pick(); TT.toast('You made it to ' + dest.n + '!'); setDest(null); } }
-    const near = idle && nearestNpc(), act = $('act');
-    act.textContent = near ? 'Talk' : 'A'; act.classList.toggle('dim', !near && !TT.dialogOpen);
+    const nn = idle && nearestNpc(), nw = idle && nearestWild(), fight = nw && (!nn || dist(nw, player) < dist(nn, player)), near = nn || nw, act = $('act');
+    act.textContent = fight ? '⚔ Battle' : nn ? 'Talk' : 'A'; act.classList.toggle('dim', !near && !TT.dialogOpen); act.classList.toggle('fight', !!fight);
 
     if (!TT.Battle.active) {
       const zm = camera.aspect < 1 ? 1.5 : 1, k = Math.min(1, dt * 6);
@@ -670,12 +712,13 @@
   G.tick = function (ts) {
     let dt = (ts - last) / 1000; last = ts;
     if (!(dt > 0)) dt = 0.016; if (dt > 0.05) dt = 0.05;
+    if (TT.paused) { renderer.render(scene, camera); return; }    // everything (battles too) freezes; the picture stays
     t += dt; TT.updateTweens(dt);
     try { update(dt); } catch (e) { console.error(e); }
     renderer.render(scene, camera);
   };
   // test hooks
-  G.toTitle = toTitle;
+  G.toTitle = toTitle; G.setPause = setPause;
   G.dbg = () => ({ S, player, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame });
 
   // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
@@ -690,6 +733,8 @@
   requestAnimationFrame(() => setTimeout(() => {
     try { init(); } catch (e) { $('loading').textContent = 'Sorry, something went wrong: ' + e.message; throw e; }
     ready = true; $('loading').classList.add('hide'); $('title').classList.remove('wait');
-    if (pending && !(kidsList.length && pending !== 'dad')) startGame(pending);
+    let rs = null; try { rs = JSON.parse(sessionStorage.getItem('tt_resume')); sessionStorage.removeItem('tt_resume'); } catch (e) { }
+    if (rs && rs.ch) startGame(rs.ch, rs.slot, rs.name);      // coming back from a one-tap update
+    else if (pending && !(kidsList.length && pending !== 'dad')) startGame(pending);
   }, 40));
 })();
