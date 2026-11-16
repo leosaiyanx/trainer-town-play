@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#3aa0e8">
+<title>Trainer Town</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-180.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hide">
+  <div id="stats">
+    <div class="chip" id="chipBall"><i class="ball"></i><b id="nBall">0</b></div>
+    <div class="chip" id="chipStar"><i class="dball"></i><b id="nStar">0</b>/7</div>
+    <div class="chip hide" id="chipEgg"><i class="egg"></i><div class="bar"><div id="eggBar"></div></div></div>
+    <div class="chip hide" id="chipNet"><span id="netTxt">●</span></div>
+  </div>
+  <div id="btns">
+    <button id="bTeam">Team</button>
+    <button id="bMap">Map</button>
+    <button id="bSnd">♪</button>
+  </div>
+  <div id="quest"></div>
+</div>
+
+<div id="joy" class="hide"><div id="nub"></div></div>
+<button id="act" class="hide">A</button>
+
+<div id="dialog" class="hide"><b id="dwho"></b><p id="dtext"></p><span id="dnext">▼</span></div>
+<div id="toast"></div>
+
+<div id="battle" class="hide">
+  <div class="mbox" id="foeBox"><div class="nm"><b id="foeName"></b><span id="foeLvl"></span></div><div class="hp"><div id="foeHp"></div></div><div id="foeDots"></div></div>
+  <div class="mbox" id="myBox"><div class="nm"><b id="myName"></b><span id="myLvl"></span></div><div class="hp"><div id="myHp"></div></div><div class="xp"><div id="myXp"></div></div><small id="myHpTxt"></small></div>
+  <div id="bmsg"></div>
+  <div id="bmenu"></div>
+</div>
+
+<div id="panel" class="hide"><div id="panelIn"></div></div>
+
+<div id="title">
+  <div id="titleIn">
+    <h1>Trainer Town</h1>
+    <h2>Llorianne &amp; LJ's Adventure</h2>
+    <p class="pick">Who are you?</p>
+    <div id="chars">
+      <button class="card" data-ch="liko"><img id="pLiko" alt=""><b>Liko</b><span>with Sprigatito</span></button>
+      <button class="card" data-ch="ash"><img id="pAsh" alt=""><b>Ash</b><span>with Pikachu</span></button>
+    </div>
+    <p id="netNote"></p>
+    <p><button id="bRoom" class="hide">👫 Family code</button></p>
+    <p class="fine">A family fan game — made with love for Llorianne &amp; LJ</p>
+  </div>
+</div>
+
+<script src="js/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/dex.js"></script>
+<script src="js/world.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/peerjs.min.js"></script>
+<script src="js/net.js"></script>
+<script src="js/game.js"></script>
+<script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { });</script>
+</body>
+</html>
