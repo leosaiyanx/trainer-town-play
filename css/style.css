@@ -131,3 +131,38 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
 #bUpdate{position:fixed;left:50%;transform:translateX(-50%);top:max(100px,calc(env(safe-area-inset-top) + 100px));background:#3aa0e8;color:#fff;border:3px solid #23324a;border-radius:999px;padding:8px 18px;font-weight:800;font-size:15px;box-shadow:0 3px 0 rgba(35,50,74,.4);z-index:26;animation:pulseC .8s infinite alternate;white-space:nowrap}
 @keyframes pulseC{to{transform:translateX(-50%) scale(1.06)}}
 #act.fight{background:#e8402a;color:#fff;font-size:18px}
+
+/* ---------- loading screen ---------- */
+#loader{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:linear-gradient(120deg,#ff5f6d,#ffc371,#47e5bc,#5d9cff,#c86dd7,#ff5f6d);background-size:400% 400%;animation:ldbg 9s ease infinite;transition:opacity .6s;overflow:hidden}
+#loader::before,#loader::after{content:'';position:absolute;inset:-50%;background-image:radial-gradient(circle,rgba(255,255,255,.9) 0 2px,transparent 3px),radial-gradient(circle,rgba(255,255,255,.6) 0 1.5px,transparent 2.5px);background-size:90px 90px,55px 55px;background-position:0 0,25px 35px;animation:ldsp 14s linear infinite;opacity:.55;pointer-events:none}
+#loader::after{animation-duration:22s;animation-direction:reverse;opacity:.35}
+#loader.done{opacity:0;pointer-events:none}
+@keyframes ldbg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes ldsp{to{transform:translate(90px,-180px)}}
+.ldIn{position:relative;z-index:1;text-align:center;width:min(560px,90vw)}
+.ldBall{width:110px;height:110px;margin:0 auto 12px;border-radius:50%;border:6px solid #23324a;background:linear-gradient(#e8402a 0 46%,#23324a 46% 54%,#fff 54%);position:relative;animation:ldbounce 1.2s cubic-bezier(.5,.1,.5,.9) infinite;box-shadow:0 10px 0 rgba(0,0,0,.18)}
+.ldBall::after{content:'';position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-19px 0 0 -19px;border-radius:50%;background:#fff;border:6px solid #23324a}
+@keyframes ldbounce{0%,100%{transform:rotate(0) translateY(0)}25%{transform:rotate(-22deg) translateY(-16px)}50%{transform:rotate(16deg) translateY(0)}75%{transform:rotate(-8deg) translateY(-5px)}}
+#loader h1{margin:0;font-size:clamp(40px,9vw,76px);color:#ffd23c;-webkit-text-stroke:3px #23508f;text-shadow:0 6px 0 #23508f;line-height:1.05}
+.ldBar{height:30px;border:4px solid #23324a;border-radius:999px;background:rgba(255,255,255,.8);overflow:hidden;margin:20px 0 8px;box-shadow:0 5px 0 rgba(35,50,74,.35)}
+#ldFill{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#ffd23c,#ff9a1f,#e8402a);transition:width .35s;position:relative;overflow:hidden}
+#ldFill::after{content:'';position:absolute;top:0;bottom:0;left:-34px;right:0;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.4) 0 12px,transparent 12px 24px);animation:ldstripe .6s linear infinite}
+@keyframes ldstripe{to{transform:translateX(34px)}}
+.ldRow{display:flex;justify-content:space-between;font-weight:800;color:#fff;text-shadow:0 2px 0 rgba(35,50,74,.6);font-size:18px}
+#ldTip{margin:16px auto 0;background:rgba(35,50,74,.55);color:#fff;border-radius:16px;padding:10px 14px;font-weight:700;font-size:15px;min-height:1.4em}
+/* ---------- boss battles ---------- */
+#flash{position:fixed;inset:0;z-index:35;pointer-events:none;opacity:0;background:#fff}
+#bars i{position:fixed;left:0;right:0;height:0;background:#0a0a12;z-index:34;transition:height .5s;pointer-events:none;display:block}
+#bars i:first-child{top:0}#bars i:last-child{bottom:0}
+.bossmode #bars i{height:11vh}
+.bossmode #battle .mbox,.bossmode #bmsg,.bossmode #bmenu{opacity:0;transition:opacity .3s}
+#bossCard{position:fixed;left:0;right:0;top:36%;z-index:36;text-align:center;pointer-events:none;transform:translateX(-120%);transition:transform .55s cubic-bezier(.2,1.4,.4,1)}
+#bossCard.on{transform:translateX(0)}
+#bossCard small{display:inline-block;background:#e8402a;color:#fff;font-weight:900;letter-spacing:3px;padding:4px 16px;border-radius:6px;font-size:16px;animation:bblink .45s infinite alternate}
+#bossCard b{display:block;font-size:clamp(44px,10vw,92px);color:#ffd23c;-webkit-text-stroke:3px #7a1a1a;text-shadow:0 6px 0 #7a1a1a,0 0 30px rgba(255,120,40,.85);font-style:italic;line-height:1.1}
+#bossCard span{display:block;color:#fff;font-weight:800;font-size:20px;text-shadow:0 2px 0 #000}
+@keyframes bblink{to{opacity:.55}}
+#foeBox.boss{border-color:#7a1a1a;background:linear-gradient(#fff6d8,#ffd8a0);width:min(380px,52vw)}
+#foeBox.boss .hp{height:20px;border-color:#7a1a1a}
+#foeBox.boss .nm b{color:#7a1a1a}
+.fly{display:block;margin-top:8px;background:#3aa0e8;color:#fff;border:3px solid #23324a;border-radius:12px;padding:5px 10px;font-weight:800;font-size:14px}

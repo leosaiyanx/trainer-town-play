@@ -9,6 +9,7 @@
   const chunks = {};
   const chunk = (x, z) => { const k = Math.floor((x + 320) / 32) + '_' + Math.floor((z + 320) / 32); return chunks[k] || (chunks[k] = new THREE.Group()); };
 
+  W.h = () => 0; W.gy = () => 0;      // ground height; the Wide World (world2.js) replaces this with hills
   W.POND = { x: 32, z: 24, r: 9 };
   W.FIRE = { x: 5, z: 27 };
   W.NEST = { x: -49, z: 41 };
@@ -73,7 +74,7 @@
   W.trees = [];
   function tree(x, z, k, kind, solid) {
     W.trees.push([x, z, k, kind]);
-    const g = grp(chunk(x, z), x, 0, z); g.rotation.y = rand(0, 6.28);
+    const g = grp(chunk(x, z), x, W.h(x, z), z); g.rotation.y = rand(0, 6.28);
     if (kind === 'pine') {
       P(g, 'trunk', 0x7a5234, [0, 0.7 * k, 0], [0.26 * k, 1.4 * k, 0.26 * k]);
       const c = pick(PINES); for (let i = 0; i < 3; i++) P(g, 'cone8', i === 2 ? shade(c, 1.18) : c, [0, (1.9 + i * 1.05) * k, 0], [(1.55 - i * 0.38) * k, 1.8 * k, (1.55 - i * 0.38) * k], [0, i, 0]);
@@ -86,29 +87,29 @@
     if (solid) W.colliders.push({ x, z, r: 0.55 });
   }
   function bush(x, z, k, berry) {
-    const g = grp(chunk(x, z), x, 0, z);
+    const g = grp(chunk(x, z), x, W.h(x, z), z);
     for (let i = 0; i < 3; i++) P(g, 'ico', pick(GREENS), [rand(-0.4, 0.4) * k, rand(0.3, 0.5) * k, rand(-0.3, 0.3) * k], rand(0.45, 0.65) * k, [rand(0, 3), rand(0, 3), 0]);
     if (berry) for (let i = 0; i < 4; i++) P(g, 'sph', berry, [rand(-0.5, 0.5) * k, rand(0.4, 0.8) * k, rand(0.2, 0.5) * k], 0.09);
   }
-  function rock(x, z, k) { const g = grp(chunk(x, z), x, 0, z); P(g, 'rock', pick([0x9a9aa4, 0x8a8a96, 0xa8a8b0]), [0, 0.25 * k, 0], [k * rand(0.5, 0.8), k * rand(0.35, 0.55), k * rand(0.45, 0.7)], [rand(0, 3), rand(0, 3), 0]); }
+  function rock(x, z, k) { const g = grp(chunk(x, z), x, W.h(x, z), z); P(g, 'rock', pick([0x9a9aa4, 0x8a8a96, 0xa8a8b0]), [0, 0.25 * k, 0], [k * rand(0.5, 0.8), k * rand(0.35, 0.55), k * rand(0.45, 0.7)], [rand(0, 3), rand(0, 3), 0]); }
   function flowers(x, z, n, spread) {
-    const g = grp(chunk(x, z), x, 0, z);
+    const g = grp(chunk(x, z), x, W.h(x, z), z);
     for (let i = 0; i < n; i++) { const fx = rand(-spread, spread), fz = rand(-spread, spread), c = pick([0xff6a8a, 0xffe060, 0xffffff, 0xb08af0, 0xff9a4a]); P(g, 'cyl', 0x4aa84a, [fx, 0.12, fz], [0.015, 0.24, 0.015]); P(g, 'sph', c, [fx, 0.26, fz], [0.08, 0.05, 0.08]); P(g, 'sph', 0xffd23c, [fx, 0.29, fz], 0.03); }
   }
   function lamp(x, z) {
-    const g = grp(chunk(x, z), x, 0, z);
+    const g = grp(chunk(x, z), x, W.h(x, z), z);
     P(g, 'cyl', 0x3a4050, [0, 0.15, 0], [0.16, 0.3, 0.16]); P(g, 'cyl', 0x3a4050, [0, 1.5, 0], [0.055, 2.7, 0.055]); P(g, 'box', 0x3a4050, [0, 2.95, 0], [0.4, 0.06, 0.4]); P(g, 'pyr', 0x3a4050, [0, 3.5, 0], [0.34, 0.25, 0.34], [0, 0.785, 0]);
     P(g, 'sph', TT.glow(0xfff0a8), [0, 3.2, 0], 0.17);
     W.colliders.push({ x, z, r: 0.25 });
   }
   function bench(x, z, ry) {
-    const g = grp(chunk(x, z), x, 0, z); g.rotation.y = ry;
+    const g = grp(chunk(x, z), x, W.h(x, z), z); g.rotation.y = ry;
     P(g, 'box', 0xb8804a, [0, 0.45, 0], [1.7, 0.08, 0.5]); P(g, 'box', 0xb8804a, [0, 0.8, -0.24], [1.7, 0.4, 0.07]);
     for (const s of [1, -1]) { P(g, 'box', 0x3a4050, [s * 0.7, 0.22, 0], [0.08, 0.45, 0.45]); P(g, 'box', 0x3a4050, [s * 0.7, 0.7, -0.24], [0.08, 0.6, 0.08]); }
     W.colliders.push({ x, z, r: 0.75 });
   }
   function sign(scene, x, z, text) {
-    const g = grp(scene, x, 0, z);
+    const g = grp(scene, x, W.h(x, z), z);
     P(g, 'cyl', 0x7a5234, [0, 0.6, 0], [0.07, 1.2, 0.07]); P(g, 'box', 0xd8b070, [0, 1.3, 0], [1.9, 0.7, 0.1]); P(g, 'box', 0x7a5234, [0, 1.3, -0.02], [2.02, 0.82, 0.08]);
     TT.bakeDeep(g);
     const l = TT.label(text, 'rgba(0,0,0,0)'); l.material.depthTest = true; l.position.set(0, 1.3, 0.14); l.scale.set(2.2, 0.55, 1); g.add(l);
@@ -186,7 +187,7 @@
     TT.bakeNode(g, true); return g;
   };
 
-  W.build = function (scene) {
+  W.build = function* (scene) {
     // ---- sky, clouds, far hills (follow the camera) ----
     const sg = new THREE.SphereGeometry(380, 24, 12), sc = [], top = new THREE.Color(0x3f9cf0), hor = new THREE.Color(0xd4f1ff), tmp = new THREE.Color();
     for (let i = 0; i < sg.attributes.position.count; i++) { const y = sg.attributes.position.getY(i) / 380; tmp.copy(hor).lerp(top, Math.pow(Math.max(0, y), 0.6)); sc.push(tmp.r, tmp.g, tmp.b); }
@@ -205,6 +206,7 @@
     const outer = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshLambertMaterial({ color: 0x74c456 }));
     outer.rotation.x = -Math.PI / 2; outer.position.y = -0.05; scene.add(outer);
 
+    yield 'Building houses';
     // ---- buildings ----
     for (const h of HOUSES) house(scene, ...h);
     { // Poke Center
@@ -304,6 +306,7 @@
       sign(scene, -5.4, -52, 'To the City ➜');
     }
 
+    yield 'Planting trees and flowers';
     // ---- lamps, planters, fence ----
     for (const v of [-42, -26, 26, 42]) { lamp(v, 3.6); lamp(-3.6, v); }
     for (let i = 0; i < 8; i++) { const a = i * 0.785 + 0.39, x = Math.cos(a) * 10.8, z = Math.sin(a) * 10.8; if (Math.abs(x) < 3.5 || Math.abs(z) < 3.5) continue; const g = grp(chunk(x, z), x, 0, z); P(g, 'cyl', 0xc8c8d2, [0, 0.25, 0], [0.6, 0.5, 0.6]); for (let j = 0; j < 6; j++) P(g, 'sph', pick([0xff6a8a, 0xffe060, 0xb08af0, 0xffffff]), [Math.cos(j) * 0.3, 0.58, Math.sin(j) * 0.3], 0.16); P(g, 'ico', 0x57b558, [0, 0.55, 0], 0.32); W.colliders.push({ x, z, r: 0.7 }); }
@@ -336,7 +339,7 @@
     for (let i = 0; i < 60; i++) { const x = rand(-55, 55), z = rand(-55, 55); if (free(x, z, -0.8)) { if (i % 3) bush(x, z, rand(0.7, 1.2), i % 4 ? null : pick([0xe8402a, 0x6a8ae0])); else rock(x, z, rand(0.6, 1.3)); } }
     for (let i = 0; i < 90; i++) { const x = rand(-55, 55), z = rand(-55, 55); if (free(x, z, -1.6)) flowers(x, z, 5, 0.9); }
     for (const z of W.zones) if (!z.ring) for (let i = 0; i < 150; i++) {
-      const a = Math.random() * 7, r = Math.sqrt(Math.random()) * (z.r - 0.5), x = z.x + Math.cos(a) * r, zz = z.z + Math.sin(a) * r, g = grp(chunk(x, zz), x, 0, zz), c = pick([0x3f8a30, 0x4a9a3a, 0x358028]);
+      const a = Math.random() * 7, r = Math.sqrt(Math.random()) * (z.r - 0.5), x = z.x + Math.cos(a) * r, zz = z.z + Math.sin(a) * r, g = grp(chunk(x, zz), x, W.h(x, zz), zz), c = pick([0x3f8a30, 0x4a9a3a, 0x358028]);
       for (let j = 0; j < 3; j++) P(g, 'pyr', c, [rand(-0.2, 0.2), 0.32, rand(-0.2, 0.2)], [0.13, rand(0.55, 0.85), 0.13], [rand(-0.25, 0.25), rand(0, 3), rand(-0.25, 0.25)]);
     }
     // arena scenery
@@ -345,7 +348,11 @@
     for (let i = 0; i < 13; i++) tree(A.x - 16 + i * 2.7 + rand(-0.5, 0.5), A.z - 8 - rand(0, 4), rand(1, 1.5), i % 3 ? 'leaf' : 'pine');
     for (let i = 0; i < 10; i++) { const x = A.x + rand(-11, 11), z = A.z - rand(5, 7); if (i % 2) bush(x, z, rand(0.7, 1.1), i % 4 === 1 ? 0xe8402a : null); else rock(x, z, rand(0.6, 1.2)); flowers(A.x + rand(-8, 8), A.z + rand(-3, 3.5) + (i % 2 ? 2.6 : -2.6), 4, 0.7); }
 
+    yield 'Building the City';
     buildCity(scene);
+    if (W.buildWorld) { yield 'Exploring the Wide World'; yield* W.buildWorld(scene); }
+    if (W.buildStages) { yield 'Setting up battle stages'; W.buildStages(scene); }
+    yield 'Growing grass';
 
     // extra ground detail: little grass tufts and pebbles everywhere that is open lawn
     for (let i = 0; i < 700; i++) {
@@ -354,6 +361,7 @@
       if (i % 9 === 0) P(g, 'rock', 0xb4b4bc, [0, 0.05, 0], [rand(0.1, 0.2), 0.08, rand(0.1, 0.18)], [0, rand(0, 3), 0]);
       else for (let j = 0; j < 3; j++) P(g, 'pyr', c, [rand(-0.15, 0.15), 0.14, rand(-0.15, 0.15)], [0.06, rand(0.25, 0.42), 0.06], [rand(-0.35, 0.35), rand(0, 3), rand(-0.35, 0.35)]);
     }
+    yield 'Polishing everything';
     for (const k in chunks) { const ch = chunks[k]; scene.add(ch); const m = TT.bakeDeep(ch); if (m) m.material = TT.swayMat; prune(ch); }
 
     // soft shadows painted into the ground under trees and buildings (free on slow tablets)
@@ -385,7 +393,7 @@
 
     // pickups
     for (const b of BALLS) { const o = TT.ballModel(0.26); o.position.set(b[0], 0.5, b[1]); scene.add(o); W.pickups.push({ o, x: b[0], z: b[1], t: 0 }); }
-    W.anim.push(t => { for (const p of W.pickups) { p.o.rotation.y = t * 2; p.o.position.y = 0.55 + Math.sin(t * 3 + p.x) * 0.12; } });
+    W.anim.push(t => { for (const p of W.pickups) { p.o.rotation.y = t * 2; p.o.position.y = (p.y0 || 0) + 0.55 + Math.sin(t * 3 + p.x) * 0.12; } });
   };
 
   // ================= THE CITY =================
@@ -394,7 +402,7 @@
     const c = document.createElement('canvas'); c.width = c.height = 1024; const x = c.getContext('2d'), k = 1024 / 112, px = v => (v + 56) * k, pz = v => (v + 180) * k;
     x.fillStyle = '#7ccf58'; x.fillRect(0, 0, 1024, 1024);
     for (let i = 0; i < 5000; i++) { x.fillStyle = i % 2 ? 'rgba(60,150,60,.4)' : 'rgba(170,235,120,.4)'; x.fillRect(Math.random() * 1024, Math.random() * 1024, 2, rand(4, 8)); }
-    const zn = W.zones[W.zones.length - 1]; let g = x.createRadialGradient(px(zn.x), pz(zn.z), zn.r * k * 0.8, px(zn.x), pz(zn.z), zn.r * k * 1.05); g.addColorStop(0, '#4a973a'); g.addColorStop(1, 'rgba(74,151,58,0)'); x.fillStyle = g; x.beginPath(); x.arc(px(zn.x), pz(zn.z), zn.r * k * 1.06, 0, 7); x.fill();
+    const zn = W.zones.find(q => q.name === 'City Park'); let g = x.createRadialGradient(px(zn.x), pz(zn.z), zn.r * k * 0.8, px(zn.x), pz(zn.z), zn.r * k * 1.05); g.addColorStop(0, '#4a973a'); g.addColorStop(1, 'rgba(74,151,58,0)'); x.fillStyle = g; x.beginPath(); x.arc(px(zn.x), pz(zn.z), zn.r * k * 1.06, 0, 7); x.fill();
     for (const b of W.buildings) { x.fillStyle = '#d8d8de'; x.fillRect(px(b[0] - b[2] / 2 - 1.2), pz(b[1] - b[3] / 2 - 1.2), (b[2] + 2.4) * k, (b[3] + 4) * k); }
     const roads = [[0, -68, 0, -164, 8], [-52, -100, 52, -100, 7], [-52, -148, 52, -148, 7]];
     x.lineCap = 'butt';
@@ -452,21 +460,38 @@
     for (let i = 0; i < 60; i++) { const x = rand(-52, 52), z = rand(-175, -72), inPark = Math.hypot(x + 32, z + 124) < 12; if (!inPark && cfree(x, z, 0)) tree(x, z, rand(0.75, 1), Math.random() < 0.25 ? 'pine' : 'leaf', true); }
     for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; if (Math.abs(a) < 0.4 || a > 5.9) continue; tree(-32 + Math.cos(a) * 14.6, -124 + Math.sin(a) * 14.6, 0.95, i % 3 ? 'leaf' : 'blossom', true); }
     for (let i = 0; i < 50; i++) { const x = rand(-52, 52), z = rand(-175, -72); if (cfree(x, z, -0.8)) { if (i % 3) bush(x, z, rand(0.7, 1.1), i % 4 ? null : 0xe8402a); else flowers(x, z, 5, 0.9); } }
-    for (let r = 0; r < 2; r++) for (let i = -60; i <= 60; i += 4.6) { const o = 58 + r * 4.4; for (const [x, z] of [[-o + rand(-1, 1), -124 + i * 0.95], [o + rand(-1, 1), -124 + i * 0.95], [i, -181 - r * 4.4 + rand(-1, 1)]]) tree(x, z, rand(1.1, 1.6), Math.random() < 0.6 ? 'pine' : 'leaf'); }
+    for (let r = 0; r < 2; r++) for (let i = -60; i <= 60; i += 4.6) { const o = 58 + r * 4.4; for (const [x, z] of [[-o + rand(-1, 1), -124 + i * 0.95], [o + rand(-1, 1), -124 + i * 0.95], [i, -181 - r * 4.4 + rand(-1, 1)]]) { if (x > 50 && Math.abs(z + 100) < 6.5) continue; tree(x, z, rand(1.1, 1.6), Math.random() < 0.6 ? 'pine' : 'leaf'); } }
     for (const s of [1, -1]) for (let z = -59; z > -70; z -= 2.4) { const g = grp(chunk(s * 4.6, z), s * 4.6, 0, z); P(g, 'box', 0xd8b070, [0, 0.6, 0], [0.2, 1.2, 0.2]); P(g, 'box', 0xe8c890, [0, 0.85, -1.2], [0.09, 0.13, 2.4]); P(g, 'box', 0xe8c890, [0, 0.45, -1.2], [0.09, 0.13, 2.4]); }
   }
 
+  // colliders are bucketed into a grid so checks stay cheap as the world grows
+  let grid = null, gridN = -1, stamp = 0; const GC = 12;
+  function gridGet() {
+    if (grid && gridN === W.colliders.length) return grid;
+    grid = new Map(); gridN = W.colliders.length;
+    for (const c of W.colliders) {
+      const b = c.r != null ? [c.x - c.r, c.z - c.r, c.x + c.r, c.z + c.r] : [c.x0, c.z0, c.x1, c.z1];
+      for (let i = Math.floor(b[0] / GC); i <= Math.floor(b[2] / GC); i++) for (let j = Math.floor(b[1] / GC); j <= Math.floor(b[3] / GC); j++) { const k = i * 100000 + j; let l = grid.get(k); if (!l) grid.set(k, l = []); l.push(c); }
+    }
+    return grid;
+  }
   // push a circle (x,z,r) out of every collider; returns [x,z]
   W.collide = function (x, z, r) {
-    for (const c of W.colliders) {
-      if (c.r != null) {
-        const dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz), m = c.r + r;
-        if (d < m && d > 0.0001) { x = c.x + dx / d * m; z = c.z + dz / d * m; }
-      } else if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) {
-        const l = x - (c.x0 - r), rr = (c.x1 + r) - x, t = z - (c.z0 - r), b = (c.z1 + r) - z, mn = Math.min(l, rr, t, b);
-        if (mn === l) x = c.x0 - r; else if (mn === rr) x = c.x1 + r; else if (mn === t) z = c.z0 - r; else z = c.z1 + r;
+    const gd = gridGet(); stamp++;
+    for (let i = Math.floor((x - r) / GC); i <= Math.floor((x + r) / GC); i++) for (let j = Math.floor((z - r) / GC); j <= Math.floor((z + r) / GC); j++) {
+      const l = gd.get(i * 100000 + j); if (!l) continue;
+      for (const c of l) {
+        if (c._s === stamp) continue; c._s = stamp;
+        if (c.r != null) {
+          const dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz), m = c.r + r;
+          if (d < m && d > 0.0001) { x = c.x + dx / d * m; z = c.z + dz / d * m; }
+        } else if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) {
+          const l2 = x - (c.x0 - r), rr = (c.x1 + r) - x, t = z - (c.z0 - r), b = (c.z1 + r) - z, mn = Math.min(l2, rr, t, b);
+          if (mn === l2) x = c.x0 - r; else if (mn === rr) x = c.x1 + r; else if (mn === t) z = c.z0 - r; else z = c.z1 + r;
+        }
       }
     }
+    if (W.wwCollide && x > CITY.hw && (z < -60 || x > 64)) return W.wwCollide(x, z, r);
     // walkable land: the town square, a short road through the gate, and the City
     if (z >= -LIM) return [TT.clamp(x, -LIM, LIM), Math.min(z, LIM)];
     if (z > CITY.z1) { if (Math.abs(x) <= 3.6) return [x, z]; return z > -63 ? [TT.clamp(x, -LIM, LIM), -LIM] : [TT.clamp(x, -CITY.hw, CITY.hw), CITY.z1]; }
@@ -485,6 +510,7 @@
   };
 
   W.HOUSES = HOUSES;
+  W.H = { grp, chunk, tree, bush, rock, flowers, lamp, bench, sign, occ, shade };
   // places shown on the map: name, x, z, icon, note, [walk-to x, z]
   W.PLACES = [
     ['Pokémon Lab', 0, -31, '🔬', 'Professor Oak works here.', 0, -24],

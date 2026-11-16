@@ -13,7 +13,28 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<div id="loader"><div class="ldIn">
+  <div class="ldBall"></div>
+  <h1>Trainer Town</h1>
+  <div class="ldBar"><i id="ldFill"></i></div>
+  <div class="ldRow"><span id="ldText">Packing Poké Balls…</span><b id="ldPct">0%</b></div>
+  <p id="ldTip"></p>
+</div></div>
+<script>
+(function () {
+  var tips = ['Water beats Fire, Fire beats Grass, Grass beats Water!', 'Make a wild Pokémon tired before you throw a Poké Ball.', 'Push the stick all the way to run!', 'Tap the Map to fly to places you have visited.',
+    'Electric moves are super strong against Water and Flying Pokémon.', 'Sparkly Pokémon are rare. Catch them fast!', 'Gohan and Goku help you in big battles.', 'Tap ⏸ any time to pause.', 'Team Rocket always blasts off in the end!'];
+  var i = Math.floor(Math.random() * tips.length), cur = 0;
+  function tip() { var e = document.getElementById('ldTip'); if (e) e.textContent = '💡 ' + tips[i++ % tips.length]; }
+  tip(); setInterval(tip, 2800);
+  window.LP = function (p, txt) { cur = Math.max(cur, p); var f = document.getElementById('ldFill'); if (f) f.style.width = cur + '%'; var pc = document.getElementById('ldPct'); if (pc) pc.textContent = Math.round(cur) + '%'; if (txt) { var t = document.getElementById('ldText'); if (t) t.textContent = txt + '…'; } };
+  LP(4, 'Downloading the game');
+})();
+</script>
 <canvas id="c"></canvas>
+<div id="flash"></div>
+<div id="bars"><i></i><i></i></div>
+<div id="bossCard"></div>
 
 <div id="hud" class="hide">
   <div id="stats">
@@ -78,15 +99,20 @@ document.addEventListener('click', function (e) {
   document.getElementById('loading').firstChild.nodeValue = 'Downloading the game… it will start by itself ';
 });
 </script>
-<script>window.addEventListener('error', function (e) { var l = document.getElementById('loading'); if (l) { l.classList.remove('hide'); l.textContent = 'Error: ' + e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')'; } });</script>
+<script>window.addEventListener('error', function (e) { var l = document.getElementById('loading'); if (l) { l.classList.remove('hide'); l.textContent = 'Error: ' + e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')'; } var t = document.getElementById('ldText'); if (t) t.textContent = 'Error: ' + e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')'; });</script>
 <script src="js/three.min.js"></script>
+<script>LP(14, "Loading the 3D engine")</script>
 <script src="js/core.js"></script>
+<script>LP(18, "Meeting the Pokémon")</script>
 <script src="js/dex.js"></script>
+<script>LP(22, "Drawing the map")</script>
 <script src="js/world.js"></script>
+<script src="js/world2.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/peerjs.min.js"></script>
 <script src="js/net.js"></script>
 <script src="js/config.js"></script>
+<script>LP(28, "Almost there")</script>
 <script src="js/game.js"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () { });</script>
 </body>

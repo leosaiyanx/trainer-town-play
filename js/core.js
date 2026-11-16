@@ -23,6 +23,14 @@
   TT.glow = col => glows[col] || (glows[col] = new THREE.MeshBasicMaterial({ color: col }));
   // one shared vertex-coloured toon material for every baked mesh
   TT.vmat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: grad });
+  // characters and creatures: same toon look plus a soft rim of light so they pop off the background
+  TT.cmat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: grad });
+  TT.cmat.customProgramCacheKey = () => 'rim';
+  TT.cmat.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <output_fragment>', `float rimK = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+      outgoingLight += vec3(1.0, 0.96, 0.88) * smoothstep(0.5, 0.95, rimK) * 0.3;
+      #include <output_fragment>`);
+  };
   // ink outline: back faces pushed out along the normal
   TT.olMat = new THREE.MeshBasicMaterial({ color: 0x2b2438, side: THREE.BackSide });
   TT.olMat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed += normalize(normal) * 0.016;'); };
@@ -58,7 +66,8 @@
     trunk: new THREE.CylinderGeometry(0.55, 1, 1, 7),
     cone8: flat(new THREE.ConeGeometry(1, 1, 8)),
     prism,
-    torus: new THREE.TorusGeometry(1, 0.32, 8, 16)
+    torus: new THREE.TorusGeometry(1, 0.32, 8, 16),
+    thinTorus: new THREE.TorusGeometry(1, 0.13, 6, 24)
   };
   const gc2 = {};
   TT.capsule = (r, len) => { const k = 'c' + r + '_' + len; return gc2[k] || (gc2[k] = new THREE.CapsuleGeometry(r, len, 4, 10)); };
@@ -102,7 +111,7 @@
       else if (!ch.isMesh && !ch.isSprite && ch.children.length) TT.bakeNode(ch, ol && !ch.userData.noOl, ols);
     }
     if (!ms.length) return;
-    const m = merge(ms); ms.forEach(e => node.remove(e.mesh)); node.add(m);
+    const m = merge(ms); m.material = TT.cmat; ms.forEach(e => node.remove(e.mesh)); node.add(m);
     if (ol && !node.userData.noOl) { const o = new THREE.Mesh(m.geometry, TT.olMat); m.add(o); if (ols) ols.push(o); }
   };
   // flattens a whole static subtree into ONE mesh (root must be at its final transform's parent space)
@@ -237,15 +246,17 @@
   TT.cry = (sp, pitch) => {
     if (!ac || TT.muted) return; const t = ac.currentTime + 0.01, k = pitch || 1;
     const V = TT.VOX, nc = V && V.cries && V.cries[sp];
-    if (nc && TT.voiceOn) { const f = 'cry_' + sp + '_' + ((Math.random() * nc) | 0) + '.m4a'; if (clips[f] && clips[f].buf) { playClip(clips[f].buf, V.cryRate * (k < 1 ? 0.8 : 1), voiceBus); return; } const pr = loadClip(f); pr.then(b => { pr.buf = b; }); }
+    if (nc && TT.voiceOn) { const f = 'cry_' + sp + '_' + ((Math.random() * nc) | 0) + '.m4a'; if (clips[f] && clips[f].buf) { playClip(clips[f].buf, ((V.cryRates && V.cryRates[sp]) || V.cryRate) * (k < 1 ? 0.8 : 1), voiceBus); return; } const pr = loadClip(f); pr.then(b => { pr.buf = b; }); }
     if (sp === 'pikachu') { voice(sfxBus, 'square', 950 * k, t, 0.09, 0.1, { slide: 1350 * k }); voice(sfxBus, 'square', 1150 * k, t + 0.11, 0.12, 0.1, { slide: 800 * k }); voice(sfxBus, 'square', 1000 * k, t + 0.27, 0.2, 0.09, { slide: 620 * k, vib: 18 }); return; }
     let h = 7; for (let i = 0; i < sp.length; i++) h = (h * 31 + sp.charCodeAt(i)) >>> 0;
     const n = 2 + (h % 2), type = h & 4 ? 'square' : 'sawtooth';
     for (let i = 0; i < n; i++) { const f = (380 + ((h >> (i * 3)) & 7) * 115) * k; voice(sfxBus, type, f, t + i * 0.12, 0.14, 0.09, { slide: f * (0.65 + ((h >> (i * 2 + 9)) & 3) * 0.28), vib: h & 8 ? 16 : 0 }); }
   };
 
-  // --- music: tiny tracker. Original tunes written for this game. ---
-  const CH = { C: [0, 0], G: [7, 0], Am: [9, 1], F: [5, 0], Dm: [2, 1], Em: [4, 1], E: [4, 0], Bb: [10, 0], A: [9, 0] };
+  // --- music: a small band in code — lead synth, bass, guitar, pads and drums, with reverb.
+  //     Every tune here is original, written for this game.
+  const CH = { C: [0, 0], D: [2, 0], E: [4, 0], F: [5, 0], G: [7, 0], A: [9, 0], B: [11, 0], Bb: [10, 0], Eb: [3, 0], Ab: [8, 0],
+    Cm: [0, 1], 'C#m': [1, 1], Dm: [2, 1], Em: [4, 1], Fm: [5, 1], 'F#m': [6, 1], Gm: [7, 1], Am: [9, 1], Bm: [11, 1] };
   const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   function parse(str) {
     const ev = {}, tk = str.trim().split(/\s+/).filter(x => x !== '|'); let lastEv = null;
@@ -253,43 +264,124 @@
     return { ev, len: tk.length };
   }
   const TUNES = {
-    town: { bpm: 126, style: 0, ch: 'C G Am F C G F G Am F C G Am F G G', lead:
+    title: { bpm: 148, style: 3, lv: 0.07, ch: 'D D G A D D G A Bm G D A Bm G A D', lead:
+      'D4 . F#4 A4 D5 - C#5 D5 | E5 - D5 . A4 - - . | B4 . D5 . G5 - F#5 E5 | F#5 - E5 . C#5 - - . | D5 . F#5 . A5 - G5 F#5 | E5 . D5 . F#5 - E5 D5 | B4 . D5 . E5 - D5 B4 | A4 - - . E5 - - . | ' +
+      'F#5 . F#5 E5 D5 . B4 . | G4 . B4 . D5 - E5 . | F#5 . F#5 E5 D5 . A4 . | C#5 . E5 . A5 - - . | B5 . A5 . F#5 . D5 . | G5 . F#5 . E5 . D5 . | E5 . F#5 . G5 . A5 . | D6 - - - - - - .' },
+    town: { bpm: 126, style: 0, lv: 0.055, ch: 'C G Am F C G F G Am F C G Am F G G', lead:
       'E5 . G5 . C6 . B5 A5 | G5 . D5 . G5 . A5 B5 | C6 . A5 . E5 . A5 G5 | F5 . A5 . C6 - - . | E5 . G5 . C6 . D6 E6 | D6 . B5 . G5 . A5 B5 | C6 . A5 . F5 . A5 C6 | B5 . D6 . G5 - - . | ' +
       'A5 . C6 . E6 . D6 C6 | A5 . C6 . F6 . E6 D6 | E6 . C6 . G5 . C6 E6 | D6 - - . B5 . G5 . | A5 . C6 . E6 . D6 C6 | C6 . A5 . F5 . G5 A5 | B5 . G5 . D6 . B5 . | G5 A5 B5 D6 G6 - - .' },
-    battle: { bpm: 172, style: 1, ch: 'Am Am F G Am Am F E', lead:
+    city: { bpm: 128, style: 7, lv: 0.055, ch: 'F Dm Bb C F Dm Gm C', lead:
+      'A5 . C6 A5 F5 . G5 . | A5 . F5 . D5 - - . | D6 . Bb5 . F5 . G5 A5 | Bb5 - A5 . G5 - - . | A5 . C6 . F6 . E6 D6 | C6 . A5 . F5 . A5 . | Bb5 . G5 . D6 . C6 Bb5 | A5 - G5 . E5 - - .' },
+    world: { bpm: 112, style: 4, lv: 0.055, ch: 'C G Am F C G F G Am Em F C Dm G C G', lead:
+      'E5 - G5 . C6 - - . | D6 - B5 . G5 - - . | C6 . B5 . A5 - E5 . | F5 - A5 . C6 - - . | E6 - D6 . C6 . G5 . | B5 . C6 . D6 - - . | C6 . A5 . F5 . A5 . | G5 - - - - - . . | ' +
+      'A5 - C6 . E6 - D6 C6 | B5 - G5 . E5 - - . | F5 . A5 . C6 . F6 . | E6 - - . C6 - - . | D6 . F6 . A6 - G6 F6 | G6 - D6 . B5 - - . | C6 . E6 . G6 . E6 . | D6 - - - B5 - - .' },
+    battle: { bpm: 172, style: 1, lv: 0.06, ch: 'Am Am F G Am Am F E', lead:
       'A5 . A5 C6 E6 . D6 C6 | B5 . C6 . A5 . E5 . | F5 . F5 A5 C6 . B5 A5 | G5 . B5 . D6 . B5 . | A5 . A5 C6 E6 . G6 E6 | D6 . C6 . A5 . C6 . | F6 . E6 . C6 . A5 . | G#5 . B5 . E6 . G#6 .' },
-    rocket: { bpm: 138, style: 2, ch: 'Dm Dm Bb A', lead: 'D5 . F5 . A5 . G#5 A5 | D6 . C6 . A5 . F5 . | Bb5 . D6 . F6 . D6 . | A5 . C#6 . E6 . A6 .' }
+    boss: { bpm: 184, style: 5, lv: 0.07, bright: 7, ch: 'Am Am F G Am Am F E Dm Dm Am Am F G E E', lead:
+      'A4 . A4 . C5 . B4 A4 | E5 - D5 . C5 . B4 . | F4 . A4 . C5 . F5 . | G5 - F5 . E5 . D5 . | A5 . G5 . E5 . C5 . | D5 . E5 . A4 - - . | C5 . D5 . F5 . E5 . | G#4 . B4 . E5 - - . | ' +
+      'D5 . F5 . A5 - G5 F5 | E5 . D5 . A4 - - . | C5 . E5 . A5 - G5 E5 | G5 - E5 . A4 . . . | F5 . E5 . D5 . C5 . | B4 . C5 . D5 . G5 . | G#5 - - . E5 - - . | B4 . D5 . E5 . G#5 .' },
+    goku: { bpm: 168, style: 6, lv: 0.07, bright: 7, wave: ['sawtooth', 'sawtooth'], ch: 'E E A B E C D B C#m A E B C#m A B E', lead:
+      'E4 . G#4 B4 E5 - - . | D#5 . E5 . F#5 - E5 . | C#5 . E5 . A5 - G#5 F#5 | G#5 - F#5 . D#5 - - . | E5 . E5 F#5 G#5 . B5 . | G5 - E5 . C5 - - . | F#5 . A5 . D6 - C#6 B5 | B5 - - . F#5 G#5 A#5 B5 | ' +
+      'G#5 . G#5 F#5 E5 . C#5 . | E5 . A5 . C#6 - B5 A5 | B5 - G#5 . E5 - - . | F#5 . G#5 . A5 . B5 . | C#6 - B5 . G#5 . E5 . | A5 . B5 . C#6 . E6 . | D#6 - - . B5 - - . | E6 - - - - - - .' },
+    rocket: { bpm: 138, style: 2, lv: 0.055, ch: 'Dm Dm Bb A', lead: 'D5 . F5 . A5 . G#5 A5 | D6 . C6 . A5 . F5 . | Bb5 . D6 . F6 . D6 . | A5 . C#6 . E6 . A6 .' }
   };
   for (const k in TUNES) { const tn = TUNES[k], p = parse(tn.lead); tn.ev = p.ev; tn.len = p.len; tn.ch = tn.ch.split(' ').map(c => CH[c]); }
-  function drum(kind, t, v) {
-    if (kind === 0) voice(musicBus, 'sine', 130, t, 0.16, 0.5 * v, { slide: 42, sus: 0.5 });
-    else if (kind === 1) { noise(musicBus, t, 0.12, 0.3 * v, 'bandpass', 1800, 0, 0.8); voice(musicBus, 'triangle', 200, t, 0.08, 0.15 * v, { slide: 120 }); }
-    else noise(musicBus, t, 0.04, 0.12 * v, 'highpass', 7000);
+
+  // instruments
+  let revIn = null, distIn = null;
+  function bandInit() {
+    if (revIn) return;
+    const rv = ac.createConvolver(), len = ac.sampleRate * 1.6 | 0, b = ac.createBuffer(2, len, ac.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
+    rv.buffer = b; revIn = ac.createGain(); revIn.gain.value = 0.28; revIn.connect(rv); rv.connect(musicBus);
+    const ws = ac.createWaveShaper(), cv = new Float32Array(1024); for (let i = 0; i < 1024; i++) cv[i] = Math.tanh((i / 512 - 1) * 7);
+    ws.curve = cv; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; const og = ac.createGain(); og.gain.value = 0.13;
+    distIn = ac.createGain(); distIn.connect(ws); ws.connect(lp); lp.connect(og); og.connect(musicBus); og.connect(revIn);
   }
+  const env = (g, t, vol, a, d, sus) => { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.setValueAtTime(vol * sus, t + Math.max(a + 0.001, d * 0.65)); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.06); };
+  function osc(type, f, t, d, dest, det) { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; if (det) o.detune.value = det; o.connect(dest); o.start(t); o.stop(t + d + 0.1); return o; }
+  function lead(n, t, d, vol, tn) {
+    const f0 = N(n), g = ac.createGain(), fl = ac.createBiquadFilter();
+    fl.type = 'lowpass'; fl.Q.value = 2.5; fl.frequency.setValueAtTime(f0 * 1.4, t); fl.frequency.linearRampToValueAtTime(f0 * (tn.bright || 5), t + 0.035); fl.frequency.exponentialRampToValueAtTime(f0 * 2.1, t + Math.max(0.09, d));
+    env(g, t, vol, 0.012, d, 0.78);
+    (tn.wave || ['square', 'sawtooth']).forEach((w, k) => {
+      const o = osc(w, f0, t, d, fl, k ? 9 : -6);
+      if (d > 0.3) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = 5.6; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f0 * 0.013, t + 0.22); l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + d + 0.1); }
+    });
+    fl.connect(g); g.connect(musicBus); g.connect(revIn); g.connect(echo);
+  }
+  function bass(n, t, d, vol) { const g = ac.createGain(), fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 650; env(g, t, vol, 0.006, d, 0.7); osc('sawtooth', N(n), t, d, fl); osc('sine', N(n), t, d, g); fl.connect(g); g.connect(musicBus); }
+  function gtr(n, t, d, vol) { const g = ac.createGain(); env(g, t, vol, 0.004, d, 0.85); for (const k of [0, 7, 12]) osc('sawtooth', N(n + k), t, d, g, (k - 6) * 1.6); g.connect(distIn); }
+  function pad(ns, t, d, vol) { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.4, d * 0.3)); g.gain.setValueAtTime(vol, t + d * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.3); for (const n of ns) { osc('triangle', N(n), t, d + 0.3, g, -7); osc('sine', N(n + 12), t, d + 0.3, g, 6); } g.connect(musicBus); g.connect(revIn); }
+  function pluck(n, t, d, vol, type) { const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); osc(type || 'triangle', N(n), t, d, g); g.connect(musicBus); g.connect(revIn); }
+  function epiano(ns, t, d, vol) { const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); for (const n of ns) { osc('sine', N(n), t, d, g); osc('triangle', N(n + 12), t, d * 0.4, g); } g.connect(musicBus); g.connect(revIn); }
+  const kick = (t, v) => { voice(musicBus, 'sine', 155, t, 0.22, 0.62 * v, { slide: 42, sus: 0.6 }); noise(musicBus, t, 0.02, 0.18 * v, 'highpass', 2500); };
+  const snare = (t, v) => { noise(musicBus, t, 0.17, 0.34 * v, 'bandpass', 1900, 0, 0.7); voice(musicBus, 'triangle', 195, t, 0.09, 0.2 * v, { slide: 130 }); };
+  const hat = (t, v, open) => noise(musicBus, t, open ? 0.24 : 0.045, 0.1 * v, 'highpass', 8200);
+  const crash = (t, v) => noise(musicBus, t, 1.4, 0.15 * v, 'highpass', 5200, 3200);
+  const tom = (n, t, v) => voice(musicBus, 'sine', N(n), t, 0.26, 0.42 * v, { slide: N(n) * 0.55 });
+
   function playStep(tn, i, t, sd) {
-    const bar = (i / 8) | 0, s = i % 8, c = tn.ch[bar % tn.ch.length], root = c[0], tri = [root, root + (c[1] ? 3 : 4), root + 7], st = tn.style, e = tn.ev[i];
-    if (e) { voice(musicBus, 'square', N(e.n), t, sd * e.len * 0.95, 0.085, { vib: e.len > 1 ? 6 : 0, echo: 1 }); voice(musicBus, 'triangle', N(e.n - 12), t, sd * e.len * 0.9, 0.06); }
-    if (st === 0) {
-      if (s % 2 === 0) voice(musicBus, 'triangle', N(36 + (s % 4 ? tri[2] : root)), t, sd * 1.7, 0.2);
-      voice(musicBus, 'triangle', N(60 + tri[[0, 1, 2, 1, 0, 1, 2, 1][s]]), t, sd * 0.9, 0.035);
-      if (s === 0 || s === 4) drum(0, t, 0.7); if (s === 2 || s === 6) drum(1, t, 0.6); if (s % 2 === 1) drum(2, t, 0.7);
-    } else if (st === 1) {
-      voice(musicBus, 'sawtooth', N(36 + root + (s % 2 ? 12 : 0)), t, sd * 0.85, 0.11);
-      voice(musicBus, 'square', N(60 + tri[[0, 2, 1, 2][s % 4]]), t, sd * 0.5, 0.03); voice(musicBus, 'square', N(72 + tri[[1, 0, 2, 0][s % 4]]), t + sd / 2, sd * 0.45, 0.022);
-      if (s === 0 || s === 3 || s === 4) drum(0, t, 0.9); if (s === 2 || s === 6) drum(1, t, 0.9); drum(2, t, 1); drum(2, t + sd / 2, 0.6);
-    } else {
-      if (s === 0 || s === 3 || s === 4 || s === 6) voice(musicBus, 'sawtooth', N(36 + (s === 3 ? tri[2] : root)), t, sd * 0.6, 0.13);
-      if (s % 2) voice(musicBus, 'square', N(60 + tri[(s >> 1) % 3]), t, sd * 0.4, 0.035);
-      if (s === 0 || s === 4) drum(0, t, 0.8); if (s === 2 || s === 6) drum(1, t, 0.7); if (s % 2) drum(2, t, 0.8);
+    const bar = (i / 8) | 0, s = i % 8, c = tn.ch[bar % tn.ch.length], r = c[0], tri = [r, r + (c[1] ? 3 : 4), r + 7], st = tn.style, e = tn.ev[i];
+    const fill = bar % 8 === 7, phrase = bar % 4 === 0 && s === 0;
+    if (e) lead(e.n, t, sd * e.len * 0.95, tn.lv || 0.06, tn);
+    if (st === 0) {            // town: bouncy and sunny
+      if (s % 2 === 0) bass(36 + r + (s % 4 ? 7 : 0), t, sd * 1.6, 0.16);
+      pluck(60 + tri[[0, 1, 2, 1, 0, 1, 2, 1][s]] + 12, t, sd * 1.2, 0.03);
+      if (s === 0) pad(tri.map(x => 60 + x), t, sd * 8, 0.018);
+      if (s === 0 || s === 4) kick(t, 0.7); if (s === 2 || s === 6) snare(t, 0.5); if (s % 2) hat(t, 0.8);
+    } else if (st === 1) {     // wild battle: driving
+      bass(36 + r + (s % 2 ? 12 : 0), t, sd * 0.85, 0.15);
+      gtr(40 + r, t, sd * 0.7, 0.5);
+      pluck(72 + tri[[0, 2, 1, 2][s % 4]], t, sd * 0.6, 0.025, 'square');
+      if (s === 0 || s === 3 || s === 4) kick(t, 0.9); if (s === 2 || s === 6) snare(t, 0.9); hat(t, 1); hat(t + sd / 2, 0.5);
+      if (phrase) crash(t, 0.8);
+    } else if (st === 2) {     // Team Rocket: sneaky
+      if (s === 0 || s === 3 || s === 4 || s === 6) bass(36 + (s === 3 ? tri[2] : r), t, sd * 0.6, 0.18);
+      if (s % 2) pluck(60 + tri[(s >> 1) % 3], t, sd * 0.4, 0.035, 'square');
+      if (s === 0 || s === 4) kick(t, 0.8); if (s === 2 || s === 6) snare(t, 0.6); if (s % 2) hat(t, 0.8);
+    } else if (st === 3) {     // title: big adventure anthem
+      bass(36 + r, t, sd * 0.85, 0.16);
+      if (s === 0 || s === 3 || s === 6) gtr(40 + r, t, sd * (s === 6 ? 1.8 : 2.8), 0.55);
+      if (s === 0) pad(tri.map(x => 60 + x), t, sd * 8, 0.022);
+      pluck(72 + tri[[0, 1, 2, 1][s % 4]] + (s > 3 ? 12 : 0), t, sd * 0.8, 0.018);
+      if (s === 0 || s === 3 || s === 4) kick(t, 0.95); if (s === 2 || s === 6) snare(t, 0.9); hat(t, 0.9);
+      if (phrase) crash(t, 1);
+      if (fill && s >= 5) tom(52 - (s - 5) * 4, t, 0.9);
+    } else if (st === 4) {     // wide world: open and hopeful
+      if (s === 0 || s === 4) bass(36 + (s ? tri[2] : r), t, sd * 3.6, 0.15);
+      if (s === 0) pad(tri.map(x => 60 + x), t, sd * 8, 0.026);
+      pluck(60 + tri[[0, 1, 2, 1, 2, 1, 0, 1][s]] + 12 * (s === 4 ? 1 : 0), t, sd * 1.8, 0.03, 'sine');
+      if (s === 0 || s === 5) kick(t, 0.6); if (s === 4) snare(t, 0.4); if (s % 2) hat(t, 0.45);
+      if (phrase && bar % 8 === 0) crash(t, 0.5);
+    } else if (st === 5) {     // boss: heavy and urgent
+      bass(36 + r, t, sd * 0.8, 0.18);
+      gtr(40 + r + (s === 7 ? 1 : 0), t, sd * 0.55, 0.6);
+      if (s === 0) pad(tri.map(x => 48 + x), t, sd * 8, 0.025);
+      kick(t, s % 2 ? 0.55 : 1); if (s === 2 || s === 6) snare(t, 1); hat(t + sd / 2, 0.7);
+      if (s === 0) crash(t, bar % 2 ? 0.5 : 0.9);
+      if (fill && s >= 4) tom(50 - (s - 4) * 3, t, 1);
+    } else if (st === 6) {     // Goku: power rock
+      bass(36 + r, t, sd * 0.85, 0.17);
+      if ([0, 1, 3, 4, 6].includes(s)) gtr(40 + r + (s === 6 ? 2 : 0), t, sd * (s === 1 ? 0.4 : s === 4 ? 1.8 : 0.9), 0.6);
+      if (s === 0 || s === 3 || s === 4) kick(t, 1); if (s === 2 || s === 6) snare(t, 1); hat(t, 1); if (s % 2) hat(t + sd / 2, 0.4);
+      if (phrase) crash(t, 1);
+      if (fill && s >= 4) tom(53 - (s - 4) * 3, t, 1);
+    } else if (st === 7) {     // city: bouncy and jazzy
+      if ([0, 3, 5, 6].includes(s)) bass(36 + r + (s === 5 ? 12 : s === 6 ? 7 : 0), t, sd * 0.8, 0.16);
+      if (s === 1 || s === 4) epiano(tri.map(x => 60 + x).concat(r + 70), t, sd * 1.4, 0.022);
+      if (s === 0 || s === 3) kick(t, 0.75); if (s === 2 || s === 6) snare(t, 0.6); hat(t, s % 2 ? 0.5 : 0.9); if (s === 7) hat(t, 0.6, 1);
     }
   }
   let cur = null, tune = null, stepI = 0, nextT = 0, timer = null;
   function pump() {
-    if (!ac || !tune || TT.muted || document.hidden) { nextT = 0; return; }
+    if (!ac || !tune || TT.muted || document.hidden || TT.paused) { nextT = 0; return; }
+    bandInit();
     const now = ac.currentTime, sd = 60 / tune.bpm / 2; if (nextT < now) nextT = now + 0.06;
     while (nextT < now + 0.3) { try { playStep(tune, stepI, nextT, sd); } catch (e) { } stepI = (stepI + 1) % tune.len; nextT += sd; }
   }
   TT.music = name => { if (cur === name) return; cur = name; tune = name ? TUNES[name] : null; stepI = 0; nextT = 0; if (!timer) timer = setInterval(pump, 70); };
+  TT.musicName = () => cur;
 
   // --- toast + dialog ---
   let toastT = null;

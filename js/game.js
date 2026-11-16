@@ -14,6 +14,10 @@
   const cam = { x: 0, z: 8 };
   const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad', gary: 'Gary', leaf: 'Leaf' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander', gary: 'squirtle', leaf: 'bulbasaur' };
   let slot = '', pname = '', cloudDirty = false, kidsList = [];
+  let comps = [], snorlaxNpc = null, areaNow = '', camY = 0, runT = 0, lean = 0; const vel = { x: 0, z: 0 };
+  const areaKey = (x, z) => x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
+  const allies = () => { const a = []; if (S.flags.gohan) a.push({ h: 'gohan', sp: 'lugia', n: 'Gohan', mv: ['Aeroblast', 'flying', 55] }); if (S.flags.goku) a.push({ h: 'goku', sp: 'rayquaza', n: 'Goku', mv: ['Dragon Pulse', 'dragon', 60] }); return a; };
+  const stageHere = () => W.stageAt(player.x, player.z);
 
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, depthWrite: false });
   function wrap(model, r) {
@@ -24,19 +28,27 @@
   const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
   // ---------- setup ----------
-  function init() {
+  const frameWait = () => new Promise(r => { let d = false; const f = () => { if (!d) { d = true; setTimeout(r, 0); } }; requestAnimationFrame(f); setTimeout(f, 60); });
+  async function init() {
+    const LP = window.LP || (() => { });
     renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     scene = TT.scene = new THREE.Scene(); scene.background = new THREE.Color(0xcdeeff); scene.fog = new THREE.Fog(0xcdeeff, 55, 135);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xa8c4a0, 0.6));
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xa8c4a0, 0.6); scene.add(hemi);
     sun = new THREE.DirectionalLight(0xfff2d8, 0.52); sun.position.set(18, 38, 24); scene.add(sun); scene.add(sun.target);
     sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.002; sun.shadow.normalBias = 0.04;
     const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 130;
     quality = +(new URLSearchParams(location.search).get('q') || 2); qLock = location.search.indexOf('q=') >= 0;
     camera = new THREE.PerspectiveCamera(40, 1, 0.5, 900); document.body.classList.toggle('grade', quality >= 2);
     const tm = TT.timing = {}, t0 = performance.now();
-    W.build(scene); tm.world = Math.round(performance.now() - t0);
+    TT.lights = { hemi, sun };
+    let pct = 30; LP(pct, 'Building Trainer Town'); await frameWait();
+    const steps = W.build(scene);
+    for (let r = steps.next(); !r.done; r = steps.next()) { pct = Math.min(90, pct + 4.5); LP(pct, r.value); await frameWait(); }
+    tm.world = Math.round(performance.now() - t0);
+    LP(92, 'Waking up the Pokémon'); await frameWait();
+    W.makeMotes(scene);
     for (const d of W.NPCS) {
       const root = wrap(TT.human(TT.PEOPLE[d[1]]), 0.42), lab = TT.label(d[2]); lab.position.y = 2.25; root.add(lab);
       npcs.push({ key: d[0], name: d[2], x: d[3], z: d[4], hx: d[3], hz: d[4], r: d[5], lines: d[6], i: 0, h: 0, tx: d[3], tz: d[4], wait: rand(0, 3), root, lab, human: true, mv: 0 });
@@ -44,6 +56,12 @@
     for (const d of W.PETS) {
       const root = wrap(TT.creature(d[0]), 0.35);
       npcs.push({ key: 'pet', name: d[1], x: d[2], z: d[3], hx: d[2], hz: d[3], r: d[4], lines: [d[5]], i: 0, h: 0, tx: d[2], tz: d[3], wait: rand(0, 3), root, mv: 0 });
+    }
+    { // the sleeping Snorlax that blocks the way to Goku's Peak
+      const sx = W.SNORLAX, root = wrap(TT.creature('snorlax'), 1.4), zz = [];
+      for (let i = 0; i < 3; i++) { const z = TT.label('Z', 'rgba(0,0,0,0)'); z.material.color.setHex(0x3a6ab8); z.scale.set(1.2, 0.3, 1); scene.add(z); zz.push(z); }
+      snorlaxNpc = { key: 'snorlax', name: 'Snorlax', x: sx.x, z: sx.z, hx: sx.x, hz: sx.z, r: 0, lines: [], i: 0, h: -0.55, tx: sx.x, tz: sx.z, wait: 0, root, mv: 0, reach: 4.8, zz };
+      npcs.push(snorlaxNpc); W.snorlaxCol = { x: sx.x, z: sx.z, r: sx.r }; W.colliders.push(W.snorlaxCol);
     }
     for (const z of W.zones) for (let i = 0; i < z.n; i++) spawnWild(z);
     nestEgg = TT.eggModel(); nestEgg.position.set(W.NEST.x, 0.12, W.NEST.z); scene.add(nestEgg);
@@ -54,7 +72,8 @@
     kidsList = readKids(); if (kidsList.length) buildProfiles();
     const duo = (k, sp) => () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[k]), c = TT.creature(sp); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; };
     if ($('pLiko')) { $('pLiko').src = TT.portrait('t_liko', duo('liko', 'sprigatito'), true); $('pAsh').src = TT.portrait('t_ash', duo('ash', 'pikachu'), true); }
-    tm.all = Math.round(performance.now() - t0);
+    tm.all = Math.round(performance.now() - t0); LP(100, 'Ready!');
+    $('title').addEventListener('pointerdown', () => { TT.audioInit(); if (mode === 'title') TT.music('title'); });
     bindInput(); resize(); window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 200));
     Net.connect();
     const netNote = () => {
@@ -70,11 +89,12 @@
       startGame(q.get('play'));
       if (q.get('skip')) setInterval(() => { if (TT.dialogOpen && !q.get('hold')) TT.dialogNext(); }, 120);
       if (q.get('x')) { player.x = cam.x = +q.get('x'); player.z = cam.z = +q.get('z'); follower.x = player.x + 1; follower.z = player.z + 0.6; }
-      if (q.get('flags')) { for (const f of q.get('flags').split(',')) S.flags[f] = 1; W.setGate(!!S.flags.city); hud(); }
+      if (q.get('flags')) { for (const f of q.get('flags').split(',')) S.flags[f] = 1; applyFlags(); hud(); }
+      if (q.get('lvl')) S.party.forEach(m => { m.lvl = +q.get('lvl'); m.hp = TT.maxHp(m); });
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       const ev = q.get('evt');
-      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'menu') showMenu(); if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
+      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
     }
     requestAnimationFrame(frame);
     setInterval(() => { if (performance.now() - lastReal > 400) G.tick(performance.now()); }, 200);
@@ -85,7 +105,7 @@
   }
 
   function newSave(ch) { return { v: 1, ch, party: [TT.mon(STARTER[ch], 5)], box: [], balls: 3, stars: [], egg: { have: false, warm: 0 }, flags: {}, rocket: 0, caught: [] }; }
-  function save() { if (!S) return; S.ts = Date.now(); try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { } cloudDirty = true; }
+  function save() { if (!S) return; S.ts = Date.now(); if (mode === 'play' && !TT.Battle.active) S.pos = [Math.round(player.x * 10) / 10, Math.round(player.z * 10) / 10]; try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { } cloudDirty = true; }
   // ---- online saves (only when js/config.js has a database address and a family code is set) ----
   const CLOUD = String(window.TT_CLOUD || '').replace(/\/$/, '');
   const cloudUrl = () => CLOUD && Net.room ? CLOUD + '/saves/' + Net.room + '/' + encodeURIComponent(slot) + '.json' : '';
@@ -94,7 +114,7 @@
     fetch(u).then(r => r.json()).then(j => {
       if (!j || !S || slot !== my || busy || TT.Battle.active || !j.party || !j.party.length || !(j.ts > (S.ts || 0))) return;
       if (j.ch !== S.ch) { scene.remove(player.root); player.root = wrap(TT.human(TT.PEOPLE[j.ch] || TT.PEOPLE.ash), 0.42); }
-      S = j; TT.S = S; setFollower(); W.setGate(!!S.flags.city); hud(); TT.toast('☁ Loaded your saved adventure');
+      S = j; TT.S = S; setFollower(); applyFlags(); hud(); TT.toast('☁ Loaded your saved adventure');
       try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { }
     }).catch(() => { });
   }
@@ -109,9 +129,12 @@
     if (fresh) S = newSave(ch);
     ch = S.ch; TT.S = S;
     player.root = wrap(TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), 0.42); player.x = cam.x = ch === 'ash' ? 1.5 : -1.5; player.z = cam.z = 8; player.h = Math.PI;
-    setFollower(); W.setGate(!!S.flags.city);
+    applyFlags();
+    if (S.pos && isFinite(S.pos[0]) && isFinite(S.pos[1])) { const q2 = W.collide(S.pos[0], S.pos[1], 0.4); player.x = cam.x = q2[0]; player.z = cam.z = q2[1]; }   // pick up where they left off
+    camY = W.gy(player.x, player.z); vel.x = vel.z = 0;
+    setFollower(); follower.x = player.x + 1; follower.z = player.z + 0.8; applyFlags();
     $('title').classList.add('hide'); for (const id of ['hud', 'joy', 'act', 'bPause']) $(id).classList.remove('hide');
-    mode = 'play'; TT.music('town'); setMini(miniOn); friendsDirty = true; nextRocket = S.caught.length ? 60 : 150; hud();
+    mode = 'play'; areaNow = ''; TT.music(TT.areaMusic()); setMini(miniOn); friendsDirty = true; nextRocket = S.caught.length ? 60 : 150; hud();
     if (fresh) intro();
     cloudLoad();
   }
@@ -154,6 +177,16 @@
     await TT.say([['Professor Oak', 'Welcome to Trainer Town, ' + NAMES[S.ch] + '!'], ['', p + ' is your partner and will follow you everywhere!'], ['', 'Move with the stick. Press the yellow button to talk to people and Pokémon.'], ['Professor Oak', 'Come see me at the Lab — the big building at the top of town!']]);
     busy = false; save();
   }
+  // world state that depends on this player's progress: gates, Snorlax, Team Rocket, who follows you
+  function applyFlags() {
+    const f = S.flags;
+    W.setGate(!!f.city); W.setGate2(!!f.world);
+    const ci = W.colliders.indexOf(W.snorlaxCol); snorlaxNpc.hidden = !!f.snorlax;
+    if (f.snorlax && ci >= 0) W.colliders.splice(ci, 1); if (!f.snorlax && ci < 0) W.colliders.push(W.snorlaxCol);
+    for (const n of npcs) { if (n.key === 'hideout') n.hidden = !!f.hideout; if (n.key === 'goku') n.hidden = !!f.goku; if (n.key === 'gohan') n.hidden = !!f.gohan; }
+    for (const c of comps) scene.remove(c.root); comps = [];
+    for (const [k, on] of [['gohan', f.gohan], ['goku', f.goku]]) if (on) comps.push({ key: k, x: player.x - 1 - comps.length, z: player.z + 1.5, h: 0, mv: 0, root: wrap(TT.human(TT.PEOPLE[k]), 0.42) });
+  }
   function setFollower() {
     const old = follower;
     if (old) scene.remove(old.root);
@@ -171,9 +204,10 @@
     return [z.x + (z.ring || 0), z.z];
   }
   function spawnWild(z) {
-    const sp = TT.pick(z.pool), p = zonePoint(z);
+    let sp = TT.pick(z.pool); const p = zonePoint(z), rare = z.rare && Math.random() < z.rare[1]; if (rare) sp = z.rare[0];
     const bonus = S ? Math.max(0, Math.floor((S.party[0].lvl - 6) / 2)) : 0;
     const w = { sp, lvl: (rand(z.lv[0], z.lv[1] + 1) | 0) + bonus, zone: z, x: p[0], z: p[1], h: rand(0, 6), tx: p[0], tz: p[1], wait: rand(0, 3), mv: 0, root: wrap(TT.creature(sp), 0.35) };
+    if (rare) { const sg = new THREE.Group(); for (let i = 0; i < 4; i++) P(sg, 'sphS', TT.glow(i % 2 ? 0xfff27a : 0xffffff), [Math.cos(i * 1.57) * 0.55, i * 0.15, Math.sin(i * 1.57) * 0.55], 0.06); w.root.add(sg); w.spark = sg; }
     wilds.push(w);
   }
   function removeWild(w) { scene.remove(w.root); wilds.splice(wilds.indexOf(w), 1); respawns.push({ z: w.zone, at: playT + 18 }); }
@@ -188,9 +222,9 @@
   }
   function placeEnt(e, isHuman) {
     const r = e.root, m = r.userData.model;
-    r.position.set(e.x, 0, e.z); r.rotation.y = e.h;
+    r.position.set(e.x, W.gy(e.x, e.z), e.z); r.rotation.y = e.h;
     const d = Math.hypot(e.x - player.x, e.z - player.z);
-    r.visible = d < 48;
+    r.visible = d < 48 && !e.hidden;
     if (!r.visible) return;
     const near = d < 26 && quality > 0, u = m.userData;
     if (u.ols && u.olOn !== near) { u.olOn = near; for (const o of u.ols) o.visible = near; }
@@ -205,15 +239,15 @@
 
   // ---------- talking ----------
   function nearestWild() { let best = null, bd = 3.6; for (const w of wilds) { const d = Math.hypot(w.x - player.x, w.z - player.z); if (d < bd) { bd = d; best = w; } } return best; }
-  function nearestNpc() { let best = null, bd = 2.9; for (const n of npcs) { const d = dist(n, player); if (d < bd) { bd = d; best = n; } } return best; }
+  function nearestNpc() { let best = null, bd = 2.9; for (const n of npcs) { if (n.hidden) continue; const d = dist(n, player) - (n.reach ? n.reach - 2.9 : 0); if (d < bd) { bd = d; best = n; } } return best; }
   async function talk(n) {
     busy = true; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
     const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
-    if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk();
+    if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk(); else if (n.key === 'guard2') await gail(n); else if (n.key === 'ranger') await ranger(); else if (n.key === 'goku') await gokuTalk(); else if (n.key === 'hideout') await hideout(); else if (n.key === 'snorlax') await snorlaxTalk();
     else if (!n.human) {
       await TT.say([[n.name, n.lines[0]]]);
       if (S.party.some(m => m.hp > 0) && await petAsk(n)) {
-        const foe = TT.mon(mdl.userData.sp, Math.max(3, S.party[0].lvl - 1)), r = await TT.Battle.start({ foes: [foe], wild: true });
+        const foe = TT.mon(mdl.userData.sp, Math.max(3, S.party[0].lvl - 1)), r = await TT.Battle.start({ foes: [foe], wild: true, stage: stageHere() });
         if (r === 'caught') { foe.hp = TT.maxHp(foe); addMon(foe); scene.remove(n.root); npcs.splice(npcs.indexOf(n), 1); } else if (r === 'lose') await whiteOut();
         battleCd = 2.5; if (follower.sp !== S.party[0].sp) setFollower();
       }
@@ -246,7 +280,7 @@
     if (!f.gym) return TT.say([[N, "Hi! I'm Gohan. My dad Goku sent me to look for the Dragon Balls."], [N, "Leader Misty has one! Beat her at the Gym, and I'll join your team."], [N, "My partner Lugia is a legendary Pokémon. We're super strong together!"]]);
     if (!f.gohan) {
       await TT.say([[N, 'You beat the Gym! That was amazing!'], [N, 'From now on, Lugia and I will help you in big battles.'], [N, "Let's find my dad together. He's out in the Wide World!"]]);
-      f.gohan = 1; TT.sfx.caught(); TT.cry('lugia'); return TT.say([['', 'Gohan and Lugia joined your team!']]);
+      f.gohan = 1; TT.sfx.caught(); TT.cry('lugia'); await TT.say([['', 'Gohan and Lugia joined your team!']]); applyFlags(); return;
     }
     return TT.say([[N, TT.pick(["I'm right behind you!", "Team Rocket doesn't stand a chance against us!", "I can't wait for you to meet my dad!"])]]);
   }
@@ -256,7 +290,7 @@
     if (!S.party.some(m => m.hp > 0)) return TT.say([[N, 'Your Pokémon look tired. Visit Nurse Joy by the plaza first!']]);
     await TT.say([[N, "I'm Misty, the City Gym Leader! My Water Pokémon are tough."], [N, 'Ready for a Gym battle? Here we go!']]);
     const L = Math.max(5, S.party[0].lvl);
-    const r = await TT.Battle.start({ foes: [TT.mon('psyduck', L - 2), TT.mon('squirtle', L - 1), TT.mon('quaxly', L)], trainer: 'Leader Misty', people: ['misty'] });
+    const r = await TT.Battle.start({ foes: [TT.mon('psyduck', L - 2), TT.mon('squirtle', L - 1), TT.mon('quaxly', L)], trainer: 'Leader Misty', people: ['misty'], stage: 'gym' });
     if (follower.sp !== S.party[0].sp) setFollower();
     if (r === 'win') {
       f.gym = 1; await TT.say([[N, "Wow, you really beat me! You're a great trainer."], [N, 'Take this. It fell from the sky into my pool one day.']]);
@@ -267,6 +301,59 @@
     const N = 'Clerk Kim', f = S.flags, now = Date.now();
     if (!f.mart || now - f.mart > 180000) { f.mart = now; S.balls += 5; TT.sfx.pick(); return TT.say([[N, 'Welcome to the Poké Mart! Young trainers get free Poké Balls.'], [N, 'Here are 5 Poké Balls. Come back later for more!']]); }
     return TT.say([[N, "I'm restocking the shelves. Come back in a few minutes!"]]);
+  }
+  async function gail(n) {
+    const N = 'Officer Gail', f = S.flags;
+    if (f.world) return TT.say([[N, TT.pick(['The Wide World is huge. Ranger Rita at the cabin can heal your Pokémon.', 'Watch out for Team Rocket out there!'])]]);
+    if (!f.gym) return TT.say([[N, n.lines[n.i++ % n.lines.length]]]);
+    await TT.say([[N, 'You beat the City Gym! You and Gohan are ready for the Wide World.'], [N, 'Opening the gate. Good luck!']]);
+    f.world = 1; TT.sfx.star(); const bar = W.gate2Bar; await TT.tween(0.9, k => { bar.position.y = k * 3.2; }); W.setGate2(true); bar.position.y = 0; save();
+  }
+  async function ranger() {
+    const N = 'Ranger Rita';
+    await TT.say([[N, 'Welcome to the Wide World, trainer! Let me patch up your Pokémon.']]);
+    S.party.forEach(m => m.hp = TT.maxHp(m)); TT.sfx.heal(); await TT.wait(0.8);
+    await TT.say([[N, TT.pick(['All better! Goku trains on the peak past the big bridge.', 'All better! A sleepy Snorlax blocks the way to the peak. You will have to battle it!', 'All better! Team Rocket built a hideout in the south. Be careful!'])]]);
+  }
+  async function snorlaxTalk() {
+    if (!S.party.some(m => m.hp > 0)) return TT.say([['', 'Your Pokémon are too tired. Visit Ranger Rita at the cabin first!']]);
+    await TT.say([['', 'A huge Snorlax is fast asleep, blocking the path to the peak!'], ['Snorlax', 'Zzz... Zzz...'], ['', "Let's wake it up!"]]);
+    const L = Math.max(10, S.party[0].lvl + 2), foe = TT.Battle.bossMon('snorlax', L, 2.2);
+    const r = await TT.Battle.start({ foes: [foe], wild: true, easy: true, stage: 'mountain', allies: allies(), bossTitle: 'The Sleepy Giant' });
+    if (follower.sp !== S.party[0].sp) setFollower();
+    if (r === 'lose') return whiteOut();
+    if (r === 'run') return TT.say([['', 'Snorlax yawned and went back to sleep.']]);
+    if (r === 'caught') { delete foe.boss; delete foe.mx; delete foe.raged; foe.hp = TT.maxHp(foe); addMon(foe); }
+    else await TT.say([['Snorlax', 'Snorrr... (Snorlax yawned, stretched and waddled away!)']]);
+    S.flags.snorlax = 1; applyFlags(); TT.sfx.star(); await TT.say([['', 'The path to the peak is open!']]); save();
+  }
+  async function hideout() {
+    if (!S.party.some(m => m.hp > 0)) return TT.say([['Jessie', 'Ha! Your Pokémon are too tired to fight us, twerp!']]);
+    TT.music('rocket');
+    await TT.say([['Jessie', 'Well, well! The twerp found our secret hideout!'], ['James', 'Prepare for trouble... a really BIG one!'], ['Meowth', 'Meowth! Fire up the Mecha-Meowth!']]);
+    const L = Math.max(10, S.party[0].lvl + 3), foe = TT.Battle.bossMon('mecha', L, 2.4);
+    const r = await TT.Battle.start({ foes: [foe], trainer: 'Team Rocket', people: ['jessie', 'james'], easy: true, stage: 'hideout', allies: allies(), bossTitle: "Team Rocket's giant robot", music: 'rocket' });
+    if (follower.sp !== S.party[0].sp) setFollower();
+    if (r === 'win') {
+      await TT.say([['James', 'Our beautiful robot!'], ['Jessie', 'Not again!']]);
+      TT.sfx.rocket(); TT.say([['Team Rocket', "Looks like Team Rocket's blasting off agaaaain!"]]);
+      S.flags.hideout = 1; applyFlags();
+      const star = P(scene, 'sph', TT.glow(0xffffff), [player.x + 10, camY + 16, player.z - 30], 0.5); TT.sfx.pick(); await TT.tween(0.8, k => star.scale.setScalar(0.5 + Math.sin(k * 3.14) * 1.4)); scene.remove(star);
+      while (TT.dialogOpen) await TT.wait(0.1);
+      await TT.say([['', 'Team Rocket left something behind...']]); await giveStar(6); S.balls += 5; TT.sfx.pick(); await TT.say([['', 'You got 5 Poké Balls too!']]);
+    } else { S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say([['Meowth', 'Ha! Come back when you are stronger, twerp!'], ['', 'Your Pokémon rested and feel better. Try again!']]); }
+    save();
+  }
+  async function gokuTalk() {
+    const N = 'Goku';
+    await TT.say([[N, 'Hey there! You must be the trainer Gohan keeps talking about!'], [N, "I'm Goku. This is my partner, Rayquaza. It's a legendary Pokémon!"], [N, "Let's have a battle! I want to see how strong you are!"]]);
+    const L = Math.max(12, S.party[0].lvl + 1);
+    const r = await TT.Battle.start({ foes: [TT.mon('machoke', L), TT.Battle.bossMon('rayquaza', L + 3, 2.2)], trainer: 'Goku', people: ['goku'], easy: true, stage: 'plateau', allies: allies(), music: 'goku', bossMusic: 'goku', bossTitle: "Goku's legendary partner", transform: { at: 1, to: 'goku_ss', say: 'Goku turned Super Saiyan!' } });
+    S.party.forEach(m => m.hp = TT.maxHp(m)); if (follower.sp !== S.party[0].sp) setFollower();
+    await TT.say(r === 'win' ? [[N, 'Wow! You beat me! You and your Pokémon are amazing!']] : [[N, "Ha ha! That was a great fight! You've got a strong heart."]]);
+    await TT.say([[N, 'Here, take this Dragon Ball. I found it while training.']]); await giveStar(5);
+    await TT.say([[N, "And I'm coming with you! Rayquaza and I will help you in big battles."], [N, "Let's find the last Dragon Ball and meet the Dragon!"], ['', 'Goku and Rayquaza joined your team!']]);
+    S.flags.goku = 1; applyFlags(); TT.sfx.caught(); TT.cry('rayquaza'); save();
   }
   async function nurse() {
     await TT.say([['Nurse Joy', 'Welcome to the Poké Center! Let me take care of your Pokémon.']]);
@@ -291,18 +378,20 @@
   async function wildBattle(w) {
     if (!S.party.some(m => m.hp > 0)) { TT.toast('Your Pokémon are tired! Visit Nurse Joy.'); battleCd = 4; return; }
     busy = true; stopInput();
-    const foe = TT.mon(w.sp, w.lvl), r = await TT.Battle.start({ foes: [foe], wild: true });
+    const foe = TT.mon(w.sp, w.lvl), r = await TT.Battle.start({ foes: [foe], wild: true, stage: stageHere() });
     if (r === 'caught') { foe.hp = TT.maxHp(foe); addMon(foe); removeWild(w); } else if (r === 'win') removeWild(w); else if (r === 'lose') await whiteOut();
     battleCd = 2.5; if (follower.sp !== S.party[0].sp) setFollower(); hud(); save(); busy = false;
   }
   async function whiteOut() {
-    S.party.forEach(m => m.hp = TT.maxHp(m)); if (player.z < -66) { player.x = W.NURSE2.x + 1; player.z = W.NURSE2.z + 1.8; } else { player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; } follower.x = player.x + 1; follower.z = player.z + 1;
+    const a = areaKey(player.x, player.z);
+    S.party.forEach(m => m.hp = TT.maxHp(m)); if (a === 'world') { player.x = W.RANGER.x + 1.5; player.z = W.RANGER.z + 2; } else if (a === 'city') { player.x = W.NURSE2.x + 1; player.z = W.NURSE2.z + 1.8; } else { player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; } follower.x = player.x + 1; follower.z = player.z + 1; cam.x = player.x; cam.z = player.z;
     TT.sfx.heal();
-    await TT.say([['Nurse Joy', 'Oh dear, your Pokémon fainted! I carried you back and healed them all up.'], ['Nurse Joy', 'Be careful out there!']]);
+    if (a === 'world') await TT.say([['Ranger Rita', 'Oh no, your Pokémon fainted! I brought you back to my cabin and healed them.'], ['Ranger Rita', 'Be careful out there!']]);
+    else await TT.say([['Nurse Joy', 'Oh dear, your Pokémon fainted! I carried you back and healed them all up.'], ['Nurse Joy', 'Be careful out there!']]);
   }
   async function hatch() {
     busy = true; stopInput(); S.egg.warm = 100; hud();
-    const ex = player.x, ez = player.z + 1.6; eggObj.position.set(ex, 0, ez); player.h = 0;
+    const ex = player.x, ez = player.z + 1.6; eggObj.position.set(ex, W.gy(ex, ez), ez); player.h = 0;
     await TT.say([['', 'Oh? The egg is moving!']]);
     for (let i = 0; i < 4; i++) { TT.sfx.shake(); await TT.tween(0.4, k => { eggObj.rotation.z = Math.sin(k * 6.28) * (0.2 + i * 0.1); }); await TT.wait(0.3 - i * 0.05); }
     const flash = P(scene, 'sph', TT.glow(0xffffff), [ex, 0.5, ez], 0.2); TT.sfx.evo();
@@ -319,8 +408,8 @@
   async function rocketEvent() {
     busy = true; stopInput(); TT.music('rocket');
     const pm = S.party[0], pn = TT.monName(pm), me = NAMES[S.ch], n = S.rocket;
-    let bx = TT.clamp(player.x, -50, 50), bz = TT.clamp(player.z - 5, -50, 50);
-    const g = new THREE.Group(); g.position.set(bx, 14, bz); scene.add(g);
+    const bx = player.x, bz = W.collide(player.x, player.z - 5, 1)[1], by = W.gy(bx, bz);
+    const g = new THREE.Group(); g.position.set(bx, by + 14, bz); scene.add(g);
     const je = TT.human(TT.PEOPLE.jessie), ja = TT.human(TT.PEOPLE.james), mw = TT.creature('meowth');
     je.position.set(-0.9, 0, 0); ja.position.set(0.9, 0, 0); mw.position.set(0, 0, 0.9); g.add(je); g.add(ja); g.add(mw); actors.push(je, ja, mw); je.userData.gesture = 'point';
     const bal = new THREE.Group(); bal.position.set(0, 0, -1.2); g.add(bal);
@@ -328,29 +417,29 @@
     P(bal, 'sph', 0xf2c230, [0, 6.4, 1.8], [0.3, 0.5, 0.15]); for (const s of [1, -1]) P(bal, 'sph', 0x1c1c22, [s * 0.7, 5.7, 1.85], [0.3, 0.4, 0.1]);
     P(bal, 'box', 0x9a6a3a, [0, 1.2, 0], [1.6, 1.1, 1.6]); for (const s of [1, -1]) P(bal, 'cyl', 0x6a5a48, [s * 0.7, 2.6, 0], [0.03, 2.2, 0.03]);
     player.h = Math.PI;
-    await TT.tween(1.6, k => { g.position.y = 14 * (1 - TT.ease(k)); });
+    await TT.tween(1.6, k => { g.position.y = by + 14 * (1 - TT.ease(k)); });
     const lines = [['???', 'Prepare for trouble!'], ['???', 'And make it double!'], ['Jessie', 'Jessie!'], ['James', 'James!'], ['Meowth', "Meowth, that's right!"]];
     if (n === 1) lines.push(['James', 'And this time our Pumpkaboo evolved into Gourgeist!']);
     lines.push(['Jessie', 'Hand over that ' + pn + ', twerp!']);
     await TT.say(lines);
     const fx = follower.x, fz = follower.z; TT.sfx.throw();
-    await TT.tween(0.8, k => { follower.x = fx + (bx - fx) * k; follower.z = fz + (bz + 0.2 - fz) * k; follower.root.position.set(follower.x, Math.sin(k * 3.14) * 2, follower.z); });
+    await TT.tween(0.8, k => { follower.x = fx + (bx - fx) * k; follower.z = fz + (bz + 0.2 - fz) * k; follower.root.position.set(follower.x, by + Math.sin(k * 3.14) * 2, follower.z); });
     await TT.say([['Meowth', 'Gotcha! ' + pn + ' is ours now!'], [me, 'Hey! Give ' + pn + ' back!'], [pn, '(' + pn + ' broke out of the net!)'], [me, pn + ", let's battle and send them flying!"]]);
     pm.hp = TT.maxHp(pm);
     const L = Math.max(2, pm.lvl - 3);
-    const r = await TT.Battle.start({ foes: [TT.mon(n === 0 ? 'pumpkaboo' : 'gourgeist', L), TT.mon('inkay', L), TT.mon('meowth', L)], trainer: 'Team Rocket', people: ['jessie', 'james'], easy: true, music: 'rocket', after: 'rocket', ally: S.flags.gohan ? 'gohan' : null });
+    const r = await TT.Battle.start({ foes: [TT.mon(n === 0 ? 'pumpkaboo' : 'gourgeist', L), TT.mon('inkay', L), TT.mon('meowth', L)], trainer: 'Team Rocket', people: ['jessie', 'james'], easy: true, music: 'rocket', after: 'rocket', allies: allies(), stage: stageHere() });
     if (r === 'win') await TT.say([['Jessie', 'We lost AGAIN?!'], ['Meowth', "It's not fair!"]]);
     else { S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say([['James', 'We... won? We actually won?!'], ['Meowth', 'Uh oh. The balloon is leaking!'], [pn, '(' + pn + ' jumped back to you!)']]); }
     TT.sfx.rocket();
     TT.say([['Team Rocket', "Looks like Team Rocket's blasting off agaaaain!"]]);
-    await TT.tween(2.2, k => { g.position.set(bx + k * k * 40, k * k * 60, bz - k * 30); g.rotation.z = k * 3; g.scale.setScalar(1 - k * 0.7); });
-    scene.remove(g); actors.length = 0; const star = P(scene, 'sph', TT.glow(0xffffff), [player.x + 12, 14, player.z - 30], 0.5); TT.sfx.pick();
+    await TT.tween(2.2, k => { g.position.set(bx + k * k * 40, by + k * k * 60, bz - k * 30); g.rotation.z = k * 3; g.scale.setScalar(1 - k * 0.7); });
+    scene.remove(g); actors.length = 0; const star = P(scene, 'sph', TT.glow(0xffffff), [player.x + 12, by + 14, player.z - 30], 0.5); TT.sfx.pick();
     await TT.tween(0.5, k => star.scale.setScalar(0.5 + Math.sin(k * 3.14) * 1.2)); scene.remove(star);
     while (TT.dialogOpen) await TT.wait(0.1);
     follower.x = player.x + 1; follower.z = player.z + 0.5; if (follower.sp !== S.party[0].sp) setFollower();
     S.rocket++;
     if (r === 'win') { if (S.stars.indexOf(1) < 0) { await TT.say([['', 'Team Rocket dropped something shiny...']]); await giveStar(1); } else { S.balls += 3; TT.sfx.pick(); await TT.say([['', 'Team Rocket dropped 3 Poké Balls!']]); } }
-    nextRocket = playT + rand(240, 360); battleCd = 2; TT.music('town'); hud(); save(); busy = false;
+    nextRocket = playT + rand(240, 360); battleCd = 2; TT.music(TT.areaMusic()); hud(); save(); busy = false;
   }
 
   // ---------- HUD / panels ----------
@@ -365,8 +454,13 @@
     else if (S.egg.have) q = '➜ Warm the egg by the campfire';
     else if (!S.flags.gym) q = '➜ Challenge the City Gym at the far end of the avenue';
     else if (!S.flags.gohan) q = '➜ Tell Gohan in the Clock Plaza!';
-    else if (S.stars.length < 4) q = '➜ Find the hidden Dragon Balls (' + S.stars.length + '/4 so far)';
-    else q = '★ Next up: the Wide World, and Goku! Coming soon.';
+    else if (!S.flags.world) q = "➜ Ask Officer Gail at the City's east gate about the Wide World";
+    else if (!S.flags.snorlax) q = '➜ Cross the big bridge and wake up the sleeping Snorlax';
+    else if (!S.flags.goku) q = "➜ Climb to Goku's Peak and meet Goku";
+    else if (!S.flags.hideout) q = '➜ Stop Team Rocket at their hideout in the south';
+    else if (S.stars.indexOf(3) < 0) q = '➜ Something shiny is hiding in the trees behind the town pond...';
+    else if (S.stars.indexOf(1) < 0) q = '➜ Beat Team Rocket when they swoop in, and they might drop something!';
+    else q = "★ 6 Dragon Balls! The Dragon's Lair opens soon.";
     $('quest').textContent = q;
   }
   const hex = n => '#' + n.toString(16).padStart(6, '0');
@@ -393,14 +487,23 @@
     document.querySelectorAll('#panelIn .mon').forEach(b => b.onclick = () => { const i = +b.dataset.i; if (i) { const m = S.party.splice(i, 1)[0]; S.party.unshift(m); setFollower(); save(); TT.sfx.pick(); showTeam(); } });
   }
   function showMap() {
-    let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="mapgrid">' +
-      '<div class="place go" id="pTown">🏡 Trainer Town<small>' + (player.z < -66 ? '' : 'You are here! ') + 'Tap to open the map ➜</small></div>' + (S.flags.city ? '<div class="place go" id="pCity">🏙️ The City<small>' + (player.z < -66 ? 'You are here! ' : '') + 'Tap to open the map ➜</small></div>' : '<div class="place lock">🏙️ The City<small>Ask Officer Gus at the gate</small></div>') +
-      '<div class="place lock">🌍 The Wide World<small>Goku waits halfway...</small></div><div class="place lock">🐉 Dragon\'s Lair<small>Needs all 7 Dragon Balls</small></div></div><div class="stars">';
+    const here = areaKey(player.x, player.z), f = S.flags;
+    const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? 'You are here! ' : '') + 'Tap to see the map ➜</small>' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' : '') + '</div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
+    let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="mapgrid">' + card('town', '🏡', 'Trainer Town', true) + card('city', '🏙️', 'The City', f.city, 'Ask Officer Gus at the gate') +
+      card('world', '🌍', 'The Wide World', f.world, 'Beat the City Gym first') + '<div class="place lock">🐉 Dragon\'s Lair<small>Needs all 7 Dragon Balls · coming soon</small></div></div><div class="stars">';
     for (let i = 1; i <= 7; i++) h += '<i class="' + (S.stars.indexOf(i) >= 0 ? 'got' : '') + '">' + '★'.repeat(i > 4 ? 1 : i) + (i > 4 ? i : '') + '</i>';
     h += '</div><p style="text-align:center;font-weight:700;margin:4px 0 10px">Dragon Balls: ' + S.stars.length + ' / 7</p><p style="text-align:center;margin:0"><button id="pReset" style="background:none;text-decoration:underline;font-size:13px;opacity:.6">Start this character over</button></p>';
     openPanel(h);
-    $('pTown').onclick = () => showAreaMap('town'); if ($('pCity')) $('pCity').onclick = () => showAreaMap('city');
+    document.querySelectorAll('[data-a]').forEach(el => el.onclick = e => { if (e.target.dataset && e.target.dataset.fly) return; showAreaMap(el.dataset.a); });
+    document.querySelectorAll('[data-fly]').forEach(bt => bt.onclick = e => { e.stopPropagation(); flyTo(bt.dataset.fly); });
     $('pReset').onclick = () => { if (confirm('Erase ' + pname + "'s saved game and start over?")) { localStorage.removeItem(slot); const u = cloudUrl(); if (u) fetch(u, { method: 'DELETE', keepalive: true }).catch(() => { }); setTimeout(() => location.reload(), 300); } };
+  }
+  const SPAWN = { town: [0, 8], city: [0, -80], world: [80, -100] };
+  function flyTo(k) {
+    if (busy) return; closePanel(); const p = SPAWN[k];
+    poof(player.x, player.z); player.x = cam.x = p[0]; player.z = cam.z = p[1]; camY = W.gy(p[0], p[1]); vel.x = vel.z = 0;
+    follower.x = p[0] + 1; follower.z = p[1] + 0.8; comps.forEach((c, i) => { c.x = p[0] - 1 - i; c.z = p[1] + 1.5; });
+    poof(p[0], p[1]); TT.sfx.star(); TT.toast('✈ Whoosh! Welcome to ' + AREAS[k].name + '!'); setDest(null);
   }
 
   // ---------- new-version check: offer a one-tap update without leaving the game ----------
@@ -439,23 +542,30 @@
     S = null; TT.S = null; mode = 'title';
     for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn', 'bPause']) $(id).classList.add('hide');
     $('friends').innerHTML = ''; friendsDirty = true; cloudPush(); if (kidsList.length) buildProfiles();
-    $('title').classList.remove('hide');
+    for (const c of comps) scene.remove(c.root); comps = [];
+    $('title').classList.remove('hide'); TT.music('title');
   }
 
   // ---------- maps ----------
-  const css = n => '#' + n.toString(16).padStart(6, '0'), MS = 512 / 160, mp = v => (v + 80) * MS;
-  const AREAS = { town: { cx: 0, cz: 0, V: 62, name: 'Trainer Town' }, city: { cx: 0, cz: -124, V: 60, name: 'The City' } };
-  const areaAt = z => AREAS[z < -66 ? 'city' : 'town'];
-  // one 512px picture per area, covering 160x160 units around the area's centre
+  const css = n => '#' + n.toString(16).padStart(6, '0');
+  const AREAS = { town: { cx: 0, cz: 0, V: 62, span: 160, name: 'Trainer Town' }, city: { cx: 0, cz: -124, V: 60, span: 160, name: 'The City' }, world: { cx: 161, cz: -100, V: 92, span: 200, name: 'The Wide World' } };
+  for (const k in AREAS) AREAS[k].ms = 512 / AREAS[k].span;
+  const areaAt = (x, z) => AREAS[areaKey(x, z)];
+  // one 512px picture per area, covering span x span units around the area's centre
   function baseMap(a) {
     a = a || AREAS.town; if (a.base) return a.base;
-    const c = a.base = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'), X = v => (v - a.cx + 80) * MS, Z = v => (v - a.cz + 80) * MS;
+    const MS = a.ms, hs = a.span / 2, c = a.base = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'), X = v => (v - a.cx + hs) * MS, Z = v => (v - a.cz + hs) * MS;
     const roof = (cx, cz, w, d, col) => { x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(X(cx - w / 2) - 2, Z(cz - d / 2) - 2, w * MS + 2, d * MS + 2); x.fillStyle = col; x.fillRect(X(cx - w / 2), Z(cz - d / 2), w * MS, d * MS); x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(X(cx - w / 2), Z(cz) - 1, w * MS, 2); };
     x.fillStyle = '#74c456'; x.fillRect(0, 0, 512, 512);
     if (a === AREAS.town) {
       x.drawImage(W.groundCanvas, 0, 0, 512, 512);
       x.fillStyle = '#3fa6ea'; x.beginPath(); x.arc(X(W.POND.x), Z(W.POND.z), W.POND.r * MS, 0, 7); x.fill(); x.strokeStyle = '#cdeeff'; x.lineWidth = 2; x.stroke();
-    } else x.drawImage(W.cityCanvas, X(-56), Z(-180), 112 * MS, 112 * MS);
+    } else if (a === AREAS.city) x.drawImage(W.cityCanvas, X(-56), Z(-180), 112 * MS, 112 * MS);
+    else {
+      const m = W.worldMap; x.drawImage(W.worldCanvas, X(m.x0), Z(m.z0), m.w * MS, m.d * MS);
+      x.strokeStyle = '#3fa6ea'; x.lineWidth = 8.4 * MS; x.lineCap = 'butt'; x.beginPath(); for (let z = m.z0; z <= m.z0 + m.d; z += 2) { const px = X(W.riverX(z)), pz = Z(z); if (z === m.z0) x.moveTo(px, pz); else x.lineTo(px, pz); } x.stroke();
+      for (const bz of W.BRIDGES) { x.fillStyle = '#a87646'; x.fillRect(X(W.riverX(bz) - 6.5), Z(bz - 2.2), 13 * MS, 4.4 * MS); }
+    }
     for (const t of W.trees) { const tx = X(t[0]), tz = Z(t[1]); if (tx < -5 || tz < -5 || tx > 517 || tz > 517) continue; x.fillStyle = t[3] === 'pine' ? '#2f8048' : t[3] === 'blossom' ? '#f7a8c8' : '#4aa64e'; x.beginPath(); x.arc(tx, tz, 1.5 * t[2] * MS, 0, 7); x.fill(); x.fillStyle = 'rgba(255,255,255,.18)'; x.beginPath(); x.arc(tx - 1, tz - 1, 0.7 * t[2] * MS, 0, 7); x.fill(); }
     if (a === AREAS.town) {
       for (const h of W.HOUSES) roof(h[0], h[1], h[2] + 1, h[3] + 1, css(h[5]));
@@ -464,9 +574,13 @@
       x.fillStyle = '#e2e2ea'; x.beginPath(); x.arc(X(0), Z(0), 2.7 * MS, 0, 7); x.fill(); x.fillStyle = '#6ac8f8'; x.beginPath(); x.arc(X(0), Z(0), 1.9 * MS, 0, 7); x.fill();
       x.fillStyle = '#ff7a1a'; x.beginPath(); x.arc(X(W.FIRE.x), Z(W.FIRE.z), 3.5, 0, 7); x.fill();
       x.strokeStyle = '#d8b070'; x.lineWidth = 2; x.strokeRect(X(-57.4), Z(-57.4), 114.8 * MS, 114.8 * MS);
-    } else {
+    } else if (a === AREAS.city) {
       for (const b of W.buildings) roof(b[0], b[1], b[2], b[3], b[6].shop ? css(b[6].shop) : css(b[5]));
       roof(0, -171, 20, 10, '#f08030'); x.fillStyle = '#8a5a3a'; x.fillRect(X(-1.2), Z(-125.2), 2.4 * MS, 2.4 * MS);
+    } else {
+      roof(204, -170, 13, 11, '#9aa0ac'); x.fillStyle = '#e01818'; x.font = 'bold ' + (9 * MS) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('R', X(204), Z(-170));
+      roof(86, -112, 8.8, 7, '#3a8a4a');
+      x.strokeStyle = '#8a7a6a'; x.lineWidth = 3 * MS; x.beginPath(); x.arc(X(W.PLATEAU.x), Z(W.PLATEAU.z), W.PLATEAU.r * MS, Math.PI + 0.3, Math.PI + 6.283 - 0.3); x.stroke();
     }
     return c;
   }
@@ -474,34 +588,35 @@
   function setDest(d) {
     dest = d;
     if (!beacon) { beacon = new THREE.Group(); P(beacon, 'cyl', new THREE.MeshBasicMaterial({ color: 0xffe060, transparent: true, opacity: 0.35, depthWrite: false }), [0, 4, 0], [0.5, 8, 0.5]); P(beacon, 'cone', TT.glow(0xffb020), [0, 3.2, 0], [0.5, 1, 0.5], [Math.PI, 0, 0]); P(beacon, 'cyl', new THREE.MeshBasicMaterial({ color: 0xffe060, transparent: true, opacity: 0.5, depthWrite: false }), [0, 0.06, 0], [1.3, 0.04, 1.3]); scene.add(beacon); }
-    beacon.visible = !!d; if (d) beacon.position.set(d.x, 0, d.z);
+    beacon.visible = !!d; if (d) beacon.position.set(d.x, W.gy(d.x, d.z), d.z);
   }
   function drawMini() {
-    const c = $('mini'), x = c.getContext('2d'), R = 28, k = 264 / (R * 2), X = v => (v - player.x + R) * k, Z = v => (v - player.z + R) * k, a = areaAt(player.z);
+    const c = $('mini'), x = c.getContext('2d'), R = 28, k = 264 / (R * 2), X = v => (v - player.x + R) * k, Z = v => (v - player.z + R) * k, a = areaAt(player.x, player.z), MS = a.ms, hs = a.span / 2;
     x.fillStyle = '#74c456'; x.fillRect(0, 0, 264, 264);
-    x.drawImage(baseMap(a), (player.x - R - a.cx + 80) * MS, (player.z - R - a.cz + 80) * MS, R * 2 * MS, R * 2 * MS, 0, 0, 264, 264);
+    x.drawImage(baseMap(a), (player.x - R - a.cx + hs) * MS, (player.z - R - a.cz + hs) * MS, R * 2 * MS, R * 2 * MS, 0, 0, 264, 264);
     const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 2; x.beginPath(); x.arc(X(px), Z(pz), r, 0, 7); x.fill(); x.stroke(); };
     for (const w of wilds) dot(w.x, w.z, '#ff5a4a', 5);
-    for (const n of npcs) dot(n.x, n.z, n.human ? '#ffd23c' : '#ffa0c0', 5);
+    for (const n of npcs) if (!n.hidden) dot(n.x, n.z, n.human ? '#ffd23c' : '#ffa0c0', 5);
+    for (const w of wilds) if (w.spark) dot(w.x, w.z, '#fff27a', 6);
     for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 8); }
     if (dest) { const dx = TT.clamp(X(dest.x), 14, 250), dz = TT.clamp(Z(dest.z), 14, 250); x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 3; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(132, 132); x.lineTo(dx, dz); x.stroke(); x.setLineDash([]); x.font = '26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('📍', dx, dz - 8); }
     x.save(); x.translate(132, 132); x.rotate(Math.PI - player.h); x.fillStyle = '#fff'; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -15); x.lineTo(11, 11); x.lineTo(0, 5); x.lineTo(-11, 11); x.closePath(); x.fill(); x.stroke(); x.restore();
   }
   function showAreaMap(key) {
-    const a = AREAS[key], places = key === 'city' ? W.CITY_PLACES : W.PLACES, V = a.V;
+    const a = AREAS[key], places = key === 'city' ? W.CITY_PLACES : key === 'world' ? W.WORLD_PLACES : W.PLACES, V = a.V, MS = a.ms, hs = a.span / 2;
     const size = Math.max(240, Math.min(window.innerWidth * 0.86, window.innerHeight * 0.58, 560)) | 0;
     openPanel('<h3>' + a.name + ' <button id="pClose">✕</button></h3><canvas id="townMap" width="' + size * 2 + '" height="' + size * 2 + '" style="width:' + size + 'px;height:' + size + 'px"></canvas><div id="mapInfo">Tap a place to learn about it.</div><div class="row"><button id="mGo" disabled>📍 Guide me there</button><button id="mClear" class="alt">Stop guiding</button><button id="mBack" class="alt">World map</button></div>');
-    const c = $('townMap'), x = c.getContext('2d'), k = size * 2 / (V * 2), X = v => (v - a.cx + V) * k, Z = v => (v - a.cz + V) * k, here = areaAt(player.z) === a; let sel = null, tick = 0;
+    const c = $('townMap'), x = c.getContext('2d'), k = size * 2 / (V * 2), X = v => (v - a.cx + V) * k, Z = v => (v - a.cz + V) * k, here = areaAt(player.x, player.z) === a; let sel = null, tick = 0;
     const draw = () => {
       if (!c.isConnected || !S) return clearInterval(iv);
-      tick++; x.drawImage(baseMap(a), (80 - V) * MS, (80 - V) * MS, V * 2 * MS, V * 2 * MS, 0, 0, size * 2, size * 2);
+      tick++; x.drawImage(baseMap(a), (hs - V) * MS, (hs - V) * MS, V * 2 * MS, V * 2 * MS, 0, 0, size * 2, size * 2);
       x.textAlign = 'center'; x.textBaseline = 'middle';
       for (const p of places) {
         const on = sel && sel.p === p; x.font = (on ? 46 : 36) * size / 500 + 'px sans-serif'; x.fillText(p[3], X(p[1]), Z(p[2]));
         x.font = '800 ' + (22 * size / 500) + 'px "Avenir Next","Trebuchet MS",sans-serif'; x.lineWidth = 5; x.strokeStyle = on ? '#ffd23c' : 'rgba(255,255,255,.92)'; x.fillStyle = '#23324a'; x.strokeText(p[0], X(p[1]), Z(p[2]) + 30 * size / 500); x.fillText(p[0], X(p[1]), Z(p[2]) + 30 * size / 500);
       }
       const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.arc(X(px), Z(pz), r, 0, 7); x.fill(); x.stroke(); };
-      for (const n of npcs) if (n.human) dot(n.x, n.z, '#ffd23c', 6);
+      for (const n of npcs) if (n.human && !n.hidden) dot(n.x, n.z, '#ffd23c', 6);
       for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 10); }
       const d = sel || (dest && { x: dest.x, z: dest.z }); if (d) { x.font = 44 * size / 500 + 'px sans-serif'; x.fillText('📍', X(d.x), Z(d.z) - 16); }
       if (here) { const pulse = 10 + Math.sin(tick * 0.5) * 4; x.fillStyle = 'rgba(255,255,255,.4)'; x.beginPath(); x.arc(X(player.x), Z(player.z), pulse + 8, 0, 7); x.fill(); dot(player.x, player.z, '#e8402a', 9); }
@@ -509,7 +624,7 @@
     const iv = setInterval(draw, 120); draw();
     c.addEventListener('pointerdown', e => {
       e.preventDefault(); const r = c.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * V * 2 - V + a.cx, wz = (e.clientY - r.top) / r.height * V * 2 - V + a.cz;
-      let best = null, bd = 9; for (const p of places) { const d = Math.hypot(p[1] - wx, p[2] - wz); if (d < bd) { bd = d; best = p; } }
+      let best = null, bd = key === 'world' ? 12 : 9; for (const p of places) { const d = Math.hypot(p[1] - wx, p[2] - wz); if (d < bd) { bd = d; best = p; } }
       if (best) { sel = { p: best, x: best[5], z: best[6], n: best[0] }; $('mapInfo').innerHTML = '<b>' + best[3] + ' ' + best[0] + '</b><br>' + best[4]; }
       else { const q = W.collide(wx, wz, 0.6); sel = { x: q[0], z: q[1], n: 'that spot' }; $('mapInfo').innerHTML = '<b>📍 This spot</b><br>Tap "Guide me there" to get an arrow to it.'; }
       $('mGo').disabled = false; TT.sfx.blip(); draw();
@@ -585,7 +700,7 @@
       const g = document.createElement('button'); g.className = 'dadb'; g.textContent = '🎁 Send Poké Balls'; g.onclick = gift; box.appendChild(g);
     }
   }
-  function poof(x, z) { const ps = []; for (let i = 0; i < 8; i++) ps.push(P(scene, 'sphS', TT.glow(i % 2 ? 0xffffff : 0xbfe8ff), [x, 1, z], 0.18)); TT.tween(0.45, k => ps.forEach((m, i) => { const a = i * 0.785; m.position.set(x + Math.cos(a) * k * 1.6, 1 + Math.sin(a * 2) * k, z + Math.sin(a) * k * 1.6); m.scale.setScalar(0.2 * (1 - k)); })).then(() => ps.forEach(m => scene.remove(m))); }
+  function poof(x, z) { const ps = [], y0 = W.gy(x, z); for (let i = 0; i < 8; i++) ps.push(P(scene, 'sphS', TT.glow(i % 2 ? 0xffffff : 0xbfe8ff), [x, 1 + y0, z], 0.18)); TT.tween(0.45, k => ps.forEach((m, i) => { const a = i * 0.785; m.position.set(x + Math.cos(a) * k * 1.6, y0 + 1 + Math.sin(a * 2) * k, z + Math.sin(a) * k * 1.6); m.scale.setScalar(0.2 * (1 - k)); })).then(() => ps.forEach(m => scene.remove(m))); }
   function jumpTo(id, nm) {
     const p = Net.peers[id]; if (!p || !p.root || busy || panelOpen || mode !== 'play') return;
     poof(player.x, player.z); const q = W.collide(p.x + 1.3, p.z + 0.6, 0.4);
@@ -633,18 +748,21 @@
     TT.uTime.value = t;
     { const fx = Math.round(TT.Battle.active ? W.ARENA.x : mode === 'play' ? cam.x : 0), fz = Math.round(TT.Battle.active ? W.ARENA.z : mode === 'play' ? cam.z : 0); sun.position.set(fx + 18, 38, fz + 24); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld(); }
     for (const a of actors) { if (a.userData.human) TT.animHuman(a, t, 0); else TT.animCreature(a, t, 0); }
-    for (const d of dust) if (d.visible) { d.userData.k += dt * 2.2; const k = d.userData.k; if (k >= 1) d.visible = false; else { d.scale.setScalar(0.12 + k * 0.4); d.position.y = 0.1 + k * 0.5; d.material.opacity = 0.5 * (1 - k); } }
+    for (const d of dust) if (d.visible) { d.userData.k += dt * 2.2; const k = d.userData.k; if (k >= 1) d.visible = false; else { d.scale.setScalar(0.12 + k * 0.4); d.position.y = (d.userData.y0 || 0) + 0.1 + k * 0.5; d.material.opacity = 0.5 * (1 - k); } }
     if (document.body.classList.contains('inbattle') !== TT.Battle.active) document.body.classList.toggle('inbattle', TT.Battle.active);
     for (const n of npcs) {
+      if (n.hidden) { n.root.visible = false; if (n.zz) n.zz.forEach(z => { z.visible = false; }); continue; }
+      if (n.zz) n.zz.forEach((z, i) => { const k = (t * 0.35 + i / 3) % 1; z.visible = n.root.visible; z.position.set(n.x + 0.6 + k * 1.2, W.gy(n.x, n.z) + 3.1 + k * 1.8, n.z + 0.3); z.material.opacity = Math.sin(k * 3.14); z.scale.set(1.2 * (0.5 + k), 0.3 * (0.5 + k), 1); });
       if (!(busy && dist(n, player) < 3)) { if (n.r > 0) wander(n, dt, n.human ? 1.1 : 1.4, e => { const a = Math.random() * 6.283, r = Math.random() * e.r; e.tx = e.hx + Math.cos(a) * r; e.tz = e.hz + Math.sin(a) * r; }); }
       else n.mv = 0;
       placeEnt(n, n.human);
       if (n.lab) n.lab.visible = dist(n, player) < 9;
     }
-    for (const w of wilds) { wander(w, dt, 1.3, e => { const p = zonePoint(e.zone); e.tx = p[0]; e.tz = p[1]; }); placeEnt(w, false); }
+    for (const w of wilds) { wander(w, dt, 1.3, e => { const p = zonePoint(e.zone); e.tx = p[0]; e.tz = p[1]; }); placeEnt(w, false); if (w.spark) { w.spark.rotation.y = t * 3; w.spark.position.y = 0.5 + Math.sin(t * 4) * 0.15; } }
     updatePeers(dt);
-    if (TT.Battle.active) { TT.Battle.update(dt, t); TT.Battle.camera(camera, camera.aspect, t); }
-    if (mode !== 'play') { camera.position.set(Math.sin(t * 0.12) * 36, 15, Math.cos(t * 0.12) * 36); camera.lookAt(0, 2.5, 0); return; }
+    if (TT.Battle.active) { TT.Battle.update(dt, t); TT.Battle.camera(camera, camera.aspect, t); W.updateMotes(t, W.ARENA.x, W.ARENA.z - 4, 0); }
+    else W.updateMotes(t, cam.x, cam.z - 3, camY);
+    if (mode !== 'play') { camera.position.set(Math.sin(t * 0.12) * 36, 15, Math.cos(t * 0.12) * 36); camera.lookAt(0, 2.5, 0); W.updateMotes(t, 0, 0, 0); return; }
 
     const idle = !busy && !panelOpen && !TT.dialogOpen;
     if (idle) {
@@ -652,12 +770,21 @@
       const k = input.keys;
       let vx = input.x + (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0), vz = input.y + (k.KeyS || k.ArrowDown ? 1 : 0) - (k.KeyW || k.ArrowUp ? 1 : 0);
       let mag = Math.hypot(vx, vz);
-      if (mag > 0.18) {
-        if (mag > 1) { vx /= mag; vz /= mag; mag = 1; }
-        const sp = 6.4, p = W.collide(player.x + vx * sp * dt, player.z + vz * sp * dt, 0.4);
-        player.x = p[0]; player.z = p[1]; player.h = TT.angLerp(player.h, Math.atan2(vx, vz), Math.min(1, dt * 14)); player.mv = mag;
-        if (mag > 0.6 && (dustT += dt) > 0.16) { dustT = 0; let d = dust.find(q => !q.visible); if (!d && dust.length < 8) { d = P(scene, 'sphS', new THREE.MeshBasicMaterial({ color: 0xe8dcc0, transparent: true, opacity: 0.5, depthWrite: false }), [0, 0, 0], 0.1); dust.push(d); } if (d) { d.visible = true; d.userData.k = 0; d.position.set(player.x - vx * 0.3 + rand(-0.15, 0.15), 0.1, player.z - vz * 0.3 + rand(-0.15, 0.15)); } }
-      } else player.mv = 0;
+      if (mag > 1) { vx /= mag; vz /= mag; mag = 1; }
+      runT = mag > 0.9 ? runT + dt : 0;                          // push the stick all the way for a moment to run
+      const on = mag > 0.18, top = runT > 0.7 ? 8.8 : 6.4, ka = Math.min(1, dt * (on ? 8 : 12));
+      vel.x += ((on ? vx * top : 0) - vel.x) * ka; vel.z += ((on ? vz * top : 0) - vel.z) * ka;
+      const spd = Math.hypot(vel.x, vel.z);
+      if (spd > 0.08) {
+        const p = W.collide(player.x + vel.x * dt, player.z + vel.z * dt, 0.4);
+        if (dt > 0) { vel.x = (p[0] - player.x) / dt * 0.6 + vel.x * 0.4; vel.z = (p[1] - player.z) / dt * 0.6 + vel.z * 0.4; }
+        player.x = p[0]; player.z = p[1];
+        const want = on ? Math.atan2(vx, vz) : player.h, nh = TT.angLerp(player.h, want, Math.min(1, dt * 12)); let dh = nh - player.h; while (dh > Math.PI) dh -= 6.283; while (dh < -Math.PI) dh += 6.283;
+        lean += (TT.clamp(-dh / Math.max(dt, 0.001) * 0.05, -0.28, 0.28) * Math.min(1, spd / 6) - lean) * Math.min(1, dt * 8); player.h = nh;
+        player.mv = Math.min(1.4, spd / 6.4);
+        if (mag > 0.6 && (dustT += dt) > (runT > 0.7 ? 0.09 : 0.16)) { dustT = 0; let d = dust.find(q => !q.visible); if (!d && dust.length < 8) { d = P(scene, 'sphS', new THREE.MeshBasicMaterial({ color: 0xe8dcc0, transparent: true, opacity: 0.5, depthWrite: false }), [0, 0, 0], 0.1); dust.push(d); } if (d) { d.visible = true; d.userData.k = 0; d.position.set(player.x - vx * 0.3 + rand(-0.15, 0.15), 0.1, player.z - vz * 0.3 + rand(-0.15, 0.15)); d.userData.y0 = W.gy(player.x, player.z); } }
+      } else { player.mv = 0; lean *= 0.85; }
+      player.root.userData.model.rotation.z = lean; player.root.userData.model.rotation.x = Math.min(0.12, spd * 0.012);
 
       // pickups
       for (const b of W.pickups) {
@@ -681,26 +808,31 @@
       for (let i = respawns.length - 1; i >= 0; i--) if (respawns[i].at < playT) { spawnWild(respawns[i].z); respawns.splice(i, 1); }
       if (!busy && playT > nextRocket) rocketEvent();
       if ((saveT += dt) > 20) { saveT = 0; save(); cloudPush(); }
-    } else player.mv = 0;
+    } else { player.mv = 0; vel.x = vel.z = 0; }
 
     starObj.visible = S.stars.indexOf(3) < 0; starObj.rotation.y = t * 1.5; starObj.position.y = 0.7 + Math.sin(t * 2) * 0.12;
     placeEnt(player, true); player.root.visible = true;
     if (!busy || !TT.Battle.active) {
       follow(follower, player.x, player.z, dt, 1.5);
-      if (!(busy && follower.root.position.y > 0.05)) placeEnt(follower, false);
+      if (!(busy && follower.root.position.y > 0.05 + W.gy(follower.x, follower.z))) placeEnt(follower, false);
+      let ld = follower; for (const c of comps) { follow(c, ld.x, ld.z, dt, 1.8); placeEnt(c, true); ld = c; }
     }
-    if (S.egg.have && !(busy && S.egg.warm >= 100)) { eggObj.visible = true; const ex = follower.x - Math.sin(follower.h) * 0.8, ez = follower.z - Math.cos(follower.h) * 0.8; eggObj.position.x += (ex - eggObj.position.x) * Math.min(1, dt * 6); eggObj.position.z += (ez - eggObj.position.z) * Math.min(1, dt * 6); eggObj.position.y = Math.abs(Math.sin(t * 5)) * 0.08 * follower.mv; }
+    if (S.egg.have && !(busy && S.egg.warm >= 100)) { eggObj.visible = true; const ex = follower.x - Math.sin(follower.h) * 0.8, ez = follower.z - Math.cos(follower.h) * 0.8; eggObj.position.x += (ex - eggObj.position.x) * Math.min(1, dt * 6); eggObj.position.z += (ez - eggObj.position.z) * Math.min(1, dt * 6); eggObj.position.y = W.gy(eggObj.position.x, eggObj.position.z) + Math.abs(Math.sin(t * 5)) * 0.08 * follower.mv; }
     else if (!S.egg.have) eggObj.visible = false;
 
     if (miniOn && !TT.Battle.active && (miniT += dt) > 0.12) { miniT = 0; drawMini(); }
-    if (dest) { beacon.rotation.y = t * 2; beacon.children[1].position.y = 3.2 + Math.sin(t * 4) * 0.4; if (idle && Math.hypot(dest.x - player.x, dest.z - player.z) < 2.6) { TT.sfx.pick(); TT.toast('You made it to ' + dest.n + '!'); setDest(null); } }
+    if (dest) { beacon.rotation.y = t * 2; beacon.children[1].position.y = 3.2 + Math.sin(t * 4) * 0.4; beacon.position.y = W.gy(beacon.position.x, beacon.position.z); if (idle && Math.hypot(dest.x - player.x, dest.z - player.z) < 2.6) { TT.sfx.pick(); TT.toast('You made it to ' + dest.n + '!'); setDest(null); } }
     const nn = idle && nearestNpc(), nw = idle && nearestWild(), fight = nw && (!nn || dist(nw, player) < dist(nn, player)), near = nn || nw, act = $('act');
     act.textContent = fight ? '⚔ Battle' : nn ? 'Talk' : 'A'; act.classList.toggle('dim', !near && !TT.dialogOpen); act.classList.toggle('fight', !!fight);
 
     if (!TT.Battle.active) {
-      const zm = camera.aspect < 1 ? 1.5 : 1, k = Math.min(1, dt * 6);
-      cam.x += (player.x - cam.x) * k; cam.z += (player.z - cam.z) * k;
-      camera.position.set(cam.x, 12.5 * zm, cam.z + 12.5 * zm); camera.lookAt(cam.x, 1, cam.z - 1);
+      const zm = camera.aspect < 1 ? 1.5 : 1, k = Math.min(1, dt * 5), spd = Math.hypot(vel.x, vel.z), out = 1 + spd * 0.014;
+      cam.x += (player.x + vel.x * 0.3 - cam.x) * k; cam.z += (player.z + vel.z * 0.3 - cam.z) * k;
+      camY += (W.gy(player.x, player.z) - camY) * Math.min(1, dt * 4);
+      camera.position.set(cam.x, camY + 12.5 * zm * out, cam.z + 12.5 * zm * out); camera.lookAt(cam.x, camY + 1, cam.z - 1);
+      // area music and a little title card when you arrive somewhere new
+      const ak = areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World' }[ak]); areaNow = ak; }
+      if (!busy && !TT.dialogOpen) { const m = TT.areaMusic(); if (TT.musicName() !== m) TT.music(m); }
     }
     if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp, b: TT.Battle.owning() ? 1 : 0, n: pname }); }
   }
@@ -719,13 +851,15 @@
     let dt = (ts - last) / 1000; last = ts;
     if (!(dt > 0)) dt = 0.016; if (dt > 0.05) dt = 0.05;
     if (TT.paused) { renderer.render(scene, camera); return; }    // everything (battles too) freezes; the picture stays
+    if (TT.hitStop > 0) { TT.hitStop -= dt; dt *= 0.06; }
     t += dt; TT.updateTweens(dt);
     try { update(dt); } catch (e) { console.error(e); }
     renderer.render(scene, camera);
   };
+  TT.areaMusic = () => { if (mode !== 'play') return 'title'; const a = areaKey(player.x, player.z); return a === 'world' && Math.hypot(player.x - W.PLATEAU.x, player.z - W.PLATEAU.z) < 24 ? 'goku' : a; };
   // test hooks
   G.toTitle = toTitle; G.setPause = setPause;
-  G.dbg = () => ({ S, player, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame });
+  G.dbg = () => ({ S, player, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
 
   // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
   // and start the chosen character the moment the world is ready.
@@ -736,9 +870,10 @@
     pending = b.dataset.ch; document.querySelectorAll('.card').forEach(c => c.classList.toggle('picked', c === b));
     $('loading').textContent = 'Getting ' + NAMES[pending] + ' ready…';
   }));
-  requestAnimationFrame(() => setTimeout(() => {
-    try { init(); } catch (e) { $('loading').textContent = 'Sorry, something went wrong: ' + e.message; throw e; }
+  requestAnimationFrame(() => setTimeout(async () => {
+    try { await init(); } catch (e) { $('loading').textContent = 'Sorry, something went wrong: ' + e.message; const lt = $('ldText'); if (lt) lt.textContent = 'Sorry, something went wrong: ' + e.message; throw e; }
     ready = true; $('loading').classList.add('hide'); $('title').classList.remove('wait');
+    setTimeout(() => { const L = $('loader'); if (L) { L.classList.add('done'); setTimeout(() => L.remove(), 700); } }, 250);
     let rs = null; try { rs = JSON.parse(sessionStorage.getItem('tt_resume')); sessionStorage.removeItem('tt_resume'); } catch (e) { }
     if (rs && rs.ch) startGame(rs.ch, rs.slot, rs.name);      // coming back from a one-tap update
     else if (pending && !(kidsList.length && pending !== 'dad')) startGame(pending);
