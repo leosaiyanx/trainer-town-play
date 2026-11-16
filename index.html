@@ -45,7 +45,7 @@
 
 <div id="panel" class="hide"><div id="panelIn"></div></div>
 
-<div id="title">
+<div id="title" class="wait">
   <div id="titleIn">
     <h1>Trainer Town</h1>
     <h2>Llorianne &amp; LJ's Adventure</h2>
@@ -54,12 +54,14 @@
       <button class="card" data-ch="liko"><img id="pLiko" alt=""><b>Liko</b><span>with Sprigatito</span></button>
       <button class="card" data-ch="ash"><img id="pAsh" alt=""><b>Ash</b><span>with Pikachu</span></button>
     </div>
+    <p id="loading">Building the town… <span class="spin"></span></p>
     <p id="netNote"></p>
     <p><button id="bRoom" class="hide">👫 Family code</button></p>
     <p class="fine">A family fan game — made with love for Llorianne &amp; LJ</p>
   </div>
 </div>
 
+<script>window.addEventListener('error', function (e) { var l = document.getElementById('loading'); if (l) { l.classList.remove('hide'); l.textContent = 'Error: ' + e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')'; } });</script>
 <script src="js/three.min.js"></script>
 <script src="js/core.js"></script>
 <script src="js/dex.js"></script>

@@ -90,3 +90,9 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
 @media (max-width:560px){.chip{font-size:15px;padding:3px 9px 3px 5px}.chip i{width:20px;height:20px}#btns button{padding:6px 9px;font-size:14px}#btns{gap:5px}#quest{top:max(54px,calc(env(safe-area-inset-top) + 54px));font-size:12px}#stats{max-width:52%;gap:5px}.bar{width:44px}}
 #bRoom{background:#fff;border:3px solid #23324a;border-radius:999px;padding:6px 16px;font-weight:800;font-size:14px;box-shadow:0 3px 0 rgba(35,50,74,.35)}
 #title p{margin:6px 0}
+#loading{font-weight:800;font-size:17px;color:#fff;text-shadow:0 2px 0 #23508f}
+.spin{display:inline-block;width:14px;height:14px;border:3px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#title.wait .card img{background:#dff1ff}
+.card.picked{background:#fff3c4;transform:translateY(3px)}
+#title.wait{background:linear-gradient(#5db9f0,#b9ecff 55%,#8fdc7c 55%,#5fbf58)}

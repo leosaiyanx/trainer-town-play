@@ -33,7 +33,8 @@
     const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 130;
     quality = +(new URLSearchParams(location.search).get('q') || 2); qLock = location.search.indexOf('q=') >= 0;
     camera = new THREE.PerspectiveCamera(40, 1, 0.5, 900);
-    W.build(scene);
+    const tm = TT.timing = {}, t0 = performance.now();
+    W.build(scene); tm.world = Math.round(performance.now() - t0);
     for (const d of W.NPCS) {
       const root = wrap(TT.human(TT.PEOPLE[d[1]]), 0.42), lab = TT.label(d[2]); lab.position.y = 2.25; root.add(lab);
       npcs.push({ key: d[0], name: d[2], x: d[3], z: d[4], hx: d[3], hz: d[4], r: d[5], lines: d[6], i: 0, h: 0, tx: d[3], tz: d[4], wait: rand(0, 3), root, lab, human: true, mv: 0 });
@@ -47,9 +48,10 @@
     starObj = TT.starBall(3, 0.34); starObj.position.set(W.STARSPOT.x, 0.7, W.STARSPOT.z); scene.add(starObj);
     eggObj = TT.eggModel(); eggObj.scale.setScalar(0.8); eggObj.visible = false; scene.add(eggObj);
 
+    tm.chars = Math.round(performance.now() - t0);
     const duo = (k, sp) => () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[k]), c = TT.creature(sp); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; };
     $('pLiko').src = TT.portrait('t_liko', duo('liko', 'sprigatito'), true); $('pAsh').src = TT.portrait('t_ash', duo('ash', 'pikachu'), true);
-    document.querySelectorAll('.card').forEach(b => b.addEventListener('click', () => startGame(b.dataset.ch)));
+    tm.all = Math.round(performance.now() - t0);
     bindInput(); resize(); window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 200));
     Net.connect();
     const netNote = () => {
@@ -446,5 +448,18 @@
   // test hooks
   G.dbg = () => ({ S, player, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame });
 
-  init();
+  // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
+  // and start the chosen character the moment the world is ready.
+  let ready = false, pending = null;
+  document.querySelectorAll('.card').forEach(b => b.addEventListener('click', () => {
+    TT.audioInit();
+    if (ready) return startGame(b.dataset.ch);
+    pending = b.dataset.ch; document.querySelectorAll('.card').forEach(c => c.classList.toggle('picked', c === b));
+    $('loading').textContent = 'Getting ' + NAMES[pending] + ' ready…';
+  }));
+  requestAnimationFrame(() => setTimeout(() => {
+    try { init(); } catch (e) { $('loading').textContent = 'Sorry, something went wrong: ' + e.message; throw e; }
+    ready = true; $('loading').classList.add('hide'); $('title').classList.remove('wait');
+    if (pending) startGame(pending);
+  }, 40));
 })();
