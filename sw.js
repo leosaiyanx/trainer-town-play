@@ -1,6 +1,6 @@
 // Service worker: network-first so the game updates itself whenever it is online,
 // and still opens from the cache when there is no connection.
-const CACHE = 'trainer-town-a8a9c9c';
+const CACHE = 'trainer-town-de939bb';
 const FILES = ['./', 'index.html', 'css/style.css', 'manifest.json', 'js/three.min.js', 'js/peerjs.min.js', 'js/core.js', 'js/dex.js', 'js/world.js', 'js/battle.js', 'js/net.js', 'js/game.js', 'icons/icon-192.png'];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).catch(() => { })); });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));

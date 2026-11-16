@@ -61,6 +61,16 @@
   </div>
 </div>
 
+<script>
+// Taps count from the first moment, even while the game code is still downloading.
+document.addEventListener('click', function (e) {
+  if (window.__gameLoaded) return;
+  var c = e.target.closest ? e.target.closest('.card') : null; if (!c) return;
+  window.__pick = c.getAttribute('data-ch');
+  var all = document.querySelectorAll('.card'); for (var i = 0; i < all.length; i++) all[i].classList.toggle('picked', all[i] === c);
+  document.getElementById('loading').firstChild.nodeValue = 'Downloading the game… it will start by itself ';
+});
+</script>
 <script>window.addEventListener('error', function (e) { var l = document.getElementById('loading'); if (l) { l.classList.remove('hide'); l.textContent = 'Error: ' + e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')'; } });</script>
 <script src="js/three.min.js"></script>
 <script src="js/core.js"></script>

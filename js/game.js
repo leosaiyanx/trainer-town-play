@@ -450,7 +450,7 @@
 
   // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
   // and start the chosen character the moment the world is ready.
-  let ready = false, pending = null;
+  let ready = false, pending = window.__pick || null; window.__gameLoaded = true;
   document.querySelectorAll('.card').forEach(b => b.addEventListener('click', () => {
     TT.audioInit();
     if (ready) return startGame(b.dataset.ch);
