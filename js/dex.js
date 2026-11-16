@@ -155,6 +155,7 @@
     ash: { skin: SK[0], hair: BK, hairStyle: 'ash', eye: 0x6a4a2a, marks: 1, top: 0x2f62c8, collar: WH, trim: 0xf2c230, sleeveC: WH, short: 1, glove: 0x2a9a5a, lower: 0x5a86c8, shoes: 0x23232b, scale: 0.9,
       x: q => { for (const s of [1, -1]) P(q.spine, 'box', WH, [s * 0.1, 0.15, 0.105], [0.07, 0.05, 0.02]); P(q.spine, 'box', 0xf2c230, [0, 0.27, 0.12], [0.02, 0.4, 0.012]); } },
     liko: { skin: SK[1], hair: 0x1f2740, hairStyle: 'liko', eye: 0x3cae98, blush: 1, top: 0xf5f2e8, hood: 1, trim: 0xbfe3c8, cuff: 0xbfe3c8, inner: 0x3f9c8c, lower: 0x2c3350, shorts: 1, sock: WH, shoes: 0x7a5238, scale: 0.88 },
+    dad: { skin: SK[5], hair: BK, hairStyle: 'short', beard: BK, eye: 0x4a3018, top: 0x2a6a4a, collar: WH, trim: 0x22222a, lower: 0x3a4a6a, shoes: 0x5a4030, pack: 0xc8742a },
     prof: { skin: SK[4], hair: 0xa8acb4, hairStyle: 'short', brow: 0x8a8e96, top: WH, coat: 1, inner: 0xb04a3a, lower: 0x7a6a50, shoes: 0x5a4030 },
     nurse: { skin: SK[1], hair: 0xf58ab0, hairStyle: 'loops', hat: 'nurse', eye: 0x3a7ad0, blush: 1, top: 0xf7a8c0, skirt: 0xf7a8c0, apron: 1, short: 1, sock: WH, shoes: 0xf0608a },
     jessie: { skin: SK[1], hair: 0xc8327a, hairStyle: 'jessie', eye: 0x3050c0, top: WH, badge: 0xe01818, inner: 0x22222a, skirt: WH, short: 1, glove: 0x22222a, sock: 0x22222a, shoes: 0x22222a, sole: 0x22222a },

@@ -12,7 +12,7 @@
   const blobs = [], actors = [], dust = [];
   let miniOn = true, miniT = 0, dest = null, beacon = null, mapBase = null; try { miniOn = localStorage.getItem('tt_mini') !== '0'; } catch (e) { }
   const cam = { x: 0, z: 8 };
-  const NAMES = { ash: 'Ash', liko: 'Liko' }, STARTER = { ash: 'pikachu', liko: 'sprigatito' };
+  const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander' };
 
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, depthWrite: false });
   function wrap(model, r) {
@@ -92,7 +92,7 @@
     player.root = wrap(TT.human(TT.PEOPLE[ch]), 0.42); player.x = cam.x = ch === 'ash' ? 1.5 : -1.5; player.z = 8; player.h = Math.PI;
     setFollower();
     $('title').classList.add('hide'); for (const id of ['hud', 'joy', 'act']) $(id).classList.remove('hide');
-    mode = 'play'; TT.music('town'); setMini(miniOn); nextRocket = S.caught.length ? 60 : 150; hud();
+    mode = 'play'; TT.music('town'); setMini(miniOn); friendsDirty = true; nextRocket = S.caught.length ? 60 : 150; hud();
     if (fresh) intro();
   }
   async function intro() {
@@ -312,6 +312,7 @@
     scene.remove(player.root); if (follower) scene.remove(follower.root); follower = null; eggObj.visible = false; player.root = null;
     S = null; TT.S = null; mode = 'title';
     for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn']) $(id).classList.add('hide');
+    $('friends').innerHTML = ''; friendsDirty = true;
     $('title').classList.remove('hide');
   }
 
@@ -424,21 +425,62 @@
     const n = nearestNpc(); if (n) talk(n);
   }
 
+  // ---------- friends: jump to them, join their battle, Dad's cheer + gifts ----------
+  let friendsDirty = true, giftAt = -99;
+  function drawFriends() {
+    const box = $('friends'); box.innerHTML = '';
+    for (const id in Net.peers) {
+      const p = Net.peers[id]; if (!p.root || !p.d) continue;
+      const nm = NAMES[p.d.c] || 'Friend', b = document.createElement('button');
+      if (p.b === 1) { b.className = 'fight'; b.textContent = '⚔ Join ' + nm + "'s battle!"; b.onclick = () => joinBattle(id, nm); }
+      else { b.textContent = '➜ Go to ' + nm; b.onclick = () => jumpTo(id, nm); }
+      box.appendChild(b);
+    }
+    if (S.ch === 'dad' && box.children.length) {
+      const c = document.createElement('button'); c.className = 'dadb'; c.textContent = '📣 Cheer'; c.onclick = cheer; box.appendChild(c);
+      const g = document.createElement('button'); g.className = 'dadb'; g.textContent = '🎁 Send Poké Balls'; g.onclick = gift; box.appendChild(g);
+    }
+  }
+  function poof(x, z) { const ps = []; for (let i = 0; i < 8; i++) ps.push(P(scene, 'sphS', TT.glow(i % 2 ? 0xffffff : 0xbfe8ff), [x, 1, z], 0.18)); TT.tween(0.45, k => ps.forEach((m, i) => { const a = i * 0.785; m.position.set(x + Math.cos(a) * k * 1.6, 1 + Math.sin(a * 2) * k, z + Math.sin(a) * k * 1.6); m.scale.setScalar(0.2 * (1 - k)); })).then(() => ps.forEach(m => scene.remove(m))); }
+  function jumpTo(id, nm) {
+    const p = Net.peers[id]; if (!p || !p.root || busy || panelOpen || mode !== 'play') return;
+    poof(player.x, player.z); const q = W.collide(p.x + 1.3, p.z + 0.6, 0.4);
+    player.x = cam.x = q[0]; player.z = cam.z = q[1]; follower.x = player.x + 0.9; follower.z = player.z + 0.7; poof(player.x, player.z);
+    TT.sfx.star(); TT.toast('Whoosh! You jumped to ' + nm + '!');
+  }
+  async function joinBattle(id, nm) {
+    if (busy || panelOpen || mode !== 'play') return;
+    if (!S.party.some(m => m.hp > 0)) { TT.toast('Your Pokémon are tired! Visit Nurse Joy first.'); return; }
+    busy = true; stopInput();
+    await TT.Battle.watch(id, nm, () => { const p = Net.peers[id]; return !!(p && !p.gone && p.d && p.d.b); });
+    battleCd = 2.5; hud(); save(); busy = false;
+  }
+  function cheer() { const m = TT.pick(['Great job!', 'You can do it!', 'Awesome!', "That's my trainer!", 'Go go go!']); Net.send({ e: 'cheer', x: m }); TT.sfx.star(); TT.toast('📣 You cheered: ' + m); const u = player.root.userData.model.userData; u.gesture = 'cheer'; setTimeout(() => { u.gesture = null; }, 1800); }
+  function gift() { if (playT - giftAt < 45) { TT.toast('The gift bag refills in a moment…'); return; } giftAt = playT; Net.send({ e: 'gift', n: 5 }); TT.sfx.pick(); TT.toast('🎁 You sent 5 Poké Balls to everyone!'); }
+  Net.onEvent = (id, d) => {
+    if (d.e === 'b') return TT.Battle.onNet(id, d);
+    if (!S) return;
+    if (d.e === 'cheer') { TT.sfx.star(); TT.toast('📣 Dad: ' + String(d.x).slice(0, 40)); const p = Net.peers[id]; if (p && p.root) { const u = p.root.userData.model.userData; u.gesture = 'cheer'; setTimeout(() => { u.gesture = null; }, 1800); } }
+    else if (d.e === 'gift' && S.ch !== 'dad') { S.balls += Math.min(5, d.n | 0); TT.sfx.caught(); TT.toast('🎁 Dad sent you 5 Poké Balls!'); hud(); save(); }
+  };
+
   // ---------- multiplayer avatars ----------
   function updatePeers(dt) {
     for (const id in Net.peers) {
       const p = Net.peers[id], d = p.d;
-      if (p.gone || !d || performance.now() - p.last > 8000) { if (p.root) { scene.remove(p.root); scene.remove(p.fol.root); } delete Net.peers[id]; continue; }
+      if (p.gone || !d || performance.now() - p.last > 8000) { if (p.root) { scene.remove(p.root); scene.remove(p.fol.root); } delete Net.peers[id]; friendsDirty = true; continue; }
       if (!p.root || p.ch !== d.c) {
         if (p.root) scene.remove(p.root);
         p.ch = d.c; p.root = wrap(TT.human(TT.PEOPLE[d.c] || TT.PEOPLE.kid), 0.42); p.x = d.x; p.z = d.z; p.h = d.h;
-        const lab = TT.label(NAMES[d.c] || 'Friend', 'rgba(58,160,232,.9)'); lab.position.y = 2.2; p.root.add(lab);
+        p.b = -1; p.lab = null; friendsDirty = true;
       }
       if (!p.fol || p.sp !== d.p) { if (p.fol) scene.remove(p.fol.root); p.sp = d.p; p.fol = { x: d.x + 1, z: d.z + 1, h: 0, mv: 0, root: wrap(TT.creature(d.p), 0.35) }; }
+      if (p.b !== (d.b ? 1 : 0)) { p.b = d.b ? 1 : 0; friendsDirty = true; if (p.lab) p.root.remove(p.lab); p.lab = TT.label((NAMES[d.c] || 'Friend') + (p.b ? ' ⚔' : ''), p.b ? 'rgba(232,64,42,.95)' : 'rgba(58,160,232,.9)'); p.lab.position.y = 2.2; p.root.add(p.lab); }
       const k = Math.min(1, dt * 10); p.x += (d.x - p.x) * k; p.z += (d.z - p.z) * k; p.h = TT.angLerp(p.h, d.h, k); p.mv = d.m;
       placeEnt(p, true); follow(p.fol, p.x, p.z, dt, 1.5); placeEnt(p.fol, false);
     }
     const c = Net.count(); $('chipNet').classList.toggle('hide', !c); if (c) $('netTxt').textContent = '👫 ' + (c + 1);
+    if (friendsDirty && S) { friendsDirty = false; drawFriends(); }
   }
 
   // ---------- main update ----------
@@ -516,7 +558,7 @@
       cam.x += (player.x - cam.x) * k; cam.z += (player.z - cam.z) * k;
       camera.position.set(cam.x, 12.5 * zm, cam.z + 12.5 * zm); camera.lookAt(cam.x, 1, cam.z - 1);
     }
-    if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp }); }
+    if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp, b: TT.Battle.owning() ? 1 : 0 }); }
   }
 
   function setQuality(q) {

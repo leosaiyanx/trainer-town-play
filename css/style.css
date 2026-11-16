@@ -108,3 +108,11 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
 .row button.alt{background:#fff}.row button:disabled{opacity:.4}
 .place.go{cursor:pointer;box-shadow:0 4px 0 rgba(35,50,74,.35)}
 .grade #c{filter:saturate(1.14) contrast(1.04)}
+#friends{position:absolute;left:max(10px,env(safe-area-inset-left));top:max(96px,calc(env(safe-area-inset-top) + 96px));display:flex;flex-direction:column;gap:6px;align-items:flex-start;pointer-events:auto}
+#friends button{background:#fff;border:3px solid #23324a;border-radius:999px;padding:6px 14px;font-weight:800;font-size:15px;box-shadow:0 3px 0 rgba(35,50,74,.35);white-space:nowrap}
+#friends button:active{transform:translateY(2px);box-shadow:none}
+#friends button.fight{background:#e8402a;color:#fff;animation:pulse .7s infinite alternate;font-size:17px}
+#friends button.dadb{background:#ffe9a0}
+@keyframes pulse{to{transform:scale(1.08)}}
+.card.dadcard{flex-direction:row;gap:8px;width:auto;margin:0 auto;padding:8px 18px;border-width:3px;border-radius:999px;font-weight:800;font-size:16px;display:inline-flex}
+.card.dadcard span{font-size:12px}

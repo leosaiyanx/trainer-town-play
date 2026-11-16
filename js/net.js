@@ -6,7 +6,11 @@
   const TT = window.TT;
   const N = TT.Net = { peers: {}, id: 0, on: false, mode: '', room: '' };
   const q = new URLSearchParams(location.search);
-  const got = (id, d) => { const p = N.peers[id] || (N.peers[id] = { id }); p.d = d; p.last = performance.now(); p.gone = false; };
+  // d.e marks a one-off event (battle sync, cheer, gift...); everything else is a position update
+  const got = (id, d) => {
+    if (d && d.e) { if (d.to != null && String(d.to) !== String(N.id)) return; if (N.onEvent) try { N.onEvent(id, d); } catch (e) { console.error(e); } return; }
+    const p = N.peers[id] || (N.peers[id] = { id }); p.d = d; p.last = performance.now(); p.gone = false;
+  };
   const bye = id => { if (N.peers[id]) N.peers[id].gone = true; };
   const allGone = () => { for (const k in N.peers) N.peers[k].gone = true; };
 
@@ -58,7 +62,7 @@
     if (!window.Peer || !N.room) return;
     cleanup(); isHub = true;
     const hubId = 'tt-llj-' + N.room.toLowerCase() + '-hub', me = peer = new Peer(hubId);
-    me.on('open', () => { if (peer === me) N.on = true; });
+    me.on('open', () => { if (peer === me) { N.on = true; N.id = 'hub'; } });
     me.on('connection', c => {
       c.on('open', () => { conns[c.peer] = c; });
       c.on('data', d => { if (!d || typeof d !== 'object') return; got(c.peer, d); for (const k in conns) if (k !== c.peer && conns[k].open) conns[k].send({ id: c.peer, d }); });
@@ -73,7 +77,8 @@
     const me = peer = new Peer();
     me.on('open', () => {
       if (peer !== me) return;
-      const c = hub = me.connect(hubId, { reliable: false, serialization: 'json' });
+      N.id = me.id;
+      const c = hub = me.connect(hubId, { reliable: true, serialization: 'json' });
       const lost = () => { if (hub !== c) return; hub = null; N.on = false; allGone(); later(); };
       c.on('open', () => { if (hub === c) N.on = true; });
       c.on('data', m => { if (!m) return; if (m.bye) bye(m.id); else if (m.d) got(m.id, m.d); });
