@@ -86,7 +86,7 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
 .fine{font-size:12px;opacity:.7;margin:0}
 @media (max-height:480px){#title h2{display:none}.card{width:min(180px,30vw)}}
 
-.inbattle #hud,.inbattle #joy,.inbattle #act{display:none!important}
+.inbattle #hud,.inbattle #joy,.inbattle #act,.inbattle #mini,.inbattle #miniBtn{display:none!important}
 @media (max-width:560px){.chip{font-size:15px;padding:3px 9px 3px 5px}.chip i{width:20px;height:20px}#btns button{padding:6px 9px;font-size:14px}#btns{gap:5px}#quest{top:max(54px,calc(env(safe-area-inset-top) + 54px));font-size:12px}#stats{max-width:52%;gap:5px}.bar{width:44px}}
 #bRoom{background:#fff;border:3px solid #23324a;border-radius:999px;padding:6px 16px;font-weight:800;font-size:14px;box-shadow:0 3px 0 rgba(35,50,74,.35)}
 #title p{margin:6px 0}
@@ -96,3 +96,15 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
 #title.wait .card img{background:#dff1ff}
 .card.picked{background:#fff3c4;transform:translateY(3px)}
 #title.wait{background:linear-gradient(#5db9f0,#b9ecff 55%,#8fdc7c 55%,#5fbf58)}
+#mini{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:calc(max(40px,env(safe-area-inset-bottom)) + 108px);width:132px;height:132px;border-radius:18px;border:3px solid #23324a;box-shadow:0 4px 0 rgba(35,50,74,.4);background:#79cc58;touch-action:none}
+#miniBtn{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:calc(max(40px,env(safe-area-inset-bottom)) + 108px);width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid #23324a;font-size:20px;box-shadow:0 3px 0 rgba(35,50,74,.35)}
+@media (max-height:430px){#mini{width:104px;height:104px}}
+.opt{display:block;width:100%;text-align:left;background:#f4f8ff;border:3px solid #23324a;border-radius:16px;padding:12px 16px;margin-bottom:8px;font-weight:800;font-size:18px}
+.opt:active{transform:translateY(2px)}.opt.red{background:#ffe1dc}
+#townMap{display:block;margin:0 auto;border:3px solid #23324a;border-radius:16px;touch-action:none;max-width:100%}
+#mapInfo{font-weight:700;margin:8px 0 6px;min-height:2.6em;text-align:center}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.row button{background:#ffd23c;border:3px solid #23324a;border-radius:14px;padding:8px 14px;font-weight:800;font-size:16px}
+.row button.alt{background:#fff}.row button:disabled{opacity:.4}
+.place.go{cursor:pointer;box-shadow:0 4px 0 rgba(35,50,74,.35)}
+.grade #c{filter:saturate(1.14) contrast(1.04)}

@@ -54,7 +54,7 @@
     x.fillStyle = '#e8b8a0'; for (let i = 0; i < 24; i += 2) { const a = (i + 0.5) / 24 * 6.283; x.beginPath(); x.arc(px(Math.cos(a) * 7.4), px(Math.sin(a) * 7.4), 0.5 * k, 0, 7); x.fill(); }
     g = x.createRadialGradient(px(W.FIRE.x), px(W.FIRE.z), 0, px(W.FIRE.x), px(W.FIRE.z), 5 * k); g.addColorStop(0, '#b89468'); g.addColorStop(0.7, '#d8b888'); g.addColorStop(1, 'rgba(216,184,136,0)');
     x.fillStyle = g; x.beginPath(); x.arc(px(W.FIRE.x), px(W.FIRE.z), 5 * k, 0, 7); x.fill();
-    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; W.groundCanvas = c; W.groundTex = t; return t;
   }
   function arenaTexture() {
     const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d');
@@ -67,7 +67,9 @@
 
   // ---------- props ----------
   const GREENS = [0x4aa64e, 0x57b558, 0x3f984a, 0x66c060, 0x4fae6a], PINES = [0x2f8048, 0x378a50, 0x2a7444], PINKS = [0xf7a8c8, 0xffc0d8, 0xf090b8];
+  W.trees = [];
   function tree(x, z, k, kind, solid) {
+    W.trees.push([x, z, k, kind]);
     const g = grp(chunk(x, z), x, 0, z); g.rotation.y = rand(0, 6.28);
     if (kind === 'pine') {
       P(g, 'trunk', 0x7a5234, [0, 0.7 * k, 0], [0.26 * k, 1.4 * k, 0.26 * k]);
@@ -337,7 +339,36 @@
     for (let i = 0; i < 13; i++) tree(A.x - 16 + i * 2.7 + rand(-0.5, 0.5), A.z - 8 - rand(0, 4), rand(1, 1.5), i % 3 ? 'leaf' : 'pine');
     for (let i = 0; i < 10; i++) { const x = A.x + rand(-11, 11), z = A.z - rand(5, 7); if (i % 2) bush(x, z, rand(0.7, 1.1), i % 4 === 1 ? 0xe8402a : null); else rock(x, z, rand(0.6, 1.2)); flowers(A.x + rand(-8, 8), A.z + rand(-3, 3.5) + (i % 2 ? 2.6 : -2.6), 4, 0.7); }
 
-    for (const k in chunks) { const ch = chunks[k]; scene.add(ch); TT.bakeDeep(ch); prune(ch); }
+    // extra ground detail: little grass tufts and pebbles everywhere that is open lawn
+    for (let i = 0; i < 700; i++) {
+      const x = rand(-56, 56), z = rand(-56, 56); if (!free(x, z, -2.2)) continue;
+      const g = grp(chunk(x, z), x, 0, z), c = pick([0x5cb84c, 0x69c456, 0x4fa844]);
+      if (i % 9 === 0) P(g, 'rock', 0xb4b4bc, [0, 0.05, 0], [rand(0.1, 0.2), 0.08, rand(0.1, 0.18)], [0, rand(0, 3), 0]);
+      else for (let j = 0; j < 3; j++) P(g, 'pyr', c, [rand(-0.15, 0.15), 0.14, rand(-0.15, 0.15)], [0.06, rand(0.25, 0.42), 0.06], [rand(-0.35, 0.35), rand(0, 3), rand(-0.35, 0.35)]);
+    }
+    for (const k in chunks) { const ch = chunks[k]; scene.add(ch); const m = TT.bakeDeep(ch); if (m) m.material = TT.swayMat; prune(ch); }
+
+    // soft shadows painted into the ground under trees and buildings (free on slow tablets)
+    {
+      const x = W.groundCanvas.getContext('2d'), k = 2048 / S, px = v => (v + HALF) * k;
+      for (const t of W.trees) { if (Math.abs(t[0]) > 78 || Math.abs(t[1]) > 78) continue; const X = px(t[0] - 0.55 * t[2]), Y = px(t[1] - 0.65 * t[2]), R = 2.4 * t[2] * k, g = x.createRadialGradient(X, Y, R * 0.15, X, Y, R); g.addColorStop(0, 'rgba(20,62,36,.38)'); g.addColorStop(1, 'rgba(20,62,36,0)'); x.fillStyle = g; x.fillRect(X - R, Y - R, R * 2, R * 2); }
+      const rects = HOUSES.map(h => [h[0], h[1], h[2] + 1.1, h[3] + 1.3]).concat([[-18, -10, 11, 9], [0, -31, 16, 10]]);
+      x.fillStyle = 'rgba(20,55,34,.07)';
+      for (const r of rects) for (let i = 0; i < 6; i++) { const e = i * 0.28; x.beginPath(); (x.roundRect ? x.roundRect(px(r[0] - r[2] / 2 - 0.9 - e), px(r[1] - r[3] / 2 - 1.2 - e), (r[2] + e * 2) * k, (r[3] + e * 2) * k, 10) : x.rect(px(r[0] - r[2] / 2 - 0.9 - e), px(r[1] - r[3] / 2 - 1.2 - e), (r[2] + e * 2) * k, (r[3] + e * 2) * k)); x.fill(); }
+      W.groundTex.needsUpdate = true;
+    }
+    // sun
+    { const sm = new THREE.MeshBasicMaterial({ color: 0xfff4c0, fog: false }), hm = new THREE.MeshBasicMaterial({ color: 0xfff4c0, fog: false, transparent: true, opacity: 0.22, depthWrite: false }); P(W.back, 'sph', sm, [130, 250, 170], 14); P(W.back, 'sph', hm, [130, 250, 170], 26); P(W.back, 'sph', hm, [130, 250, 170], 40); }
+    // butterflies
+    {
+      const bf = [];
+      for (let i = 0; i < 9; i++) {
+        const g = new THREE.Group(), c = new THREE.MeshBasicMaterial({ color: pick([0xffd23c, 0xff8ab0, 0x8ad8ff, 0xffffff, 0xffa040]), side: THREE.DoubleSide }), w = [];
+        for (const s of [1, -1]) { const pv = new THREE.Group(); const m = new THREE.Mesh(TT.G.disc, c); m.scale.set(0.13, 0.17, 1); m.position.x = s * 0.12; m.rotation.x = -1.57; pv.add(m); g.add(pv); w.push(pv); }
+        scene.add(g); bf.push({ g, w, hx: rand(-45, 45), hz: rand(-45, 45), p: rand(0, 6), r: rand(2, 5) });
+      }
+      W.anim.push(t => { for (const b of bf) { const a = t * 0.35 + b.p, x = b.hx + Math.sin(a) * b.r + Math.sin(a * 2.3) * 1.2, z = b.hz + Math.cos(a * 1.3) * b.r; b.g.rotation.y = Math.atan2(x - b.g.position.x, z - b.g.position.z); b.g.position.set(x, 1 + Math.sin(t * 1.7 + b.p) * 0.45, z); const f = Math.sin(t * 22 + b.p) * 1.0; b.w[0].rotation.z = f; b.w[1].rotation.z = -f; } });
+    }
 
     // chimney smoke
     const sm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false }), puffs = [];
@@ -372,6 +403,22 @@
       if (Math.abs(o - b.o) > 0.001) { b.o = o; b.m.material.opacity = o; const tr = o < 0.98; if (b.m.material.transparent !== tr) { b.m.material.transparent = tr; b.m.material.needsUpdate = true; } }
     }
   };
+
+  W.HOUSES = HOUSES;
+  // places shown on the map: name, x, z, icon, note, [walk-to x, z]
+  W.PLACES = [
+    ['Pokémon Lab', 0, -31, '🔬', 'Professor Oak works here.', 0, -24],
+    ['Poké Center', -18, -10, '🏥', 'Nurse Joy heals your Pokémon for free.', -18, -3.5],
+    ['Fountain Plaza', 0, 0, '⛲', 'The middle of town.', 0, 5],
+    ['Market', 6.4, -10, '🍎', 'Fresh berries!', 6.4, -7.5],
+    ['West Meadow', -40, 30, '🌿', 'Tall grass: Pidgey, Rattata, Caterpie, Oddish.', -40, 30],
+    ['Sunny Grove', 40, -32, '🌳', 'Tall grass: Bulbasaur, Charmander, Eevee.', 40, -32],
+    ['North Field', -40, -36, '🌾', 'Tall grass: Rattata, Caterpie, Pidgey.', -40, -36],
+    ['Pond', 32, 24, '🎣', 'Psyduck and Squirtle live on the shore.', 21, 17],
+    ['Campfire', 5, 27, '🔥', 'Carry an egg here to warm it up.', 3, 23.5],
+    ['Egg Nest', -49, 41, '🥚', 'A mystery egg appears here.', -47.5, 39.5],
+    ['City Gate', 0, -56, '🚧', 'The road to the City. Opening soon!', 0, -50]
+  ];
 
   // townsfolk: [key, model, name, x, z, wanderRadius, lines]
   W.NPCS = [

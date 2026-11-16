@@ -27,6 +27,18 @@
   TT.olMat = new THREE.MeshBasicMaterial({ color: 0x2b2438, side: THREE.BackSide });
   TT.olMat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed += normalize(normal) * 0.016;'); };
 
+  // foliage material: same look, but greenish vertices sway gently in the wind
+  TT.uTime = { value: 0 };
+  TT.swayMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: grad });
+  TT.swayMat.customProgramCacheKey = () => 'sway';
+  TT.swayMat.onBeforeCompile = sh => {
+    sh.uniforms.uTime = TT.uTime;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float gw = step(color.r * 1.1, color.g) * step(color.b * 1.1, color.g) * (0.22 + smoothstep(0.4, 3.2, position.y));
+      transformed.x += sin(uTime * 1.3 + position.x * 0.35 + position.z * 0.27) * 0.11 * gw;
+      transformed.z += cos(uTime * 1.05 + position.x * 0.3 - position.z * 0.2) * 0.08 * gw;`);
+  };
+
   const flat = g => { const n = g.index ? g.toNonIndexed() : g; n.computeVertexNormals(); return n; };
   const prism = (() => { // gable roof: ridge along x, base 1x1, height 1
     const A = [-.5, 0, .5], B = [.5, 0, .5], C = [.5, 0, -.5], D = [-.5, 0, -.5], E = [-.5, 1, 0], F = [.5, 1, 0];
@@ -63,7 +75,7 @@
 
   // ---- baking: merge many primitive meshes into one vertex-coloured mesh ----
   const _v = new THREE.Vector3(), _n3 = new THREE.Matrix3();
-  function merge(list) { // list: [{mesh, matrix}]
+  function merge(list, ao) { // list: [{mesh, matrix}]; ao darkens vertices near the ground for depth
     let n = 0;
     const gs = list.map(e => { const g0 = e.mesh.geometry, g = g0.index ? (g0._ni || (g0._ni = g0.toNonIndexed())) : g0; n += g.attributes.position.count; return g; });
     const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
@@ -73,7 +85,8 @@
       for (let j = 0; j < pa.count; j++, o += 3) {
         _v.fromBufferAttribute(pa, j).applyMatrix4(mx); pos[o] = _v.x; pos[o + 1] = _v.y; pos[o + 2] = _v.z;
         _v.fromBufferAttribute(na, j).applyMatrix3(_n3).normalize(); nor[o] = _v.x; nor[o + 1] = _v.y; nor[o + 2] = _v.z;
-        col[o] = c.r; col[o + 1] = c.g; col[o + 2] = c.b;
+        let k = 1; if (ao) { const y = Math.min(1, Math.max(0, pos[o + 1] / 1.5)); k = 0.84 + 0.16 * y * y * (3 - 2 * y); }
+        col[o] = c.r * k; col[o + 1] = c.g * k; col[o + 2] = c.b * k;
       }
     });
     const g = new THREE.BufferGeometry();
@@ -99,7 +112,7 @@
     root.traverse(ch => { if (bakeable(ch)) ms.push({ mesh: ch, matrix: new THREE.Matrix4().multiplyMatrices(inv, ch.matrixWorld) }); });
     if (!ms.length) return null;
     ms.forEach(e => e.mesh.parent.remove(e.mesh));
-    const m = merge(ms); root.add(m); return m;
+    const m = merge(ms, true); root.add(m); return m;
   };
   TT.rand = (a, b) => a + Math.random() * (b - a);
   TT.pick = a => a[(Math.random() * a.length) | 0];
@@ -136,7 +149,7 @@
   };
 
   // --- audio: synth voices, noise, echo; original tunes (no samples, no network) ---
-  let ac = null, master, musicBus, sfxBus, echo, noiseBuf; TT.muted = false;
+  let ac = null, master, musicBus, sfxBus, voiceBus, echo, noiseBuf; TT.muted = false;
   TT.audioInit = () => {
     if (!ac) {
       try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
@@ -144,6 +157,7 @@
       const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
       musicBus = ac.createGain(); musicBus.gain.value = 0.42; musicBus.connect(master);
       sfxBus = ac.createGain(); sfxBus.gain.value = 0.85; sfxBus.connect(master);
+      voiceBus = ac.createGain(); voiceBus.gain.value = 1.5; voiceBus.connect(master);
       echo = ac.createDelay(0.5); echo.delayTime.value = 0.19;
       const fb = ac.createGain(); fb.gain.value = 0.28; const eg = ac.createGain(); eg.gain.value = 0.3;
       echo.connect(fb); fb.connect(echo); echo.connect(eg); eg.connect(musicBus);
@@ -201,8 +215,28 @@
   const MOVE = { fire: 'fire', water: 'water', grass: 'leaf', flying: 'wind', psychic: 'psy', ghost: 'psy', electric: 'zap' };
   TT.sfx.move = type => (TT.sfx[MOVE[type]] || TT.sfx.whoosh)();
   // creature voices: a short synthetic call, different per species
+  // ---- recorded voices (voice/*.m4a, made by tools/make_voices.py) ----
+  TT.voiceOn = true; try { TT.voiceOn = localStorage.getItem('tt_voice') !== '0'; } catch (e) { }
+  TT.setVoice = on => { TT.voiceOn = on; try { localStorage.setItem('tt_voice', on ? '1' : '0'); } catch (e) { } if (!on) TT.hush(); };
+  TT.VOX = null; fetch('voice/index.json').then(r => r.ok ? r.json() : null).then(j => { TT.VOX = j; }).catch(() => { });
+  const clips = {}; let vsrc = null, vtok = 0;
+  const loadClip = f => clips[f] || (clips[f] = fetch('voice/' + f).then(r => r.arrayBuffer()).then(b => new Promise((res, rej) => ac.decodeAudioData(b, res, rej))).catch(() => null));
+  function playClip(buf, rate, bus) { const s = ac.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate || 1; s.connect(bus); s.start(); return s; }
+  TT.voiceKey = (who, text) => { const s = who + '|' + text; let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
+  const duck = on => { if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.16 : 0.42, ac.currentTime, 0.15); };
+  TT.hush = () => { vtok++; if (vsrc) { try { vsrc.stop(); } catch (e) { } vsrc = null; duck(false); } };
+  // speak one dialogue line; a Pokémon speaker (or a line with no recording) falls back to its cry
+  TT.speak = (who, text) => {
+    TT.hush(); if (!ac || TT.muted || !TT.voiceOn) return;
+    const V = TT.VOX, key = TT.voiceKey(who, text), sp = (who || '').toLowerCase();
+    if (!V || V.lines[key] == null) { if (TT.DEX && TT.DEX[sp]) TT.cry(sp); else if (V) (TT.voiceMiss = TT.voiceMiss || []).push(who + '|' + text); return; }
+    const tok = ++vtok;
+    loadClip(key + '.m4a').then(buf => { if (!buf || tok !== vtok) return; duck(true); const s = vsrc = playClip(buf, V.lines[key], voiceBus); s.onended = () => { if (vsrc === s) { vsrc = null; duck(false); } }; });
+  };
   TT.cry = (sp, pitch) => {
     if (!ac || TT.muted) return; const t = ac.currentTime + 0.01, k = pitch || 1;
+    const V = TT.VOX, nc = V && V.cries && V.cries[sp];
+    if (nc && TT.voiceOn) { const f = 'cry_' + sp + '_' + ((Math.random() * nc) | 0) + '.m4a'; if (clips[f] && clips[f].buf) { playClip(clips[f].buf, V.cryRate * (k < 1 ? 0.8 : 1), voiceBus); return; } const pr = loadClip(f); pr.then(b => { pr.buf = b; }); }
     if (sp === 'pikachu') { voice(sfxBus, 'square', 950 * k, t, 0.09, 0.1, { slide: 1350 * k }); voice(sfxBus, 'square', 1150 * k, t + 0.11, 0.12, 0.1, { slide: 800 * k }); voice(sfxBus, 'square', 1000 * k, t + 0.27, 0.2, 0.09, { slide: 620 * k, vib: 18 }); return; }
     let h = 7; for (let i = 0; i < sp.length; i++) h = (h * 31 + sp.charCodeAt(i)) >>> 0;
     const n = 2 + (h % 2), type = h & 4 ? 'square' : 'sawtooth';
@@ -270,11 +304,11 @@
   function show() {
     const l = dq.lines[dq.i];
     $('dwho').textContent = l[0] || ''; $('dtext').textContent = l[1];
-    $('dialog').classList.remove('hide'); TT.sfx.blip();
+    $('dialog').classList.remove('hide'); TT.sfx.blip(); TT.speak(l[0] || '', l[1]);
   }
   TT.dialogNext = () => {
     if (!dq) return;
-    if (++dq.i >= dq.lines.length) { const r = dq.res; dq = null; TT.dialogOpen = false; $('dialog').classList.add('hide'); r(); }
+    if (++dq.i >= dq.lines.length) { const r = dq.res; dq = null; TT.dialogOpen = false; $('dialog').classList.add('hide'); TT.hush(); r(); }
     else show();
   };
   $('dialog').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); TT.audioInit(); TT.dialogNext(); });

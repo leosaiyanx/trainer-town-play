@@ -10,6 +10,7 @@
   const input = { x: 0, y: 0, keys: {} };
   let sun, quality = 2, qLock = false, qN = 0, qT = 0, dustT = 0;
   const blobs = [], actors = [], dust = [];
+  let miniOn = true, miniT = 0, dest = null, beacon = null, mapBase = null; try { miniOn = localStorage.getItem('tt_mini') !== '0'; } catch (e) { }
   const cam = { x: 0, z: 8 };
   const NAMES = { ash: 'Ash', liko: 'Liko' }, STARTER = { ash: 'pikachu', liko: 'sprigatito' };
 
@@ -32,7 +33,7 @@
     sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.002; sun.shadow.normalBias = 0.04;
     const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 130;
     quality = +(new URLSearchParams(location.search).get('q') || 2); qLock = location.search.indexOf('q=') >= 0;
-    camera = new THREE.PerspectiveCamera(40, 1, 0.5, 900);
+    camera = new THREE.PerspectiveCamera(40, 1, 0.5, 900); document.body.classList.toggle('grade', quality >= 2);
     const tm = TT.timing = {}, t0 = performance.now();
     W.build(scene); tm.world = Math.round(performance.now() - t0);
     for (const d of W.NPCS) {
@@ -70,7 +71,7 @@
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       const ev = q.get('evt');
-      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
+      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showTownMap(); if (ev === 'menu') showMenu(); if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
     }
     requestAnimationFrame(frame);
     setInterval(() => { if (performance.now() - lastReal > 400) G.tick(performance.now()); }, 200);
@@ -91,7 +92,7 @@
     player.root = wrap(TT.human(TT.PEOPLE[ch]), 0.42); player.x = cam.x = ch === 'ash' ? 1.5 : -1.5; player.z = 8; player.h = Math.PI;
     setFollower();
     $('title').classList.add('hide'); for (const id of ['hud', 'joy', 'act']) $(id).classList.remove('hide');
-    mode = 'play'; TT.music('town'); nextRocket = S.caught.length ? 60 : 150; hud();
+    mode = 'play'; TT.music('town'); setMini(miniOn); nextRocket = S.caught.length ? 60 : 150; hud();
     if (fresh) intro();
   }
   async function intro() {
@@ -153,7 +154,7 @@
   function nearestNpc() { let best = null, bd = 2.9; for (const n of npcs) { const d = dist(n, player); if (d < bd) { bd = d; best = n; } } return best; }
   async function talk(n) {
     busy = true; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
-    const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk'; else TT.cry(mdl.userData.sp);
+    const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
     if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse();
     else await TT.say([[n.name, n.lines[n.i++ % n.lines.length]]]);
     mdl.userData.gesture = null; busy = false; hud(); save();
@@ -286,12 +287,97 @@
   }
   function showMap() {
     let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="mapgrid">' +
-      '<div class="place">🏡 Trainer Town<small>You are here!</small></div><div class="place lock">🏙️ The City<small>Coming soon</small></div>' +
+      '<div class="place go" id="pTown">🏡 Trainer Town<small>You are here! Tap to open the town map ➜</small></div><div class="place lock">🏙️ The City<small>Coming soon</small></div>' +
       '<div class="place lock">🌍 The Wide World<small>Goku waits halfway...</small></div><div class="place lock">🐉 Dragon\'s Lair<small>Needs all 7 Dragon Balls</small></div></div><div class="stars">';
     for (let i = 1; i <= 7; i++) h += '<i class="' + (S.stars.indexOf(i) >= 0 ? 'got' : '') + '">' + '★'.repeat(i > 4 ? 1 : i) + (i > 4 ? i : '') + '</i>';
     h += '</div><p style="text-align:center;font-weight:700;margin:4px 0 10px">Dragon Balls: ' + S.stars.length + ' / 7</p><p style="text-align:center;margin:0"><button id="pReset" style="background:none;text-decoration:underline;font-size:13px;opacity:.6">Start this character over</button></p>';
     openPanel(h);
+    $('pTown').onclick = showTownMap;
     $('pReset').onclick = () => { if (confirm('Erase ' + NAMES[S.ch] + "'s saved game and start over?")) { localStorage.removeItem('tt1_' + S.ch); location.reload(); } };
+  }
+
+  // ---------- menu, main-menu return ----------
+  function showMenu() {
+    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); };
+    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
+    lab();
+    $('mResume').onclick = closePanel;
+    $('mSound').onclick = () => { TT.setMuted(!TT.muted); lab(); };
+    $('mVoice').onclick = () => { TT.setVoice(!TT.voiceOn); lab(); if (TT.voiceOn) TT.cry(S.party[0].sp); };
+    $('mMini').onclick = () => { setMini(!miniOn); lab(); };
+    $('mTitle').onclick = toTitle;
+  }
+  function toTitle() {
+    save(); closePanel(); stopInput(); TT.hush(); setDest(null);
+    scene.remove(player.root); if (follower) scene.remove(follower.root); follower = null; eggObj.visible = false; player.root = null;
+    S = null; TT.S = null; mode = 'title';
+    for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn']) $(id).classList.add('hide');
+    $('title').classList.remove('hide');
+  }
+
+  // ---------- maps ----------
+  const css = n => '#' + n.toString(16).padStart(6, '0'), MS = 512 / 160, mp = v => (v + 80) * MS;
+  function baseMap() {
+    if (mapBase) return mapBase;
+    const c = mapBase = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d');
+    x.drawImage(W.groundCanvas, 0, 0, 512, 512);
+    x.fillStyle = '#3fa6ea'; x.beginPath(); x.arc(mp(W.POND.x), mp(W.POND.z), W.POND.r * MS, 0, 7); x.fill(); x.strokeStyle = '#cdeeff'; x.lineWidth = 2; x.stroke();
+    for (const t of W.trees) { if (Math.abs(t[0]) > 79 || Math.abs(t[1]) > 79) continue; x.fillStyle = t[3] === 'pine' ? '#2f8048' : t[3] === 'blossom' ? '#f7a8c8' : '#4aa64e'; x.beginPath(); x.arc(mp(t[0]), mp(t[1]), 1.5 * t[2] * MS, 0, 7); x.fill(); x.fillStyle = 'rgba(255,255,255,.18)'; x.beginPath(); x.arc(mp(t[0]) - 1, mp(t[1]) - 1, 0.7 * t[2] * MS, 0, 7); x.fill(); }
+    const roof = (cx, cz, w, d, col) => { x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(mp(cx - w / 2) - 2, mp(cz - d / 2) - 2, w * MS + 2, d * MS + 2); x.fillStyle = col; x.fillRect(mp(cx - w / 2), mp(cz - d / 2), w * MS, d * MS); x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(mp(cx - w / 2), mp(cz) - 1, w * MS, 2); };
+    for (const h of W.HOUSES) roof(h[0], h[1], h[2] + 1, h[3] + 1, css(h[5]));
+    roof(-18, -10, 11, 9, '#e2382e'); x.fillStyle = '#fff'; x.beginPath(); x.arc(mp(-18), mp(-10), 7, 0, 7); x.fill();
+    roof(0, -31, 16, 10, '#5a7ab8'); x.fillStyle = '#8ab8e8'; x.beginPath(); x.arc(mp(-3.5), mp(-31.5), 8, 0, 7); x.fill();
+    x.fillStyle = '#e2e2ea'; x.beginPath(); x.arc(mp(0), mp(0), 2.7 * MS, 0, 7); x.fill(); x.fillStyle = '#6ac8f8'; x.beginPath(); x.arc(mp(0), mp(0), 1.9 * MS, 0, 7); x.fill();
+    x.fillStyle = '#ff7a1a'; x.beginPath(); x.arc(mp(W.FIRE.x), mp(W.FIRE.z), 3.5, 0, 7); x.fill();
+    x.strokeStyle = '#d8b070'; x.lineWidth = 2; x.strokeRect(mp(-57.4), mp(-57.4), 114.8 * MS, 114.8 * MS);
+    return c;
+  }
+  function setMini(on) { miniOn = on; try { localStorage.setItem('tt_mini', on ? '1' : '0'); } catch (e) { } const p = mode === 'play'; $('mini').classList.toggle('hide', !(on && p)); $('miniBtn').classList.toggle('hide', !(!on && p)); }
+  function setDest(d) {
+    dest = d;
+    if (!beacon) { beacon = new THREE.Group(); P(beacon, 'cyl', new THREE.MeshBasicMaterial({ color: 0xffe060, transparent: true, opacity: 0.35, depthWrite: false }), [0, 4, 0], [0.5, 8, 0.5]); P(beacon, 'cone', TT.glow(0xffb020), [0, 3.2, 0], [0.5, 1, 0.5], [Math.PI, 0, 0]); P(beacon, 'cyl', new THREE.MeshBasicMaterial({ color: 0xffe060, transparent: true, opacity: 0.5, depthWrite: false }), [0, 0.06, 0], [1.3, 0.04, 1.3]); scene.add(beacon); }
+    beacon.visible = !!d; if (d) beacon.position.set(d.x, 0, d.z);
+  }
+  function drawMini() {
+    const c = $('mini'), x = c.getContext('2d'), R = 28, k = 264 / (R * 2), X = v => (v - player.x + R) * k, Z = v => (v - player.z + R) * k;
+    x.fillStyle = '#74c456'; x.fillRect(0, 0, 264, 264);
+    x.drawImage(baseMap(), mp(player.x - R), mp(player.z - R), R * 2 * MS, R * 2 * MS, 0, 0, 264, 264);
+    const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 2; x.beginPath(); x.arc(X(px), Z(pz), r, 0, 7); x.fill(); x.stroke(); };
+    for (const w of wilds) dot(w.x, w.z, '#ff5a4a', 5);
+    for (const n of npcs) dot(n.x, n.z, n.human ? '#ffd23c' : '#ffa0c0', 5);
+    for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 8); }
+    if (dest) { const dx = TT.clamp(X(dest.x), 14, 250), dz = TT.clamp(Z(dest.z), 14, 250); x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 3; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(132, 132); x.lineTo(dx, dz); x.stroke(); x.setLineDash([]); x.font = '26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('📍', dx, dz - 8); }
+    x.save(); x.translate(132, 132); x.rotate(Math.PI - player.h); x.fillStyle = '#fff'; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -15); x.lineTo(11, 11); x.lineTo(0, 5); x.lineTo(-11, 11); x.closePath(); x.fill(); x.stroke(); x.restore();
+  }
+  function showTownMap() {
+    const size = Math.max(240, Math.min(window.innerWidth * 0.86, window.innerHeight * 0.58, 560)) | 0;
+    openPanel('<h3>Trainer Town <button id="pClose">✕</button></h3><canvas id="townMap" width="' + size * 2 + '" height="' + size * 2 + '" style="width:' + size + 'px;height:' + size + 'px"></canvas><div id="mapInfo">Tap a place to learn about it.</div><div class="row"><button id="mGo" disabled>📍 Guide me there</button><button id="mClear" class="alt">Stop guiding</button><button id="mBack" class="alt">World map</button></div>');
+    const V = 62, c = $('townMap'), x = c.getContext('2d'), k = size * 2 / (V * 2), X = v => (v + V) * k; let sel = null, tick = 0;
+    const draw = () => {
+      if (!c.isConnected || !S) return clearInterval(iv);
+      tick++; x.drawImage(baseMap(), mp(-V), mp(-V), V * 2 * MS, V * 2 * MS, 0, 0, size * 2, size * 2);
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      for (const p of W.PLACES) {
+        const on = sel && sel.p === p; x.font = (on ? 46 : 36) * size / 500 + 'px sans-serif'; x.fillText(p[3], X(p[1]), X(p[2]));
+        x.font = '800 ' + (22 * size / 500) + 'px "Avenir Next","Trebuchet MS",sans-serif'; x.lineWidth = 5; x.strokeStyle = on ? '#ffd23c' : 'rgba(255,255,255,.92)'; x.fillStyle = '#23324a'; x.strokeText(p[0], X(p[1]), X(p[2]) + 30 * size / 500); x.fillText(p[0], X(p[1]), X(p[2]) + 30 * size / 500);
+      }
+      const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.arc(X(px), X(pz), r, 0, 7); x.fill(); x.stroke(); };
+      for (const n of npcs) if (n.human) dot(n.x, n.z, '#ffd23c', 6);
+      for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 10); }
+      const d = sel || (dest && { x: dest.x, z: dest.z }); if (d) { x.font = 44 * size / 500 + 'px sans-serif'; x.fillText('📍', X(d.x), X(d.z) - 16); }
+      const pulse = 10 + Math.sin(tick * 0.5) * 4; x.fillStyle = 'rgba(255,255,255,.4)'; x.beginPath(); x.arc(X(player.x), X(player.z), pulse + 8, 0, 7); x.fill(); dot(player.x, player.z, '#e8402a', 9);
+    };
+    const iv = setInterval(draw, 120); draw();
+    c.addEventListener('pointerdown', e => {
+      e.preventDefault(); const r = c.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * V * 2 - V, wz = (e.clientY - r.top) / r.height * V * 2 - V;
+      let best = null, bd = 9; for (const p of W.PLACES) { const d = Math.hypot(p[1] - wx, p[2] - wz); if (d < bd) { bd = d; best = p; } }
+      if (best) { sel = { p: best, x: best[5], z: best[6], n: best[0] }; $('mapInfo').innerHTML = '<b>' + best[3] + ' ' + best[0] + '</b><br>' + best[4]; }
+      else { const q = W.collide(TT.clamp(wx, -55, 55), TT.clamp(wz, -55, 55), 0.6); sel = { x: q[0], z: q[1], n: 'that spot' }; $('mapInfo').innerHTML = '<b>📍 This spot</b><br>Tap "Guide me there" to get an arrow to it.'; }
+      $('mGo').disabled = false; TT.sfx.blip(); draw();
+    });
+    $('mGo').onclick = () => { if (!sel) return; setDest({ x: sel.x, z: sel.z, n: sel.n }); clearInterval(iv); closePanel(); TT.sfx.pick(); TT.toast('Follow the 📍 to ' + sel.n + '!'); };
+    $('mClear').onclick = () => { setDest(null); sel = null; $('mGo').disabled = true; $('mapInfo').textContent = 'Tap a place to learn about it.'; draw(); };
+    $('mBack').onclick = () => { clearInterval(iv); showMap(); };
   }
 
   // ---------- input ----------
@@ -319,7 +405,9 @@
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     $('act').addEventListener('pointerdown', e => { e.preventDefault(); TT.audioInit(); interact(); });
     $('bTeam').onclick = () => { if (!busy && S) showTeam(); }; $('bMap').onclick = () => { if (!busy && S) showMap(); };
-    $('bSnd').onclick = () => { TT.audioInit(); TT.setMuted(!TT.muted); $('bSnd').style.opacity = TT.muted ? 0.4 : 1; };
+    $('bMenu').onclick = () => { TT.audioInit(); if (!busy && S) showMenu(); };
+    $('mini').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); setMini(false); });
+    $('miniBtn').onclick = () => setMini(true);
     $('panel').addEventListener('pointerdown', e => { if (e.target === $('panel')) closePanel(); });
     window.addEventListener('keydown', e => {
       input.keys[e.code] = 1;
@@ -356,6 +444,7 @@
   // ---------- main update ----------
   function update(dt) {
     W.update(t, camera, mode === 'play' && !TT.Battle.active ? player.x : null, player.z);
+    TT.uTime.value = t;
     { const fx = Math.round(TT.Battle.active ? W.ARENA.x : mode === 'play' ? cam.x : 0), fz = Math.round(TT.Battle.active ? W.ARENA.z : mode === 'play' ? cam.z : 0); sun.position.set(fx + 18, 38, fz + 24); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld(); }
     for (const a of actors) { if (a.userData.human) TT.animHuman(a, t, 0); else TT.animCreature(a, t, 0); }
     for (const d of dust) if (d.visible) { d.userData.k += dt * 2.2; const k = d.userData.k; if (k >= 1) d.visible = false; else { d.scale.setScalar(0.12 + k * 0.4); d.position.y = 0.1 + k * 0.5; d.material.opacity = 0.5 * (1 - k); } }
@@ -417,6 +506,8 @@
     if (S.egg.have && !(busy && S.egg.warm >= 100)) { eggObj.visible = true; const ex = follower.x - Math.sin(follower.h) * 0.8, ez = follower.z - Math.cos(follower.h) * 0.8; eggObj.position.x += (ex - eggObj.position.x) * Math.min(1, dt * 6); eggObj.position.z += (ez - eggObj.position.z) * Math.min(1, dt * 6); eggObj.position.y = Math.abs(Math.sin(t * 5)) * 0.08 * follower.mv; }
     else if (!S.egg.have) eggObj.visible = false;
 
+    if (miniOn && !TT.Battle.active && (miniT += dt) > 0.12) { miniT = 0; drawMini(); }
+    if (dest) { beacon.rotation.y = t * 2; beacon.children[1].position.y = 3.2 + Math.sin(t * 4) * 0.4; if (idle && Math.hypot(dest.x - player.x, dest.z - player.z) < 2.6) { TT.sfx.pick(); TT.toast('You made it to ' + dest.n + '!'); setDest(null); } }
     const near = idle && nearestNpc(), act = $('act');
     act.textContent = near ? 'Talk' : 'A'; act.classList.toggle('dim', !near && !TT.dialogOpen);
 
@@ -430,7 +521,7 @@
 
   function setQuality(q) {
     quality = q; sun.castShadow = q >= 2; for (const b of blobs) b.visible = q < 2;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q >= 2 ? 1.5 : 1)); resize();
+    renderer.setPixelRatio(q >= 2 ? Math.min(window.devicePixelRatio || 1, 1.5) : q === 1 ? 1 : 0.8); document.body.classList.toggle('grade', q >= 2); resize();
   }
   function frame(ts) {
     requestAnimationFrame(frame);
@@ -446,6 +537,7 @@
     renderer.render(scene, camera);
   };
   // test hooks
+  G.toTitle = toTitle;
   G.dbg = () => ({ S, player, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame });
 
   // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
