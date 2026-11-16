@@ -116,3 +116,8 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
 @keyframes pulse{to{transform:scale(1.08)}}
 .card.dadcard{flex-direction:row;gap:8px;width:auto;margin:0 auto;padding:8px 18px;border-width:3px;border-radius:999px;font-weight:800;font-size:16px;display:inline-flex}
 .card.dadcard span{font-size:12px}
+.newp{width:100%;aspect-ratio:1;border-radius:16px;background:#dff1ff;display:flex;align-items:center;justify-content:center;font-size:64px;color:#3aa0e8;font-weight:900}
+#chars{flex-wrap:wrap}
+.pickrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.pickrow .card{width:auto;padding:6px 6px 10px}.pickrow .card b{font-size:20px}.pickrow .card span{font-size:12px}
+@media (max-width:560px){.pickrow{grid-template-columns:repeat(2,1fr)}}
+#chars.many{gap:10px}#chars.many .card{width:min(190px,29vw);padding:8px 8px 10px}#chars.many .card b{font-size:22px}

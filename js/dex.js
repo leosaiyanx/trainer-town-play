@@ -156,6 +156,13 @@
       x: q => { for (const s of [1, -1]) P(q.spine, 'box', WH, [s * 0.1, 0.15, 0.105], [0.07, 0.05, 0.02]); P(q.spine, 'box', 0xf2c230, [0, 0.27, 0.12], [0.02, 0.4, 0.012]); } },
     liko: { skin: SK[1], hair: 0x1f2740, hairStyle: 'liko', eye: 0x3cae98, blush: 1, top: 0xf5f2e8, hood: 1, trim: 0xbfe3c8, cuff: 0xbfe3c8, inner: 0x3f9c8c, lower: 0x2c3350, shorts: 1, sock: WH, shoes: 0x7a5238, scale: 0.88 },
     dad: { skin: SK[5], hair: BK, hairStyle: 'short', beard: BK, eye: 0x4a3018, top: 0x2a6a4a, collar: WH, trim: 0x22222a, lower: 0x3a4a6a, shoes: 0x5a4030, pack: 0xc8742a },
+    gary: { skin: SK[0], hair: 0x8a5a2a, hairStyle: 'spiky', eye: 0x3a5a3a, top: 0x5a3a8a, collar: 0x3a2a5a, lower: 0x3a3a4a, shoes: 0x5a4030, pack: 0xd8c890, scale: 0.9 },
+    leaf: { skin: SK[1], hair: 0x7a4a2a, hairStyle: 'long', hat: 'cap', hatColor: 0xf4f4f4, blush: 1, top: 0x6ac0e0, skirt: 0xe2382e, short: 1, sock: WH, shoes: 0xf4f4f4, pack: 0xffd23c, scale: 0.88 },
+    misty: { skin: SK[1], hair: 0xf08030, hairStyle: 'ponytail', eye: 0x3a9a8a, top: 0xffd23c, short: 1, lower: 0x4a8ad0, shorts: 1, shoes: 0xe2382e, trim: 0xe2382e, scale: 0.95 },
+    gohan: { skin: SK[0], hair: BK, hairStyle: 'spiky', kid: 1, top: 0x6a3ab0, trim: 0xe2382e, short: 1, cuff: 0xe2382e, lower: 0x6a3ab0, shoes: 0x3a3a44, scale: 0.82 },
+    clerk: { skin: SK[2], hair: 0x3a2a1a, hairStyle: 'short', top: 0x3a8ad8, apron: 1, short: 1, lower: 0x3a4a6a, shoes: 0x3a3a44 },
+    lady: { skin: SK[1], hair: 0xe8c060, hairStyle: 'bun', blush: 1, eye: 0x4a8ad0, top: 0x2a9a8a, skirt: 0x2a6a6a, sock: WH, shoes: 0x8a4a3a },
+    biz: { skin: SK[3], hair: BK, hairStyle: 'short', glasses: 1, top: 0x3a4a6a, inner: WH, collar: WH, lower: 0x3a4a6a, shoes: 0x22222a },
     prof: { skin: SK[4], hair: 0xa8acb4, hairStyle: 'short', brow: 0x8a8e96, top: WH, coat: 1, inner: 0xb04a3a, lower: 0x7a6a50, shoes: 0x5a4030 },
     nurse: { skin: SK[1], hair: 0xf58ab0, hairStyle: 'loops', hat: 'nurse', eye: 0x3a7ad0, blush: 1, top: 0xf7a8c0, skirt: 0xf7a8c0, apron: 1, short: 1, sock: WH, shoes: 0xf0608a },
     jessie: { skin: SK[1], hair: 0xc8327a, hairStyle: 'jessie', eye: 0x3050c0, top: WH, badge: 0xe01818, inner: 0x22222a, skirt: WH, short: 1, glove: 0x22222a, sock: 0x22222a, shoes: 0x22222a, sole: 0x22222a },
@@ -309,6 +316,20 @@
   B.bulbasaur = () => crit({ c: 0x7fd1b0, b: [0.22, 0.19, 0.3], by: 0.29, hy: 0.44, hz: 0.3, hr: 0.22, hs: [0.24, 0.19, 0.21], legs: 4, ear: 'cat', earY: 0.5, earX: 0.6, eyeS: 'big', eye: 0xc02a2a, er: 0.19, ex: 0.115, ey: 0.03, ez: 0.17, eyeTurn: 0.55,
     x: (g, h, body, f) => { for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; P(body, 'sph', 0x4aa84a, [Math.sin(a) * 0.09, 0.5, -0.08 + Math.cos(a) * 0.09], [0.12, 0.2, 0.12]); } P(body, 'cone', 0x3a984a, [0, 0.74, -0.08], [0.09, 0.16, 0.09]); for (const q of [[0.12, 0.36, 0.2], [-0.15, 0.3, 0.1], [0.05, 0.1, 0.16]]) P(q[1] > 0.2 ? body : h, 'sph', 0x4a9a8a, q, [0.05, 0.04, 0.03]); P(f, 'box', 0x2a6a5a, [0, -0.1, 0.195], [0.12, 0.012, 0.012]); } });
 
+  B.growlithe = () => crit({ c: 0xf08a3a, belly: 0xf5e6b8, b: [0.19, 0.19, 0.28], by: 0.31, hy: 0.58, hz: 0.25, hr: 0.21, snout: 1, snoutC: 0xf5e6b8, legs: 4, ear: 'round', earY: 0.6, tail: 'fluff', tailC: 0xf5e6b8, eyeS: 'dot', er: 0.17,
+    x: (g, h, body, f) => { P(h, 'sph', 0xf5e6b8, [0, 0.19, 0.02], [0.13, 0.12, 0.13]); for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; P(body, 'sph', 0xf5e6b8, [Math.sin(a) * 0.11, 0.4 + Math.cos(a) * 0.05, 0.19], 0.09); } for (const z of [0.05, -0.1]) P(body, 'box', 0x3a2a22, [0, 0.48, z], [0.3, 0.03, 0.05]); P(f, 'sph', 0x3a2a22, [0, -0.04, 0.21], 0.02); } });
+  B.jigglypuff = () => crit({ c: 0xf9b8d0, b: [0.05, 0.05, 0.05], by: 0.3, hy: 0.36, hz: 0, hr: 0.3, legs: 2, legX: 2.8, ear: 'cat', earIn: 0x5a3a4a, earY: 0.6, eyeS: 'big', eye: 0x2a9ab8, er: 0.2, kind: 'hop', foot: [0.08, 0.05, 0.12],
+    x: (g, h, body, f) => { P(h, 'sph', 0xf9b8d0, [0, 0.2, 0.2], [0.1, 0.1, 0.09]); P(h, 'sph', 0xf9b8d0, [0.05, 0.12, 0.26], 0.07); P(f, 'box', 0x8a3a5a, [0, -0.13, 0.275], [0.06, 0.014, 0.012]); for (const s of [1, -1]) P(body, 'sph', 0xf9b8d0, [s * 0.29, 0.3, 0.04], [0.06, 0.08, 0.06]); } });
+  B.machop = () => crit({ c: 0x9ab4c8, b: [0.2, 0.25, 0.17], by: 0.42, hy: 0.84, hz: 0.03, hr: 0.22, legs: 2, legLen: 1, legX: 0.5, arms: 1, tail: 'curl', eyeS: 'dot', eye: 0xc02a2a, er: 0.16,
+    x: (g, h, body, f) => { for (const q of [-0.07, 0, 0.07]) P(h, 'sph', 0xe8d8b0, [q, 0.2, -0.02], [0.025, 0.07, 0.13]); P(f, 'box', 0x5a6a7a, [0, -0.1, 0.2], [0.09, 0.012, 0.012]); for (const s of [1, -1]) P(body, 'sph', 0x9ab4c8, [s * 0.23, 0.52, 0.05], [0.09, 0.1, 0.09]); } });
+  B.magnemite = () => crit({ c: 0xb8c0cc, b: [0.05, 0.05, 0.05], by: 0.4, hy: 0.42, hz: 0, hr: 0.23, eyeS: 'none', float: 0.45,
+    x: (g, h, body, f, ud) => { P(f, 'sph', WH, [0, 0, 0.19], [0.13, 0.13, 0.06]); P(f, 'sph', BK, [0, 0, 0.245], 0.04); for (const s of [1, -1]) { const pv = grp(body, s * 0.2, 0.42, 0); pv.userData.s = s; P(pv, 'box', 0x8a929e, [s * 0.1, 0, 0], [0.16, 0.06, 0.06]); for (const q of [1, -1]) { P(pv, 'box', 0x8a929e, [s * 0.2, q * 0.08, 0], [0.07, 0.1, 0.07]); P(pv, 'box', q > 0 ? 0xe2382e : 0x3a6ad8, [s * 0.2, q * 0.15, 0], [0.07, 0.06, 0.07]); } ud.arms.push(pv); } P(h, 'cyl', 0x8a929e, [0, 0.25, 0], [0.03, 0.1, 0.03]); P(h, 'cyl', 0x8a929e, [0, 0.3, 0], [0.06, 0.02, 0.06]); for (const s of [1, -1]) P(h, 'cyl', 0x8a929e, [s * 0.1, -0.19, 0.1], [0.025, 0.06, 0.025], [0.5, 0, 0]); } });
+  B.fuecoco = () => crit({ c: 0xe8503a, belly: 0xf5e6b8, b: [0.22, 0.26, 0.2], by: 0.36, hy: 0.78, hz: 0.06, hr: 0.25, hs: [0.25, 0.21, 0.24], snout: 1, legs: 2, legX: 0.55, arms: 1, tail: 'curl', eyeS: 'big', eye: 0x2a2a2a, er: 0.15, ex: 0.1, ey: 0.09, ez: 0.19, eyeTurn: 0.4,
+    x: (g, h, body, f) => { P(h, 'sph', 0xe8503a, [0, -0.07, 0.2], [0.2, 0.1, 0.2]); P(h, 'cone', 0xffd23c, [0, 0.27, -0.02], [0.07, 0.2, 0.06], [-0.3, 0, 0]); P(h, 'cone', 0xff9a1f, [0.06, 0.24, -0.02], [0.04, 0.12, 0.04], [-0.3, 0, -0.4]); P(f, 'box', WH, [0, -0.12, 0.37], [0.2, 0.025, 0.02]); for (const s of [1, -1]) P(f, 'sph', 0x8a2a1a, [s * 0.05, -0.02, 0.385], 0.012); } });
+  B.quaxly = () => crit({ c: 0xf4f6fa, b: [0.2, 0.25, 0.19], by: 0.36, hy: 0.76, hz: 0.04, hr: 0.22, legs: 2, legC: 0xf2c230, foot: [0.09, 0.03, 0.14], arms: 1, tail: 'curl', eyeS: 'big', eye: 0x2a6ad0, er: 0.18,
+    x: (g, h, body, f) => { P(h, 'sph', 0xf2c230, [0, -0.07, 0.2], [0.11, 0.045, 0.11]); P(h, 'sph', 0x3a8ad8, [0, 0.17, 0.04], [0.15, 0.14, 0.17]); P(h, 'sph', 0x3a8ad8, [0, 0.27, 0.13], [0.09, 0.09, 0.1]); P(h, 'sph', 0x6ad0f0, [0, 0.3, 0.2], 0.05); } });
+  B.lugia = () => { const g = bird(0xf2f4fa, 0xdfe8f6, 1.9, 0x4a6ad0); g.userData.float = 0.5; g.userData.kind = 'float'; return g; };
+
   // name, type, hp, atk, def, moves [name,type,power,level], evo [to, level]
   const D = TT.DEX = {
     pikachu: ['Pikachu', 'electric', 35, 55, 40, [['Thunder Shock', 'electric', 40, 1], ['Quick Attack', 'normal', 35, 1], ['Thunderbolt', 'electric', 70, 8], ['Iron Tail', 'normal', 60, 11]]],
@@ -328,11 +349,18 @@
     eevee: ['Eevee', 'normal', 55, 55, 50, [['Tackle', 'normal', 35, 1], ['Swift', 'normal', 55, 4], ['Bite', 'dark', 50, 7]]],
     charmander: ['Charmander', 'fire', 39, 52, 43, [['Scratch', 'normal', 35, 1], ['Ember', 'fire', 45, 1], ['Flamethrower', 'fire', 75, 10]]],
     squirtle: ['Squirtle', 'water', 44, 48, 65, [['Tackle', 'normal', 35, 1], ['Water Gun', 'water', 45, 1], ['Bubble Beam', 'water', 65, 9]]],
+    growlithe: ['Growlithe', 'fire', 55, 70, 45, [['Bite', 'dark', 45, 1], ['Ember', 'fire', 45, 1], ['Flame Wheel', 'fire', 65, 9]]],
+    jigglypuff: ['Jigglypuff', 'normal', 95, 45, 25, [['Pound', 'normal', 40, 1], ['Disarming Voice', 'psychic', 45, 1], ['Body Slam', 'normal', 70, 10]]],
+    machop: ['Machop', 'fighting', 70, 80, 50, [['Karate Chop', 'fighting', 50, 1], ['Low Kick', 'fighting', 45, 1], ['Cross Chop', 'fighting', 75, 11]]],
+    magnemite: ['Magnemite', 'electric', 25, 60, 70, [['Thunder Shock', 'electric', 40, 1], ['Tackle', 'normal', 35, 1], ['Spark', 'electric', 65, 9]]],
+    fuecoco: ['Fuecoco', 'fire', 67, 60, 59, [['Ember', 'fire', 45, 1], ['Bite', 'dark', 45, 1], ['Incinerate', 'fire', 65, 9]]],
+    quaxly: ['Quaxly', 'water', 55, 65, 45, [['Water Gun', 'water', 45, 1], ['Wing Attack', 'flying', 50, 1], ['Aqua Cutter', 'water', 70, 10]]],
+    lugia: ['Lugia', 'flying', 106, 100, 130, [['Aeroblast', 'flying', 80, 1], ['Hydro Pump', 'water', 80, 1]]],
     bulbasaur: ['Bulbasaur', 'grass', 45, 49, 49, [['Tackle', 'normal', 35, 1], ['Vine Whip', 'grass', 45, 1], ['Razor Leaf', 'grass', 60, 8]]]
   };
-  TT.TYPE_COL = { normal: 0xa8a890, fire: 0xf08030, water: 0x4a90e8, grass: 0x5ab84a, electric: 0xf2c230, flying: 0x8aa0f0, bug: 0x98b020, psychic: 0xf06090, ghost: 0x7058a0, dark: 0x5a4a48 };
-  const SE = { fire: ['grass', 'bug'], water: ['fire'], grass: ['water'], electric: ['water', 'flying'], flying: ['grass', 'bug'], bug: ['grass', 'psychic', 'dark'], ghost: ['psychic', 'ghost'], dark: ['psychic', 'ghost'] };
-  const NV = { fire: ['fire', 'water'], water: ['water', 'grass'], grass: ['grass', 'fire', 'flying', 'bug'], electric: ['electric', 'grass'], normal: ['ghost'], psychic: ['dark', 'psychic'], bug: ['fire', 'flying'], dark: ['dark'] };
+  TT.TYPE_COL = { normal: 0xa8a890, fire: 0xf08030, water: 0x4a90e8, grass: 0x5ab84a, electric: 0xf2c230, flying: 0x8aa0f0, bug: 0x98b020, psychic: 0xf06090, ghost: 0x7058a0, dark: 0x5a4a48, fighting: 0xc03028 };
+  const SE = { fire: ['grass', 'bug'], water: ['fire'], grass: ['water'], electric: ['water', 'flying'], flying: ['grass', 'bug'], bug: ['grass', 'psychic', 'dark'], ghost: ['psychic', 'ghost'], dark: ['psychic', 'ghost'], fighting: ['normal', 'dark'] };
+  const NV = { fire: ['fire', 'water'], water: ['water', 'grass'], grass: ['grass', 'fire', 'flying', 'bug'], electric: ['electric', 'grass'], normal: ['ghost'], psychic: ['dark', 'psychic'], bug: ['fire', 'flying'], dark: ['dark'], fighting: ['flying', 'psychic', 'bug', 'ghost'] };
   TT.eff = (a, d) => (SE[a] && SE[a].includes(d)) ? 1.6 : (NV[a] && NV[a].includes(d)) ? 0.6 : 1;
 
   TT.creature = sp => { const g = (B[sp] || B.rattata)(); g.userData.sp = sp; return g; };

@@ -19,13 +19,16 @@
     { name: 'West Meadow', x: -40, z: 30, r: 14, n: 4, lv: [2, 4], pool: ['pidgey', 'pidgey', 'rattata', 'rattata', 'caterpie', 'caterpie', 'oddish'] },
     { name: 'Sunny Grove', x: 40, z: -32, r: 12, n: 3, lv: [4, 6], pool: ['bulbasaur', 'charmander', 'oddish', 'eevee', 'pidgey'] },
     { name: 'North Field', x: -40, z: -36, r: 11, n: 3, lv: [3, 5], pool: ['rattata', 'caterpie', 'pidgey', 'charmander', 'oddish'] },
-    { name: 'Pond', x: 32, z: 24, r: 12.5, ring: 10.3, n: 2, lv: [3, 5], pool: ['psyduck', 'psyduck', 'squirtle'] }
+    { name: 'Pond', x: 32, z: 24, r: 12.5, ring: 10.3, n: 2, lv: [3, 5], pool: ['psyduck', 'psyduck', 'squirtle'] },
+    { name: 'City Park', x: -32, z: -124, r: 13, n: 5, lv: [6, 9], pool: ['growlithe', 'jigglypuff', 'machop', 'magnemite', 'fuecoco', 'quaxly'] }
   ];
-  const BALLS = [[6, -8], [-9, 7], [22, -3], [-25, -3], [-6, -22], [10, 20], [-20, 26], [24, 12], [44, -20], [-46, -30], [-34, 38], [42, 6], [-50, 8], [18, -40], [-3, 44]];
+  const CITY = W.CITY = { x: 0, z: -124, hw: 54, z0: -177, z1: -70 };
+  W.NURSE2 = { x: -7, z: -117 };
+  const BALLS = [[6, -80], [-10, -94], [28, -100], [-44, -100], [-30, -112], [14, -124], [44, -124], [-12, -148], [30, -148], [-34, -168], [10, -158], [6, -8], [-9, 7], [22, -3], [-25, -3], [-6, -22], [10, 20], [-20, 26], [24, 12], [44, -20], [-46, -30], [-34, 38], [42, 6], [-50, 8], [18, -40], [-3, 44]];
   // x, z, w, d, wall, roof, door, twoStorey
   const HOUSES = [[14, -12, 8, 6.5, 0xfff1d6, 0xd9583a, 0x3f7ac0, 0], [28, -12, 8, 6.5, 0xe9f4ff, 0x4a7fd0, 0xc04a4a, 1], [-33, -12, 8, 6.5, 0xfff7cf, 0x4f9e58, 0x8a5a3a, 0],
   [-15, 15, 8, 6.5, 0xffe6e6, 0x8a62d0, 0x3f8a6a, 1], [15, 13, 8, 6.5, 0xeefbe8, 0xe09a30, 0x3f6ac0, 0], [-29, 13, 8, 6.5, 0xf5ecff, 0xc8486a, 0x7a5234, 0]];
-  const PATHS = [[0, -56, 0, 50, 5], [-50, 0, 50, 0, 5], [-18, 0, -18, -5, 4], [0, 24, 5, 24, 3], [22, 0, 30, 13, 3.5], [-50, 0, -42, 18, 3.5], [50, 0, 42, -22, 3.5], [-18, -22, -38, -30, 3], [0, -22, -18, -22, 3]];
+  const PATHS = [[0, -80, 0, 50, 5], [-50, 0, 50, 0, 5], [-18, 0, -18, -5, 4], [0, 24, 5, 24, 3], [22, 0, 30, 13, 3.5], [-50, 0, -42, 18, 3.5], [50, 0, 42, -22, 3.5], [-18, -22, -38, -30, 3], [0, -22, -18, -22, 3]];
 
   function groundTexture() {
     const c = document.createElement('canvas'); c.width = c.height = 2048;
@@ -292,10 +295,13 @@
       for (const s of [1, -1]) { P(g, 'box', 0xcfcfd8, [s * 4.2, 2.2, 0], [1.4, 4.4, 1.4]); P(g, 'box', 0xb8b8c2, [s * 4.2, 0.3, 0], [1.8, 0.6, 1.8]); P(g, 'pyr', 0x5a7ab8, [s * 4.2, 5.1, 0], [1.3, 1.4, 1.3], [0, 0.785, 0]); }
       P(g, 'box', 0x5a7ab8, [0, 4.5, 0], [8.6, 0.7, 0.9]); P(g, 'box', 0xfff7e0, [0, 4.5, 0.48], [5, 0.45, 0.05]);
       for (const s of [1, -1]) P(g, 'cyl', 0x8a8a94, [s * 3.3, 0.6, 0.5], [0.09, 1.2, 0.09]);
-      for (let i = 0; i < 6; i++) P(g, 'box', i % 2 ? 0xe2382e : 0xffd23c, [-2.75 + i * 1.1, 1.05, 0.5], [1.1, 0.24, 0.2]);
       TT.bakeDeep(g);
+      const bar = W.gateBar = grp(scene, 0, 0, -57);
+      for (let i = 0; i < 6; i++) P(bar, 'box', i % 2 ? 0xe2382e : 0xffd23c, [-2.75 + i * 1.1, 1.05, 0.5], [1.1, 0.24, 0.2]);
+      TT.bakeDeep(bar);
       const l = TT.label('THE CITY', 'rgba(0,0,0,0)'); l.material.depthTest = true; l.material.color.setHex(0x2a3a6a); l.position.set(0, 4.5, 0.6); l.scale.set(4.4, 1.1, 1); g.add(l);
-      sign(scene, -5.4, -52, 'City ➜ soon!');
+      W.gateCol = { x0: -4.6, x1: 4.6, z0: -58.6, z1: -56.4 }; W.colliders.push(W.gateCol);
+      sign(scene, -5.4, -52, 'To the City ➜');
     }
 
     // ---- lamps, planters, fence ----
@@ -339,6 +345,8 @@
     for (let i = 0; i < 13; i++) tree(A.x - 16 + i * 2.7 + rand(-0.5, 0.5), A.z - 8 - rand(0, 4), rand(1, 1.5), i % 3 ? 'leaf' : 'pine');
     for (let i = 0; i < 10; i++) { const x = A.x + rand(-11, 11), z = A.z - rand(5, 7); if (i % 2) bush(x, z, rand(0.7, 1.1), i % 4 === 1 ? 0xe8402a : null); else rock(x, z, rand(0.6, 1.2)); flowers(A.x + rand(-8, 8), A.z + rand(-3, 3.5) + (i % 2 ? 2.6 : -2.6), 4, 0.7); }
 
+    buildCity(scene);
+
     // extra ground detail: little grass tufts and pebbles everywhere that is open lawn
     for (let i = 0; i < 700; i++) {
       const x = rand(-56, 56), z = rand(-56, 56); if (!free(x, z, -2.2)) continue;
@@ -380,6 +388,74 @@
     W.anim.push(t => { for (const p of W.pickups) { p.o.rotation.y = t * 2; p.o.position.y = 0.55 + Math.sin(t * 3 + p.x) * 0.12; } });
   };
 
+  // ================= THE CITY =================
+  W.buildings = [];
+  function cityTexture() {
+    const c = document.createElement('canvas'); c.width = c.height = 1024; const x = c.getContext('2d'), k = 1024 / 112, px = v => (v + 56) * k, pz = v => (v + 180) * k;
+    x.fillStyle = '#7ccf58'; x.fillRect(0, 0, 1024, 1024);
+    for (let i = 0; i < 5000; i++) { x.fillStyle = i % 2 ? 'rgba(60,150,60,.4)' : 'rgba(170,235,120,.4)'; x.fillRect(Math.random() * 1024, Math.random() * 1024, 2, rand(4, 8)); }
+    const zn = W.zones[W.zones.length - 1]; let g = x.createRadialGradient(px(zn.x), pz(zn.z), zn.r * k * 0.8, px(zn.x), pz(zn.z), zn.r * k * 1.05); g.addColorStop(0, '#4a973a'); g.addColorStop(1, 'rgba(74,151,58,0)'); x.fillStyle = g; x.beginPath(); x.arc(px(zn.x), pz(zn.z), zn.r * k * 1.06, 0, 7); x.fill();
+    for (const b of W.buildings) { x.fillStyle = '#d8d8de'; x.fillRect(px(b[0] - b[2] / 2 - 1.2), pz(b[1] - b[3] / 2 - 1.2), (b[2] + 2.4) * k, (b[3] + 4) * k); }
+    const roads = [[0, -68, 0, -164, 8], [-52, -100, 52, -100, 7], [-52, -148, 52, -148, 7]];
+    x.lineCap = 'butt';
+    for (const pass of [0, 1]) for (const r of roads) { x.strokeStyle = pass ? '#6a6e78' : '#d8d8de'; x.lineWidth = (r[4] + (pass ? 0 : 3.4)) * k; x.beginPath(); x.moveTo(px(r[0]), pz(r[1])); x.lineTo(px(r[2]), pz(r[3])); x.stroke(); }
+    x.strokeStyle = '#f2e9a8'; x.lineWidth = 3; x.setLineDash([18, 16]); for (const r of roads) { x.beginPath(); x.moveTo(px(r[0]), pz(r[1])); x.lineTo(px(r[2]), pz(r[3])); x.stroke(); } x.setLineDash([]);
+    x.fillStyle = '#f4f4f4'; for (const cz of [-100, -148]) for (const s of [1, -1]) for (let i = -3; i <= 3; i++) { x.fillRect(px(i * 1.05) - 3, pz(cz + s * 5.2) - 9, 6, 18); x.fillRect(px(s * 5.6) - 9, pz(cz + i * 0.9) - 3, 18, 6); }
+    x.fillStyle = '#c8bca0'; x.beginPath(); x.arc(px(0), pz(-124), 12.4 * k, 0, 7); x.fill(); x.fillStyle = '#efe4c8'; x.beginPath(); x.arc(px(0), pz(-124), 11.8 * k, 0, 7); x.fill();
+    x.strokeStyle = '#d6c8a4'; x.lineWidth = 3; for (const r of [4, 7, 10]) { x.beginPath(); x.arc(px(0), pz(-124), r * k, 0, 7); x.stroke(); } for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283; x.beginPath(); x.moveTo(px(Math.cos(a) * 4), pz(-124 + Math.sin(a) * 4)); x.lineTo(px(Math.cos(a) * 11.8), pz(-124 + Math.sin(a) * 11.8)); x.stroke(); }
+    x.strokeStyle = '#ecd49c'; x.lineWidth = 3 * k; x.lineCap = 'round'; x.beginPath(); x.moveTo(px(-12), pz(-124)); x.lineTo(px(-19), pz(-124)); x.stroke();
+    W.cityCanvas = c; const t = new THREE.CanvasTexture(c); t.anisotropy = 4; W.cityTex = t; return t;
+  }
+  function building(scene, x, z, w, d, h, col, o) {
+    o = o || {}; const g = grp(scene, x, 0, z), f = d / 2, sh = shade(col, 0.82);
+    P(g, 'box', 0x9a9aa4, [0, 0.15, 0], [w + 0.3, 0.3, d + 0.3]); P(g, 'box', col, [0, 0.3 + h / 2, 0], [w, h, d]);
+    P(g, 'box', o.shop || sh, [0, 1.65, f + 0.02], [w - 0.3, 2.7, 0.1]);
+    P(g, 'box', 0x5a6a7a, [-w * 0.22, 1.55, f + 0.06], [w * 0.4, 1.9, 0.08]); P(g, 'box', 0xa8e4ff, [-w * 0.22, 1.55, f + 0.1], [w * 0.4 - 0.25, 1.65, 0.06]);
+    P(g, 'box', 0x5a6a7a, [w * 0.25, 1.4, f + 0.06], [1.6, 2.3, 0.08]); P(g, 'box', 0xa8e4ff, [w * 0.25, 1.35, f + 0.1], [1.3, 2.0, 0.06]); P(g, 'box', 0xb8b8c2, [w * 0.25, 0.2, f + 0.6], [2, 0.3, 1]);
+    const n = 6, aw = (w - 0.6) / n; for (let i = 0; i < n; i++) P(g, 'box', i % 2 ? (o.aw || 0xe2382e) : WHITE, [-w / 2 + 0.3 + (i + 0.5) * aw, 3.15, f + 0.65], [aw, 0.08, 1.4], [0.3, 0, 0]);
+    const floors = Math.max(0, Math.floor((h - 3.4) / 2.6)), cols = Math.max(2, Math.floor(w / 2.7));
+    for (let fl = 0; fl < floors; fl++) for (let c = 0; c < cols; c++) { const wx = -w / 2 + (c + 0.5) * w / cols, wy = 4.9 + fl * 2.6; P(g, 'box', WHITE, [wx, wy, f + 0.03], [1.35, 1.55, 0.1]); P(g, 'box', (fl + c) % 3 ? 0x9adcf8 : 0xffe9a0, [wx, wy, f + 0.07], [1.1, 1.3, 0.08]); P(g, 'box', sh, [wx, wy - 0.85, f + 0.12], [1.5, 0.12, 0.2]); }
+    for (let fl = 0; fl < floors; fl++) for (const s of [1, -1]) P(g, 'box', 0x9adcf8, [s * (w / 2 + 0.03), 4.9 + fl * 2.6, 0], [0.08, 1.3, d * 0.5]);
+    P(g, 'box', sh, [0, 0.3 + h + 0.2, 0], [w + 0.35, 0.4, d + 0.35]); P(g, 'box', 0x8a8a94, [w * 0.2, 0.3 + h + 0.85, -d * 0.15], [1.7, 0.9, 1.3]);
+    if (o.tank) { P(g, 'cyl', 0x9a6a3a, [-w * 0.22, 0.3 + h + 1.3, 0], [0.9, 1.6, 0.9]); P(g, 'cone', 0x7a5234, [-w * 0.22, 0.3 + h + 2.4, 0], [1, 0.7, 1]); }
+    if (o.x) o.x(g, f, h);
+    occ(TT.bakeDeep(g), x, z, w + 0.4, d + 0.4, h + 1.2);
+    if (o.sign) { const l = TT.label(o.sign, 'rgba(35,50,74,.92)'); l.material.depthTest = true; l.position.set(0, 4.05, f + 1.5); l.scale.set(4, 1, 1); g.add(l); }
+    W.colliders.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2 }); 
+  }
+  function buildCity(scene) {
+    const B = [[18, -88, 10, 8, 4.6, 0xe9f4ff, { sign: 'Poké Mart', aw: 0x3a8ad8, shop: 0x3a8ad8 }], [36, -88, 9, 8, 8.6, 0xf6d8c0, { tank: 1 }], [-20, -87, 10, 8, 9, 0xd8e8c8, {}], [-38, -88, 9, 8, 6.2, 0xf0d0d8, { aw: 0x9a6ae0 }],
+    [20, -113, 9, 8, 8.6, 0xcfe0f4, { aw: 0x2a9a6a }], [38, -113, 9, 8, 11.2, 0xf4e8c0, { tank: 1 }], [22, -136, 10, 8, 6.2, 0xf8d8b0, { aw: 0xf08030 }], [38, -137, 9, 8, 9, 0xd8d0f0, {}],
+    [-22, -160, 10, 8, 8.6, 0xf4d0c0, { tank: 1 }], [-40, -161, 9, 8, 6.2, 0xcff0e8, { aw: 0x2a9ab8 }], [26, -160, 9, 8, 6.2, 0xf0e0b8, {}], [43, -162, 8, 8, 9, 0xe0d0c8, { aw: 0xc8486a }]];
+    for (const b of B) W.buildings.push(b);
+    W.buildings.push([0, -171, 20, 10, 7, 0xf6e8d0, {}]);
+    const gm = new THREE.Mesh(new THREE.PlaneGeometry(112, 112), new THREE.MeshLambertMaterial({ map: cityTexture() })); gm.rotation.x = -Math.PI / 2; gm.position.set(0, 0.012, -124); gm.receiveShadow = true; scene.add(gm);
+    for (const b of B) building(scene, ...b);
+    building(scene, 0, -171, 20, 10, 7, 0xf6e8d0, { sign: 'CITY GYM', aw: 0xf08030, shop: 0xf08030, x: (g, f, h) => { P(g, 'cyl', 0xf08030, [0, h + 1.2, 0], [7, 1.4, 4.2]); P(g, 'sph', 0x6ac8f8, [0, h + 1.9, 0], [5, 2.4, 3]); for (const s of [1, -1]) { P(g, 'cyl', 0xe2e2ea, [s * 4, 2.2, f + 1.2], [0.35, 4.4, 0.35]); P(g, 'sph', 0x6ac8f8, [s * 4, 4.8, f + 1.2], 0.6); } P(g, 'box', 0xf08030, [0, 4.5, f + 1.2], [9, 0.5, 0.5]); } });
+    { const b = TT.ballModel(0.9); b.position.set(0, 6.3, -171 + 5.3); scene.add(b); }
+    sign(scene, 11.5, -81, 'Free Poké Balls'); sign(scene, -17.5, -121.5, 'City Park'); sign(scene, 5.6, -74, 'The City');
+    { // clock tower plaza
+      const g = grp(scene, 0, 0, -124);
+      P(g, 'box', 0xc8c8d2, [0, 0.4, 0], [3.2, 0.8, 3.2]); P(g, 'box', 0xe8dcc0, [0, 4.6, 0], [1.8, 7.6, 1.8]); P(g, 'box', 0x8a5a3a, [0, 8.7, 0], [2.3, 1.9, 2.3]); P(g, 'pyr', 0x4a7fd0, [0, 10.6, 0], [1.9, 2, 1.9], [0, 0.785, 0]);
+      for (const q of [[0, 1.17, 0], [0, -1.17, Math.PI], [1.17, 0, 1.57], [-1.17, 0, -1.57]]) { P(g, 'cyl', WHITE, [q[0], 8.7, q[1]], [0.75, 0.06, 0.75], [1.57, 0, q[2] === 0 || q[2] === Math.PI ? 0 : 1.57]); }
+      P(g, 'box', 0x22222a, [0.0, 8.9, 1.22], [0.07, 0.5, 0.03]); P(g, 'box', 0x22222a, [0.17, 8.7, 1.22], [0.36, 0.07, 0.03]);
+      TT.bakeDeep(g); W.colliders.push({ x: 0, z: -124, r: 2.4 });
+      for (let i = 0; i < 4; i++) { const a = i * 1.5708 + 0.785; bench(Math.cos(a) * 8.6, -124 + Math.sin(a) * 8.6, Math.atan2(-Math.cos(a), -Math.sin(a))); tree(Math.cos(a) * 13.4, -124 + Math.sin(a) * 13.4, 0.9, 'blossom', true); }
+    }
+    for (const z of [-78, -90, -110, -138, -158]) for (const s of [1, -1]) { lamp(s * 5.3, z); if (z !== -90) tree(s * 7.2, z - 5, 0.8, 'leaf', true); }
+    for (const x of [-40, -24, 24, 40]) { lamp(x, -95.4); lamp(x, -143.4); }
+    const cfree = (x, z, m) => {
+      if (Math.abs(x) < 7 + m || Math.abs(z + 100) < 6 + m || Math.abs(z + 148) < 6 + m || Math.hypot(x, z + 124) < 15 + m) return false;
+      for (const c of W.colliders) { if (c.r != null) { if (Math.hypot(x - c.x, z - c.z) < c.r + 2 + m) return false; } else if (x > c.x0 - 2 - m && x < c.x1 + 2 + m && z > c.z0 - 2 - m && z < c.z1 + 4.5 + m) return false; }
+      return true;
+    };
+    for (let i = 0; i < 60; i++) { const x = rand(-52, 52), z = rand(-175, -72), inPark = Math.hypot(x + 32, z + 124) < 12; if (!inPark && cfree(x, z, 0)) tree(x, z, rand(0.75, 1), Math.random() < 0.25 ? 'pine' : 'leaf', true); }
+    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; if (Math.abs(a) < 0.4 || a > 5.9) continue; tree(-32 + Math.cos(a) * 14.6, -124 + Math.sin(a) * 14.6, 0.95, i % 3 ? 'leaf' : 'blossom', true); }
+    for (let i = 0; i < 50; i++) { const x = rand(-52, 52), z = rand(-175, -72); if (cfree(x, z, -0.8)) { if (i % 3) bush(x, z, rand(0.7, 1.1), i % 4 ? null : 0xe8402a); else flowers(x, z, 5, 0.9); } }
+    for (let r = 0; r < 2; r++) for (let i = -60; i <= 60; i += 4.6) { const o = 58 + r * 4.4; for (const [x, z] of [[-o + rand(-1, 1), -124 + i * 0.95], [o + rand(-1, 1), -124 + i * 0.95], [i, -181 - r * 4.4 + rand(-1, 1)]]) tree(x, z, rand(1.1, 1.6), Math.random() < 0.6 ? 'pine' : 'leaf'); }
+    for (const s of [1, -1]) for (let z = -59; z > -70; z -= 2.4) { const g = grp(chunk(s * 4.6, z), s * 4.6, 0, z); P(g, 'box', 0xd8b070, [0, 0.6, 0], [0.2, 1.2, 0.2]); P(g, 'box', 0xe8c890, [0, 0.85, -1.2], [0.09, 0.13, 2.4]); P(g, 'box', 0xe8c890, [0, 0.45, -1.2], [0.09, 0.13, 2.4]); }
+  }
+
   // push a circle (x,z,r) out of every collider; returns [x,z]
   W.collide = function (x, z, r) {
     for (const c of W.colliders) {
@@ -391,8 +467,12 @@
         if (mn === l) x = c.x0 - r; else if (mn === rr) x = c.x1 + r; else if (mn === t) z = c.z0 - r; else z = c.z1 + r;
       }
     }
-    return [TT.clamp(x, -LIM, LIM), TT.clamp(z, -LIM, LIM)];
+    // walkable land: the town square, a short road through the gate, and the City
+    if (z >= -LIM) return [TT.clamp(x, -LIM, LIM), Math.min(z, LIM)];
+    if (z > CITY.z1) { if (Math.abs(x) <= 3.6) return [x, z]; return z > -63 ? [TT.clamp(x, -LIM, LIM), -LIM] : [TT.clamp(x, -CITY.hw, CITY.hw), CITY.z1]; }
+    return [TT.clamp(x, -CITY.hw, CITY.hw), Math.max(z, CITY.z0)];
   };
+  W.setGate = open => { W.gateBar.visible = !open; const i = W.colliders.indexOf(W.gateCol); if (open && i >= 0) W.colliders.splice(i, 1); if (!open && i < 0) W.colliders.push(W.gateCol); };
   W.blocked = (x, z, r) => { const p = W.collide(x, z, r); return Math.abs(p[0] - x) > 0.01 || Math.abs(p[1] - z) > 0.01; };
   W.update = (t, cam, px, pz) => {
     for (const f of W.anim) f(t);
@@ -417,20 +497,37 @@
     ['Pond', 32, 24, '🎣', 'Psyduck and Squirtle live on the shore.', 21, 17],
     ['Campfire', 5, 27, '🔥', 'Carry an egg here to warm it up.', 3, 23.5],
     ['Egg Nest', -49, 41, '🥚', 'A mystery egg appears here.', -47.5, 39.5],
-    ['City Gate', 0, -56, '🚧', 'The road to the City. Opening soon!', 0, -50]
+    ['City Gate', 0, -56, '🚧', 'The road to the City.', 0, -50]
+  ];
+  W.CITY_PLACES = [
+    ['City Gym', 0, -171, '🏟', 'Leader Misty and her Water Pokémon.', 0, -161],
+    ['Poké Mart', 18, -88, '🛒', 'Free Poké Balls for young trainers.', 19, -80.5],
+    ['City Park', -32, -124, '🌳', 'Growlithe, Jigglypuff, Machop, Magnemite, Fuecoco, Quaxly.', -19, -124],
+    ['Clock Plaza', 0, -124, '🕰', 'Gohan hangs out here.', 3, -117],
+    ['Nurse Joy', -7, -117, '🏥', 'She heals your Pokémon here too.', -6, -115],
+    ['Town Gate', 0, -70, '🚧', 'The road back to Trainer Town.', 0, -73]
   ];
 
   // townsfolk: [key, model, name, x, z, wanderRadius, lines]
   W.NPCS = [
     ['prof', 'prof', 'Professor Oak', 3.5, -24, 2, []],
     ['nurse', 'nurse', 'Nurse Joy', -16.2, -4.4, 0, []],
-    ['guard', 'guard', 'Officer Gus', 3.2, -53, 0, ["Halt! The road to the City isn't open yet.", "Practice here in town first. The City is coming soon!", "I heard seven Dragon Balls are hidden across the world. Three of them are right here in town!"]],
+    ['guard', 'guard', 'Officer Gus', 3.2, -53, 0, ["Halt! Only trainers who finished Professor Oak's mission may enter the City.", "Catch 3 kinds of Pokémon and show the Professor first.", "I heard seven Dragon Balls are hidden across the world. Three of them are right here in town!"]],
     ['mom', 'mom', 'Mrs. Rosa', 12, -4.5, 4, ["Welcome to Trainer Town, sweetie!", "If your Pokémon get tired, visit Nurse Joy at the Poké Center. The red roof!", "Look for red-and-white Poké Balls on the ground. You need them to catch Pokémon."]],
     ['grandpa', 'grandpa', 'Grandpa Sol', -10, 5, 5, ["Back in my day we walked through tall grass uphill both ways!", "Wild Pokémon live in the dark green tall grass. Walk up to one to battle it.", "Here's a secret: make a wild Pokémon's HP small BEFORE you throw a ball. It's much easier to catch!"]],
     ['kid', 'kid', 'Max', 7, 9, 6, ["Did you know? Water beats Fire, Fire beats Grass, and Grass beats Water!", "Electric moves are super strong against Water and Flying Pokémon!", "When your Pokémon wins battles it levels up. Some Pokémon even EVOLVE!"]],
     ['girl', 'girl', 'Mia', -6, -9, 6, ["I saw a mysterious egg in a nest! It's in the far corner of the West Meadow.", "Eggs need to be warm to hatch. I bet the campfire would work!", "I wonder what Pokémon is inside an egg? It's always a surprise!"]],
     ['fisher', 'fisher', 'Fisher Finn', 21.5, 21, 0, ["Shhh... the Psyduck get a headache when it's loud.", "Squirtle and Psyduck live around this pond.", "Something shiny is hiding in the trees behind the pond... I can't reach it."]],
+    ['gohan', 'gohan', 'Gohan', 5, -119, 0, []],
+    ['misty', 'misty', 'Leader Misty', 0, -162.6, 0, []],
+    ['clerk', 'clerk', 'Clerk Kim', 20.5, -82.2, 0, []],
+    ['nurse', 'nurse', 'Nurse Joy', -7, -117, 0, []],
+    ['lady', 'lady', 'Ms. Bloom', -13, -93, 3, ["Welcome to the City! It's much bigger than Trainer Town.", "The Poké Mart gives free Poké Balls to young trainers. Look for the blue awning!", "City Park is full of Pokémon you won't find in town."]],
+    ['biz', 'biz', 'Mr. Tanaka', 11, -134, 3, ["I'm late for work! Oh, a trainer? Good luck at the Gym.", "Leader Misty uses Water Pokémon. Grass and Electric moves are super effective!", "The Gym is the big building at the very end of the avenue."]],
+    ['kid', 'kid', 'Leo', -16, -126, 2, ["I saw a Growlithe in the park! It's a Fire puppy!", "Jigglypuff sings so sweetly. It makes me sleepy.", "Machop is a Fighting type. Fighting moves are strong against Normal Pokémon!"]],
+    ['girl', 'girl', 'Zoe', 9, -113, 3, ["Did you see the boy with the spiky hair in the plaza? He can fly!", "His name is Gohan. He says his dad is the strongest fighter in the world!", "I heard Gohan has a legendary Pokémon. So cool!"]],
+    ['grandpa', 'grandpa', 'Ranger Rex', -30, -141, 2, ["I look after City Park. Be kind to the Pokémon!", "Magnemite float around the park. Electric moves don't hurt them much.", "Beyond the City is the Wide World. They say Goku trains there with a legendary dragon."]],
     ['hiker', 'hiker', 'Hiker Hank', 9, 30, 2, ["Ahh, nothing like a warm campfire.", "Carry an egg close to this fire and it will warm right up!", "Watch out for Team Rocket! They're always trying to steal Pokémon. But they always lose. Ha!"]]
   ];
-  W.PETS = [['eevee', 'Eevee', -4, 6, 6, 'Vee! Eevee! (It wags its fluffy tail.)'], ['psyduck', 'Psyduck', 26, 15.5, 3, 'Psy...? Psy-yi-yi! (It holds its head.)'], ['pidgey', 'Pidgey', 5, -15, 7, 'Pidgey! Pidge! (It flaps happily.)'], ['bulbasaur', 'Bulbasaur', -22, 4, 5, 'Bulba! Bulbasaur! (It smiles at you.)'], ['squirtle', 'Squirtle', 14, 4, 5, 'Squirtle squirt! (It gives you a thumbs up.)']];
+  W.PETS = [['growlithe', 'Growlithe', 8, -112, 5, 'Growl! Growlithe! (It wags its tail.)'], ['jigglypuff', 'Jigglypuff', -10, -131, 4, 'Jiggly! Puff! (It hums a little song.)'], ['eevee', 'Eevee', -4, 6, 6, 'Vee! Eevee! (It wags its fluffy tail.)'], ['psyduck', 'Psyduck', 26, 15.5, 3, 'Psy...? Psy-yi-yi! (It holds its head.)'], ['pidgey', 'Pidgey', 5, -15, 7, 'Pidgey! Pidge! (It flaps happily.)'], ['bulbasaur', 'Bulbasaur', -22, 4, 5, 'Bulba! Bulbasaur! (It smiles at you.)'], ['squirtle', 'Squirtle', 14, 4, 5, 'Squirtle squirt! (It gives you a thumbs up.)']];
 })();

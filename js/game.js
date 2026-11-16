@@ -12,7 +12,8 @@
   const blobs = [], actors = [], dust = [];
   let miniOn = true, miniT = 0, dest = null, beacon = null, mapBase = null; try { miniOn = localStorage.getItem('tt_mini') !== '0'; } catch (e) { }
   const cam = { x: 0, z: 8 };
-  const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander' };
+  const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad', gary: 'Gary', leaf: 'Leaf' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander', gary: 'squirtle', leaf: 'bulbasaur' };
+  let slot = '', pname = '', cloudDirty = false, kidsList = [];
 
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, depthWrite: false });
   function wrap(model, r) {
@@ -50,8 +51,9 @@
     eggObj = TT.eggModel(); eggObj.scale.setScalar(0.8); eggObj.visible = false; scene.add(eggObj);
 
     tm.chars = Math.round(performance.now() - t0);
+    kidsList = readKids(); if (kidsList.length) buildProfiles();
     const duo = (k, sp) => () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[k]), c = TT.creature(sp); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; };
-    $('pLiko').src = TT.portrait('t_liko', duo('liko', 'sprigatito'), true); $('pAsh').src = TT.portrait('t_ash', duo('ash', 'pikachu'), true);
+    if ($('pLiko')) { $('pLiko').src = TT.portrait('t_liko', duo('liko', 'sprigatito'), true); $('pAsh').src = TT.portrait('t_ash', duo('ash', 'pikachu'), true); }
     tm.all = Math.round(performance.now() - t0);
     bindInput(); resize(); window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 200));
     Net.connect();
@@ -68,10 +70,11 @@
       startGame(q.get('play'));
       if (q.get('skip')) setInterval(() => { if (TT.dialogOpen && !q.get('hold')) TT.dialogNext(); }, 120);
       if (q.get('x')) { player.x = cam.x = +q.get('x'); player.z = cam.z = +q.get('z'); follower.x = player.x + 1; follower.z = player.z + 0.6; }
+      if (q.get('flags')) { for (const f of q.get('flags').split(',')) S.flags[f] = 1; W.setGate(!!S.flags.city); hud(); }
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       const ev = q.get('evt');
-      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showTownMap(); if (ev === 'menu') showMenu(); if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
+      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'menu') showMenu(); if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
     }
     requestAnimationFrame(frame);
     setInterval(() => { if (performance.now() - lastReal > 400) G.tick(performance.now()); }, 200);
@@ -82,18 +85,62 @@
   }
 
   function newSave(ch) { return { v: 1, ch, party: [TT.mon(STARTER[ch], 5)], box: [], balls: 3, stars: [], egg: { have: false, warm: 0 }, flags: {}, rocket: 0, caught: [] }; }
-  function save() { try { localStorage.setItem('tt1_' + S.ch, JSON.stringify(S)); } catch (e) { } }
-  function startGame(ch) {
+  function save() { if (!S) return; S.ts = Date.now(); try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { } cloudDirty = true; }
+  // ---- online saves (only when js/config.js has a database address and a family code is set) ----
+  const CLOUD = String(window.TT_CLOUD || '').replace(/\/$/, '');
+  const cloudUrl = () => CLOUD && Net.room ? CLOUD + '/saves/' + Net.room + '/' + encodeURIComponent(slot) + '.json' : '';
+  function cloudLoad() {
+    const u = cloudUrl(), my = slot; if (!u) return;
+    fetch(u).then(r => r.json()).then(j => {
+      if (!j || !S || slot !== my || busy || TT.Battle.active || !j.party || !j.party.length || !(j.ts > (S.ts || 0))) return;
+      if (j.ch !== S.ch) { scene.remove(player.root); player.root = wrap(TT.human(TT.PEOPLE[j.ch] || TT.PEOPLE.ash), 0.42); }
+      S = j; TT.S = S; setFollower(); W.setGate(!!S.flags.city); hud(); TT.toast('☁ Loaded your saved adventure');
+      try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { }
+    }).catch(() => { });
+  }
+  function cloudPush() { const u = cloudUrl(); if (!u || !cloudDirty || !S) return; cloudDirty = false; fetch(u, { method: 'PUT', body: JSON.stringify(S), keepalive: true }).catch(() => { cloudDirty = true; }); }
+  document.addEventListener('visibilitychange', () => { if (document.hidden && S) { save(); cloudPush(); } });
+
+  function startGame(ch, key, name) {
     TT.audioInit();
+    slot = key || 'tt1_' + ch; pname = name || NAMES[ch] || 'Trainer'; TT.playerName = pname;
     let fresh = true;
-    try { const j = JSON.parse(localStorage.getItem('tt1_' + ch)); if (j && j.v === 1 && j.party && j.party.length) { S = j; fresh = false; } } catch (e) { }
+    try { const j = JSON.parse(localStorage.getItem(slot)); if (j && j.v === 1 && j.party && j.party.length) { S = j; fresh = false; } } catch (e) { }
     if (fresh) S = newSave(ch);
-    TT.S = S;
-    player.root = wrap(TT.human(TT.PEOPLE[ch]), 0.42); player.x = cam.x = ch === 'ash' ? 1.5 : -1.5; player.z = 8; player.h = Math.PI;
-    setFollower();
+    ch = S.ch; TT.S = S;
+    player.root = wrap(TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), 0.42); player.x = cam.x = ch === 'ash' ? 1.5 : -1.5; player.z = cam.z = 8; player.h = Math.PI;
+    setFollower(); W.setGate(!!S.flags.city);
     $('title').classList.add('hide'); for (const id of ['hud', 'joy', 'act']) $(id).classList.remove('hide');
     mode = 'play'; TT.music('town'); setMini(miniOn); friendsDirty = true; nextRocket = S.caught.length ? 60 : 150; hud();
     if (fresh) intro();
+    cloudLoad();
+  }
+  // ---- family profiles: a link with kids=Name,Name gives each child their own save and character ----
+  function readKids() {
+    const m = /kids=([^&#]+)/.exec(location.hash) || /kids=([^&#]+)/.exec(location.search); let k = '';
+    try { if (m) { k = decodeURIComponent(m[1]); localStorage.setItem('tt_kids', k); } else k = localStorage.getItem('tt_kids') || ''; } catch (e) { if (m) k = decodeURIComponent(m[1]); }
+    return k.split(',').map(x => x.trim().replace(/[^A-Za-z0-9 '-]/g, '').slice(0, 14)).filter(Boolean).slice(0, 6);
+  }
+  const duoPic = ch => TT.portrait('t_' + ch, () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[ch]), c = TT.creature(STARTER[ch]); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; }, true);
+  function buildProfiles() {
+    const kids = kidsList, box = $('chars'); box.innerHTML = ''; box.classList.toggle('many', kids.length > 2);
+    document.querySelector('#title h2').textContent = (kids.length > 1 ? kids.slice(0, -1).join(', ') + ' & ' + kids[kids.length - 1] : kids[0]) + "'s Adventure";
+    document.querySelector('#title .fine').textContent = 'A family fan game — made with love';
+    for (const name of kids) {
+      const key = 'tt1_p_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''); let sv = null;
+      try { sv = JSON.parse(localStorage.getItem(key)); } catch (e) { }
+      const b = document.createElement('button'); b.className = 'card';
+      b.innerHTML = (sv ? '<img src="' + duoPic(sv.ch) + '" alt="">' : '<div class="newp">＋</div>') + '<b></b><span>' + (sv ? 'Lv ' + sv.party[0].lvl + ' ' + TT.monName(sv.party[0]) + ' · ' + sv.stars.length + '★' : 'New adventure') + '</span>';
+      b.querySelector('b').textContent = name;
+      b.onclick = () => { TT.audioInit(); if (!ready) return; if (sv) startGame(sv.ch, key, name); else chooseChar(name, key); };
+      box.appendChild(b);
+    }
+  }
+  function chooseChar(name, key) {
+    let h = '<h3>' + name.replace(/[<>&]/g, '') + ', pick your trainer <button id="pClose">✕</button></h3><div class="pickrow">';
+    for (const ch of ['liko', 'ash', 'leaf', 'gary']) h += '<button class="card" data-pc="' + ch + '"><img src="' + duoPic(ch) + '" alt=""><b>' + NAMES[ch] + '</b><span>with ' + TT.DEX[STARTER[ch]][0] + '</span></button>';
+    openPanel(h + '</div>');
+    document.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => { closePanel(); startGame(b.dataset.pc, key, name); });
   }
   async function intro() {
     busy = true;
@@ -155,7 +202,7 @@
   async function talk(n) {
     busy = true; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
     const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
-    if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse();
+    if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk();
     else await TT.say([[n.name, n.lines[n.i++ % n.lines.length]]]);
     mdl.userData.gesture = null; busy = false; hud(); save();
   }
@@ -172,6 +219,40 @@
       } else await TT.say([[N, 'You have caught ' + S.caught.length + ' of 3 kinds so far. Keep going!'], [N, 'Look in the dark green tall grass, and around the pond.']]);
     } else await TT.say([[N, TT.pick(['Keep training! When your Pokémon level up, they learn stronger moves.', 'The road to the City opens soon. Collect all the Dragon Balls you can find in town first!', 'Have you hatched an egg yet? Look for one in the West Meadow nest.'])]]);
   }
+  async function gus(n) {
+    const N = 'Officer Gus', f = S.flags;
+    if (f.city) return TT.say([[N, TT.pick(['The City is straight ahead. Have fun!', 'Visit the City Gym if you want a real challenge.'])]]);
+    if (!f.profDone) return TT.say([[N, n.lines[n.i++ % n.lines.length]]]);
+    await TT.say([[N, 'Professor Oak says you are ready for the City!'], [N, 'Opening the gate. Good luck, trainer!']]);
+    f.city = 1; TT.sfx.star(); const bar = W.gateBar; await TT.tween(0.9, k => { bar.position.y = k * 3.2; }); W.setGate(true); bar.position.y = 0;
+  }
+  async function gohan() {
+    const N = 'Gohan', f = S.flags;
+    if (!f.gym) return TT.say([[N, "Hi! I'm Gohan. My dad Goku sent me to look for the Dragon Balls."], [N, "Leader Misty has one! Beat her at the Gym, and I'll join your team."], [N, "My partner Lugia is a legendary Pokémon. We're super strong together!"]]);
+    if (!f.gohan) {
+      await TT.say([[N, 'You beat the Gym! That was amazing!'], [N, 'From now on, Lugia and I will help you in big battles.'], [N, "Let's find my dad together. He's out in the Wide World!"]]);
+      f.gohan = 1; TT.sfx.caught(); TT.cry('lugia'); return TT.say([['', 'Gohan and Lugia joined your team!']]);
+    }
+    return TT.say([[N, TT.pick(["I'm right behind you!", "Team Rocket doesn't stand a chance against us!", "I can't wait for you to meet my dad!"])]]);
+  }
+  async function misty() {
+    const N = 'Leader Misty', f = S.flags;
+    if (f.gym) return TT.say([[N, TT.pick(['You earned that Dragon Ball. Take good care of it!', 'Have you met Gohan in the plaza?'])]]);
+    if (!S.party.some(m => m.hp > 0)) return TT.say([[N, 'Your Pokémon look tired. Visit Nurse Joy by the plaza first!']]);
+    await TT.say([[N, "I'm Misty, the City Gym Leader! My Water Pokémon are tough."], [N, 'Ready for a Gym battle? Here we go!']]);
+    const L = Math.max(5, S.party[0].lvl);
+    const r = await TT.Battle.start({ foes: [TT.mon('psyduck', L - 2), TT.mon('squirtle', L - 1), TT.mon('quaxly', L)], trainer: 'Leader Misty', people: ['misty'] });
+    if (follower.sp !== S.party[0].sp) setFollower();
+    if (r === 'win') {
+      f.gym = 1; await TT.say([[N, "Wow, you really beat me! You're a great trainer."], [N, 'Take this. It fell from the sky into my pool one day.']]);
+      await giveStar(4); S.balls += 5; TT.sfx.pick(); await TT.say([['', 'You got 5 Poké Balls too!']]);
+    } else if (r === 'lose') await whiteOut();
+  }
+  async function clerk() {
+    const N = 'Clerk Kim', f = S.flags, now = Date.now();
+    if (!f.mart || now - f.mart > 180000) { f.mart = now; S.balls += 5; TT.sfx.pick(); return TT.say([[N, 'Welcome to the Poké Mart! Young trainers get free Poké Balls.'], [N, 'Here are 5 Poké Balls. Come back later for more!']]); }
+    return TT.say([[N, "I'm restocking the shelves. Come back in a few minutes!"]]);
+  }
   async function nurse() {
     await TT.say([['Nurse Joy', 'Welcome to the Poké Center! Let me take care of your Pokémon.']]);
     S.party.forEach(m => m.hp = TT.maxHp(m)); TT.sfx.heal(); await TT.wait(0.8);
@@ -181,7 +262,7 @@
     if (S.stars.indexOf(n) >= 0) return;
     S.stars.push(n); TT.sfx.star(); hud();
     const lines = [['', 'You got the ' + n + '-Star Dragon Ball!  (' + S.stars.length + ' of 7)']];
-    if (S.stars.length === 3) lines.push(['', "That's every Dragon Ball hidden in town! The others wait in the City and beyond..."]);
+    if (n <= 3 && [1, 2, 3].every(q => S.stars.indexOf(q) >= 0)) lines.push(['', "That's every Dragon Ball hidden in town! The others wait in the City and beyond..."]);
     await TT.say(lines); save();
   }
   function addMon(m) {
@@ -200,7 +281,7 @@
     battleCd = 2.5; if (follower.sp !== S.party[0].sp) setFollower(); hud(); save(); busy = false;
   }
   async function whiteOut() {
-    S.party.forEach(m => m.hp = TT.maxHp(m)); player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; follower.x = player.x + 1; follower.z = player.z + 1;
+    S.party.forEach(m => m.hp = TT.maxHp(m)); if (player.z < -66) { player.x = W.NURSE2.x + 1; player.z = W.NURSE2.z + 1.8; } else { player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; } follower.x = player.x + 1; follower.z = player.z + 1;
     TT.sfx.heal();
     await TT.say([['Nurse Joy', 'Oh dear, your Pokémon fainted! I carried you back and healed them all up.'], ['Nurse Joy', 'Be careful out there!']]);
   }
@@ -242,7 +323,7 @@
     await TT.say([['Meowth', 'Gotcha! ' + pn + ' is ours now!'], [me, 'Hey! Give ' + pn + ' back!'], [pn, '(' + pn + ' broke out of the net!)'], [me, pn + ", let's battle and send them flying!"]]);
     pm.hp = TT.maxHp(pm);
     const L = Math.max(2, pm.lvl - 3);
-    const r = await TT.Battle.start({ foes: [TT.mon(n === 0 ? 'pumpkaboo' : 'gourgeist', L), TT.mon('inkay', L), TT.mon('meowth', L)], trainer: 'Team Rocket', people: ['jessie', 'james'], easy: true, music: 'rocket', after: 'rocket' });
+    const r = await TT.Battle.start({ foes: [TT.mon(n === 0 ? 'pumpkaboo' : 'gourgeist', L), TT.mon('inkay', L), TT.mon('meowth', L)], trainer: 'Team Rocket', people: ['jessie', 'james'], easy: true, music: 'rocket', after: 'rocket', ally: S.flags.gohan ? 'gohan' : null });
     if (r === 'win') await TT.say([['Jessie', 'We lost AGAIN?!'], ['Meowth', "It's not fair!"]]);
     else { S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say([['James', 'We... won? We actually won?!'], ['Meowth', 'Uh oh. The balloon is leaking!'], [pn, '(' + pn + ' jumped back to you!)']]); }
     TT.sfx.rocket();
@@ -265,9 +346,12 @@
     let q;
     if (!S.flags.profMet) q = '➜ Visit Professor Oak at the Lab (top of town)';
     else if (!S.flags.profDone) q = S.caught.length >= 3 ? '➜ Go show Professor Oak!' : '➜ Catch 3 kinds of Pokémon in the tall grass (' + S.caught.length + '/3)';
+    else if (!S.flags.city) q = '➜ Talk to Officer Gus at the north gate to enter the City';
     else if (S.egg.have) q = '➜ Warm the egg by the campfire';
-    else if (S.stars.length < 3) q = '➜ Find the Dragon Balls hidden in town (' + S.stars.length + '/3)';
-    else q = '★ You found every Dragon Ball in town! The City opens soon.';
+    else if (!S.flags.gym) q = '➜ Challenge the City Gym at the far end of the avenue';
+    else if (!S.flags.gohan) q = '➜ Tell Gohan in the Clock Plaza!';
+    else if (S.stars.length < 4) q = '➜ Find the hidden Dragon Balls (' + S.stars.length + '/4 so far)';
+    else q = '★ Next up: the Wide World, and Goku! Coming soon.';
     $('quest').textContent = q;
   }
   const hex = n => '#' + n.toString(16).padStart(6, '0');
@@ -287,13 +371,13 @@
   }
   function showMap() {
     let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="mapgrid">' +
-      '<div class="place go" id="pTown">🏡 Trainer Town<small>You are here! Tap to open the town map ➜</small></div><div class="place lock">🏙️ The City<small>Coming soon</small></div>' +
+      '<div class="place go" id="pTown">🏡 Trainer Town<small>' + (player.z < -66 ? '' : 'You are here! ') + 'Tap to open the map ➜</small></div>' + (S.flags.city ? '<div class="place go" id="pCity">🏙️ The City<small>' + (player.z < -66 ? 'You are here! ' : '') + 'Tap to open the map ➜</small></div>' : '<div class="place lock">🏙️ The City<small>Ask Officer Gus at the gate</small></div>') +
       '<div class="place lock">🌍 The Wide World<small>Goku waits halfway...</small></div><div class="place lock">🐉 Dragon\'s Lair<small>Needs all 7 Dragon Balls</small></div></div><div class="stars">';
     for (let i = 1; i <= 7; i++) h += '<i class="' + (S.stars.indexOf(i) >= 0 ? 'got' : '') + '">' + '★'.repeat(i > 4 ? 1 : i) + (i > 4 ? i : '') + '</i>';
     h += '</div><p style="text-align:center;font-weight:700;margin:4px 0 10px">Dragon Balls: ' + S.stars.length + ' / 7</p><p style="text-align:center;margin:0"><button id="pReset" style="background:none;text-decoration:underline;font-size:13px;opacity:.6">Start this character over</button></p>';
     openPanel(h);
-    $('pTown').onclick = showTownMap;
-    $('pReset').onclick = () => { if (confirm('Erase ' + NAMES[S.ch] + "'s saved game and start over?")) { localStorage.removeItem('tt1_' + S.ch); location.reload(); } };
+    $('pTown').onclick = () => showAreaMap('town'); if ($('pCity')) $('pCity').onclick = () => showAreaMap('city');
+    $('pReset').onclick = () => { if (confirm('Erase ' + pname + "'s saved game and start over?")) { localStorage.removeItem(slot); const u = cloudUrl(); if (u) fetch(u, { method: 'DELETE', keepalive: true }).catch(() => { }); setTimeout(() => location.reload(), 300); } };
   }
 
   // ---------- menu, main-menu return ----------
@@ -312,25 +396,36 @@
     scene.remove(player.root); if (follower) scene.remove(follower.root); follower = null; eggObj.visible = false; player.root = null;
     S = null; TT.S = null; mode = 'title';
     for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn']) $(id).classList.add('hide');
-    $('friends').innerHTML = ''; friendsDirty = true;
+    $('friends').innerHTML = ''; friendsDirty = true; cloudPush(); if (kidsList.length) buildProfiles();
     $('title').classList.remove('hide');
   }
 
   // ---------- maps ----------
   const css = n => '#' + n.toString(16).padStart(6, '0'), MS = 512 / 160, mp = v => (v + 80) * MS;
-  function baseMap() {
-    if (mapBase) return mapBase;
-    const c = mapBase = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d');
-    x.drawImage(W.groundCanvas, 0, 0, 512, 512);
-    x.fillStyle = '#3fa6ea'; x.beginPath(); x.arc(mp(W.POND.x), mp(W.POND.z), W.POND.r * MS, 0, 7); x.fill(); x.strokeStyle = '#cdeeff'; x.lineWidth = 2; x.stroke();
-    for (const t of W.trees) { if (Math.abs(t[0]) > 79 || Math.abs(t[1]) > 79) continue; x.fillStyle = t[3] === 'pine' ? '#2f8048' : t[3] === 'blossom' ? '#f7a8c8' : '#4aa64e'; x.beginPath(); x.arc(mp(t[0]), mp(t[1]), 1.5 * t[2] * MS, 0, 7); x.fill(); x.fillStyle = 'rgba(255,255,255,.18)'; x.beginPath(); x.arc(mp(t[0]) - 1, mp(t[1]) - 1, 0.7 * t[2] * MS, 0, 7); x.fill(); }
-    const roof = (cx, cz, w, d, col) => { x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(mp(cx - w / 2) - 2, mp(cz - d / 2) - 2, w * MS + 2, d * MS + 2); x.fillStyle = col; x.fillRect(mp(cx - w / 2), mp(cz - d / 2), w * MS, d * MS); x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(mp(cx - w / 2), mp(cz) - 1, w * MS, 2); };
-    for (const h of W.HOUSES) roof(h[0], h[1], h[2] + 1, h[3] + 1, css(h[5]));
-    roof(-18, -10, 11, 9, '#e2382e'); x.fillStyle = '#fff'; x.beginPath(); x.arc(mp(-18), mp(-10), 7, 0, 7); x.fill();
-    roof(0, -31, 16, 10, '#5a7ab8'); x.fillStyle = '#8ab8e8'; x.beginPath(); x.arc(mp(-3.5), mp(-31.5), 8, 0, 7); x.fill();
-    x.fillStyle = '#e2e2ea'; x.beginPath(); x.arc(mp(0), mp(0), 2.7 * MS, 0, 7); x.fill(); x.fillStyle = '#6ac8f8'; x.beginPath(); x.arc(mp(0), mp(0), 1.9 * MS, 0, 7); x.fill();
-    x.fillStyle = '#ff7a1a'; x.beginPath(); x.arc(mp(W.FIRE.x), mp(W.FIRE.z), 3.5, 0, 7); x.fill();
-    x.strokeStyle = '#d8b070'; x.lineWidth = 2; x.strokeRect(mp(-57.4), mp(-57.4), 114.8 * MS, 114.8 * MS);
+  const AREAS = { town: { cx: 0, cz: 0, V: 62, name: 'Trainer Town' }, city: { cx: 0, cz: -124, V: 60, name: 'The City' } };
+  const areaAt = z => AREAS[z < -66 ? 'city' : 'town'];
+  // one 512px picture per area, covering 160x160 units around the area's centre
+  function baseMap(a) {
+    a = a || AREAS.town; if (a.base) return a.base;
+    const c = a.base = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'), X = v => (v - a.cx + 80) * MS, Z = v => (v - a.cz + 80) * MS;
+    const roof = (cx, cz, w, d, col) => { x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(X(cx - w / 2) - 2, Z(cz - d / 2) - 2, w * MS + 2, d * MS + 2); x.fillStyle = col; x.fillRect(X(cx - w / 2), Z(cz - d / 2), w * MS, d * MS); x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(X(cx - w / 2), Z(cz) - 1, w * MS, 2); };
+    x.fillStyle = '#74c456'; x.fillRect(0, 0, 512, 512);
+    if (a === AREAS.town) {
+      x.drawImage(W.groundCanvas, 0, 0, 512, 512);
+      x.fillStyle = '#3fa6ea'; x.beginPath(); x.arc(X(W.POND.x), Z(W.POND.z), W.POND.r * MS, 0, 7); x.fill(); x.strokeStyle = '#cdeeff'; x.lineWidth = 2; x.stroke();
+    } else x.drawImage(W.cityCanvas, X(-56), Z(-180), 112 * MS, 112 * MS);
+    for (const t of W.trees) { const tx = X(t[0]), tz = Z(t[1]); if (tx < -5 || tz < -5 || tx > 517 || tz > 517) continue; x.fillStyle = t[3] === 'pine' ? '#2f8048' : t[3] === 'blossom' ? '#f7a8c8' : '#4aa64e'; x.beginPath(); x.arc(tx, tz, 1.5 * t[2] * MS, 0, 7); x.fill(); x.fillStyle = 'rgba(255,255,255,.18)'; x.beginPath(); x.arc(tx - 1, tz - 1, 0.7 * t[2] * MS, 0, 7); x.fill(); }
+    if (a === AREAS.town) {
+      for (const h of W.HOUSES) roof(h[0], h[1], h[2] + 1, h[3] + 1, css(h[5]));
+      roof(-18, -10, 11, 9, '#e2382e'); x.fillStyle = '#fff'; x.beginPath(); x.arc(X(-18), Z(-10), 7, 0, 7); x.fill();
+      roof(0, -31, 16, 10, '#5a7ab8'); x.fillStyle = '#8ab8e8'; x.beginPath(); x.arc(X(-3.5), Z(-31.5), 8, 0, 7); x.fill();
+      x.fillStyle = '#e2e2ea'; x.beginPath(); x.arc(X(0), Z(0), 2.7 * MS, 0, 7); x.fill(); x.fillStyle = '#6ac8f8'; x.beginPath(); x.arc(X(0), Z(0), 1.9 * MS, 0, 7); x.fill();
+      x.fillStyle = '#ff7a1a'; x.beginPath(); x.arc(X(W.FIRE.x), Z(W.FIRE.z), 3.5, 0, 7); x.fill();
+      x.strokeStyle = '#d8b070'; x.lineWidth = 2; x.strokeRect(X(-57.4), Z(-57.4), 114.8 * MS, 114.8 * MS);
+    } else {
+      for (const b of W.buildings) roof(b[0], b[1], b[2], b[3], b[6].shop ? css(b[6].shop) : css(b[5]));
+      roof(0, -171, 20, 10, '#f08030'); x.fillStyle = '#8a5a3a'; x.fillRect(X(-1.2), Z(-125.2), 2.4 * MS, 2.4 * MS);
+    }
     return c;
   }
   function setMini(on) { miniOn = on; try { localStorage.setItem('tt_mini', on ? '1' : '0'); } catch (e) { } const p = mode === 'play'; $('mini').classList.toggle('hide', !(on && p)); $('miniBtn').classList.toggle('hide', !(!on && p)); }
@@ -340,9 +435,9 @@
     beacon.visible = !!d; if (d) beacon.position.set(d.x, 0, d.z);
   }
   function drawMini() {
-    const c = $('mini'), x = c.getContext('2d'), R = 28, k = 264 / (R * 2), X = v => (v - player.x + R) * k, Z = v => (v - player.z + R) * k;
+    const c = $('mini'), x = c.getContext('2d'), R = 28, k = 264 / (R * 2), X = v => (v - player.x + R) * k, Z = v => (v - player.z + R) * k, a = areaAt(player.z);
     x.fillStyle = '#74c456'; x.fillRect(0, 0, 264, 264);
-    x.drawImage(baseMap(), mp(player.x - R), mp(player.z - R), R * 2 * MS, R * 2 * MS, 0, 0, 264, 264);
+    x.drawImage(baseMap(a), (player.x - R - a.cx + 80) * MS, (player.z - R - a.cz + 80) * MS, R * 2 * MS, R * 2 * MS, 0, 0, 264, 264);
     const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 2; x.beginPath(); x.arc(X(px), Z(pz), r, 0, 7); x.fill(); x.stroke(); };
     for (const w of wilds) dot(w.x, w.z, '#ff5a4a', 5);
     for (const n of npcs) dot(n.x, n.z, n.human ? '#ffd23c' : '#ffa0c0', 5);
@@ -350,30 +445,31 @@
     if (dest) { const dx = TT.clamp(X(dest.x), 14, 250), dz = TT.clamp(Z(dest.z), 14, 250); x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 3; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(132, 132); x.lineTo(dx, dz); x.stroke(); x.setLineDash([]); x.font = '26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('📍', dx, dz - 8); }
     x.save(); x.translate(132, 132); x.rotate(Math.PI - player.h); x.fillStyle = '#fff'; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -15); x.lineTo(11, 11); x.lineTo(0, 5); x.lineTo(-11, 11); x.closePath(); x.fill(); x.stroke(); x.restore();
   }
-  function showTownMap() {
+  function showAreaMap(key) {
+    const a = AREAS[key], places = key === 'city' ? W.CITY_PLACES : W.PLACES, V = a.V;
     const size = Math.max(240, Math.min(window.innerWidth * 0.86, window.innerHeight * 0.58, 560)) | 0;
-    openPanel('<h3>Trainer Town <button id="pClose">✕</button></h3><canvas id="townMap" width="' + size * 2 + '" height="' + size * 2 + '" style="width:' + size + 'px;height:' + size + 'px"></canvas><div id="mapInfo">Tap a place to learn about it.</div><div class="row"><button id="mGo" disabled>📍 Guide me there</button><button id="mClear" class="alt">Stop guiding</button><button id="mBack" class="alt">World map</button></div>');
-    const V = 62, c = $('townMap'), x = c.getContext('2d'), k = size * 2 / (V * 2), X = v => (v + V) * k; let sel = null, tick = 0;
+    openPanel('<h3>' + a.name + ' <button id="pClose">✕</button></h3><canvas id="townMap" width="' + size * 2 + '" height="' + size * 2 + '" style="width:' + size + 'px;height:' + size + 'px"></canvas><div id="mapInfo">Tap a place to learn about it.</div><div class="row"><button id="mGo" disabled>📍 Guide me there</button><button id="mClear" class="alt">Stop guiding</button><button id="mBack" class="alt">World map</button></div>');
+    const c = $('townMap'), x = c.getContext('2d'), k = size * 2 / (V * 2), X = v => (v - a.cx + V) * k, Z = v => (v - a.cz + V) * k, here = areaAt(player.z) === a; let sel = null, tick = 0;
     const draw = () => {
       if (!c.isConnected || !S) return clearInterval(iv);
-      tick++; x.drawImage(baseMap(), mp(-V), mp(-V), V * 2 * MS, V * 2 * MS, 0, 0, size * 2, size * 2);
+      tick++; x.drawImage(baseMap(a), (80 - V) * MS, (80 - V) * MS, V * 2 * MS, V * 2 * MS, 0, 0, size * 2, size * 2);
       x.textAlign = 'center'; x.textBaseline = 'middle';
-      for (const p of W.PLACES) {
-        const on = sel && sel.p === p; x.font = (on ? 46 : 36) * size / 500 + 'px sans-serif'; x.fillText(p[3], X(p[1]), X(p[2]));
-        x.font = '800 ' + (22 * size / 500) + 'px "Avenir Next","Trebuchet MS",sans-serif'; x.lineWidth = 5; x.strokeStyle = on ? '#ffd23c' : 'rgba(255,255,255,.92)'; x.fillStyle = '#23324a'; x.strokeText(p[0], X(p[1]), X(p[2]) + 30 * size / 500); x.fillText(p[0], X(p[1]), X(p[2]) + 30 * size / 500);
+      for (const p of places) {
+        const on = sel && sel.p === p; x.font = (on ? 46 : 36) * size / 500 + 'px sans-serif'; x.fillText(p[3], X(p[1]), Z(p[2]));
+        x.font = '800 ' + (22 * size / 500) + 'px "Avenir Next","Trebuchet MS",sans-serif'; x.lineWidth = 5; x.strokeStyle = on ? '#ffd23c' : 'rgba(255,255,255,.92)'; x.fillStyle = '#23324a'; x.strokeText(p[0], X(p[1]), Z(p[2]) + 30 * size / 500); x.fillText(p[0], X(p[1]), Z(p[2]) + 30 * size / 500);
       }
-      const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.arc(X(px), X(pz), r, 0, 7); x.fill(); x.stroke(); };
+      const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.arc(X(px), Z(pz), r, 0, 7); x.fill(); x.stroke(); };
       for (const n of npcs) if (n.human) dot(n.x, n.z, '#ffd23c', 6);
       for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 10); }
-      const d = sel || (dest && { x: dest.x, z: dest.z }); if (d) { x.font = 44 * size / 500 + 'px sans-serif'; x.fillText('📍', X(d.x), X(d.z) - 16); }
-      const pulse = 10 + Math.sin(tick * 0.5) * 4; x.fillStyle = 'rgba(255,255,255,.4)'; x.beginPath(); x.arc(X(player.x), X(player.z), pulse + 8, 0, 7); x.fill(); dot(player.x, player.z, '#e8402a', 9);
+      const d = sel || (dest && { x: dest.x, z: dest.z }); if (d) { x.font = 44 * size / 500 + 'px sans-serif'; x.fillText('📍', X(d.x), Z(d.z) - 16); }
+      if (here) { const pulse = 10 + Math.sin(tick * 0.5) * 4; x.fillStyle = 'rgba(255,255,255,.4)'; x.beginPath(); x.arc(X(player.x), Z(player.z), pulse + 8, 0, 7); x.fill(); dot(player.x, player.z, '#e8402a', 9); }
     };
     const iv = setInterval(draw, 120); draw();
     c.addEventListener('pointerdown', e => {
-      e.preventDefault(); const r = c.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * V * 2 - V, wz = (e.clientY - r.top) / r.height * V * 2 - V;
-      let best = null, bd = 9; for (const p of W.PLACES) { const d = Math.hypot(p[1] - wx, p[2] - wz); if (d < bd) { bd = d; best = p; } }
+      e.preventDefault(); const r = c.getBoundingClientRect(), wx = (e.clientX - r.left) / r.width * V * 2 - V + a.cx, wz = (e.clientY - r.top) / r.height * V * 2 - V + a.cz;
+      let best = null, bd = 9; for (const p of places) { const d = Math.hypot(p[1] - wx, p[2] - wz); if (d < bd) { bd = d; best = p; } }
       if (best) { sel = { p: best, x: best[5], z: best[6], n: best[0] }; $('mapInfo').innerHTML = '<b>' + best[3] + ' ' + best[0] + '</b><br>' + best[4]; }
-      else { const q = W.collide(TT.clamp(wx, -55, 55), TT.clamp(wz, -55, 55), 0.6); sel = { x: q[0], z: q[1], n: 'that spot' }; $('mapInfo').innerHTML = '<b>📍 This spot</b><br>Tap "Guide me there" to get an arrow to it.'; }
+      else { const q = W.collide(wx, wz, 0.6); sel = { x: q[0], z: q[1], n: 'that spot' }; $('mapInfo').innerHTML = '<b>📍 This spot</b><br>Tap "Guide me there" to get an arrow to it.'; }
       $('mGo').disabled = false; TT.sfx.blip(); draw();
     });
     $('mGo').onclick = () => { if (!sel) return; setDest({ x: sel.x, z: sel.z, n: sel.n }); clearInterval(iv); closePanel(); TT.sfx.pick(); TT.toast('Follow the 📍 to ' + sel.n + '!'); };
@@ -431,7 +527,7 @@
     const box = $('friends'); box.innerHTML = '';
     for (const id in Net.peers) {
       const p = Net.peers[id]; if (!p.root || !p.d) continue;
-      const nm = NAMES[p.d.c] || 'Friend', b = document.createElement('button');
+      const nm = p.nm || NAMES[p.d.c] || 'Friend', b = document.createElement('button');
       if (p.b === 1) { b.className = 'fight'; b.textContent = '⚔ Join ' + nm + "'s battle!"; b.onclick = () => joinBattle(id, nm); }
       else { b.textContent = '➜ Go to ' + nm; b.onclick = () => jumpTo(id, nm); }
       box.appendChild(b);
@@ -475,7 +571,7 @@
         p.b = -1; p.lab = null; friendsDirty = true;
       }
       if (!p.fol || p.sp !== d.p) { if (p.fol) scene.remove(p.fol.root); p.sp = d.p; p.fol = { x: d.x + 1, z: d.z + 1, h: 0, mv: 0, root: wrap(TT.creature(d.p), 0.35) }; }
-      if (p.b !== (d.b ? 1 : 0)) { p.b = d.b ? 1 : 0; friendsDirty = true; if (p.lab) p.root.remove(p.lab); p.lab = TT.label((NAMES[d.c] || 'Friend') + (p.b ? ' ⚔' : ''), p.b ? 'rgba(232,64,42,.95)' : 'rgba(58,160,232,.9)'); p.lab.position.y = 2.2; p.root.add(p.lab); }
+      if (p.b !== (d.b ? 1 : 0)) { p.b = d.b ? 1 : 0; friendsDirty = true; if (p.lab) p.root.remove(p.lab); p.nm = String(d.n || NAMES[d.c] || 'Friend').replace(/[<>&]/g, '').slice(0, 14); p.lab = TT.label(p.nm + (p.b ? ' ⚔' : ''), p.b ? 'rgba(232,64,42,.95)' : 'rgba(58,160,232,.9)'); p.lab.position.y = 2.2; p.root.add(p.lab); }
       const k = Math.min(1, dt * 10); p.x += (d.x - p.x) * k; p.z += (d.z - p.z) * k; p.h = TT.angLerp(p.h, d.h, k); p.mv = d.m;
       placeEnt(p, true); follow(p.fol, p.x, p.z, dt, 1.5); placeEnt(p.fol, false);
     }
@@ -536,7 +632,7 @@
       if (battleCd <= 0 && !busy) for (const w of wilds) if (Math.hypot(w.x - player.x, w.z - player.z) < 1.25) { wildBattle(w); break; }
       for (let i = respawns.length - 1; i >= 0; i--) if (respawns[i].at < playT) { spawnWild(respawns[i].z); respawns.splice(i, 1); }
       if (!busy && playT > nextRocket) rocketEvent();
-      if ((saveT += dt) > 20) { saveT = 0; save(); }
+      if ((saveT += dt) > 20) { saveT = 0; save(); cloudPush(); }
     } else player.mv = 0;
 
     starObj.visible = S.stars.indexOf(3) < 0; starObj.rotation.y = t * 1.5; starObj.position.y = 0.7 + Math.sin(t * 2) * 0.12;
@@ -558,7 +654,7 @@
       cam.x += (player.x - cam.x) * k; cam.z += (player.z - cam.z) * k;
       camera.position.set(cam.x, 12.5 * zm, cam.z + 12.5 * zm); camera.lookAt(cam.x, 1, cam.z - 1);
     }
-    if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp, b: TT.Battle.owning() ? 1 : 0 }); }
+    if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp, b: TT.Battle.owning() ? 1 : 0, n: pname }); }
   }
 
   function setQuality(q) {
@@ -594,6 +690,6 @@
   requestAnimationFrame(() => setTimeout(() => {
     try { init(); } catch (e) { $('loading').textContent = 'Sorry, something went wrong: ' + e.message; throw e; }
     ready = true; $('loading').classList.add('hide'); $('title').classList.remove('wait');
-    if (pending) startGame(pending);
+    if (pending && !(kidsList.length && pending !== 'dad')) startGame(pending);
   }, 40));
 })();

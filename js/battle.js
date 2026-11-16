@@ -136,7 +136,7 @@
 
   // the visible part of an attack; `apply` runs at the moment of impact
   async function animAtk(ao, dobj, type, dmg, eff, apply) {
-    const x0 = ao.position.x, dir = dobj.position.x > x0 ? 1 : -1, phys = type === 'normal' || type === 'dark' || type === 'bug';
+    const x0 = ao.position.x, dir = dobj.position.x > x0 ? 1 : -1, phys = type === 'normal' || type === 'dark' || type === 'bug' || type === 'fighting';
     if (phys) {
       await TT.tween(0.2, q => { ao.position.x = x0 - dir * 0.4 * ease(q); setS(ao, 1 + 0.12 * q, 1 - 0.16 * q); });           // wind-up
       TT.sfx.whoosh();
@@ -245,6 +245,7 @@
     B.active = true; camK = 0; TT.sfx.battle(); TT.music(opts.music || 'battle');
     const me = st.me_h = TT.human(TT.PEOPLE[S.ch]); me.position.set(A.x - 4.7, 0, A.z - 0.9); me.rotation.y = 1.25; TT.scene.add(me); st.extras.push(me); st.humans.push(me);
     (opts.people || []).forEach((k, i) => { const p = TT.human(TT.PEOPLE[k]); p.position.set(A.x + 4.3 + i * 1.5, 0, A.z + 0.1 - i * 1.9); p.rotation.y = -1.25; TT.scene.add(p); st.extras.push(p); st.humans.push(p); });
+    if (opts.ally) { placeAlly('lugia'); addHuman(opts.ally, -5.8, 1.5, 1.25); st.npcAlly = { sp: 'lugia', lvl: st.me.lvl + 4, mv: ['Aeroblast', 'flying', 55], n: 'Gohan' }; st.turn = 0; }
     $('battle').classList.remove('hide'); $('bmenu').innerHTML = '';
     await place(1, st.foe, !st.wild); if (st.wild) TT.cry(st.foe.sp); await place(-1, st.me); st.obj.me.visible = false; bars();
     TT.tween(1.1, q => { camK = ease(q); });
@@ -277,6 +278,7 @@
         await attack(st.me, st.foe, act.mv, st.obj.me, st.obj.foe, st.easy ? 1.5 : 1);
         if (st.foe.hp <= 0) { if (await foeDown()) { result = 'win'; break; } foeTurn = false; }
       }
+      if (act.t !== 'assist' && st.npcAlly && st.foe.hp > 0 && (++st.turn % 2 === 1)) st.assists.push(st.npcAlly);   // Gohan's Lugia swoops in every other turn
       if (foeTurn) {
         await attack(st.foe, st.me, TT.pick(TT.moves(st.foe)), st.obj.foe, st.obj.me, st.easy ? 0.35 : 0.7);
         if (st.me.hp <= 0) {
@@ -315,7 +317,7 @@
 
   // Join a friend's battle: watch it live and send helper attacks. stillOn() says whether they are still fighting.
   B.watch = async function (owner, name, stillOn) {
-    const S = TT.S, lead = S.party.find(m => m.hp > 0) || S.party[0], myName = NAMES[S.ch] || 'Friend';
+    const S = TT.S, lead = S.party.find(m => m.hp > 0) || S.party[0], myName = TT.playerName || NAMES[S.ch] || 'Friend';
     st = { watch: true, owner, q: [], obj: {}, extras: [], humans: [], foes: [], wild: true };
     B.active = true; camK = 1; TT.music('battle'); TT.sfx.battle();
     $('battle').classList.remove('hide'); $('bmenu').innerHTML = ''; $('bmsg').textContent = 'Joining ' + name + "'s battle…";
