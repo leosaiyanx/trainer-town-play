@@ -104,6 +104,7 @@
       if (q.get('lvl')) S.party.forEach(m => { m.lvl = +q.get('lvl'); m.hp = TT.maxHp(m); });
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('far')) S.camFar = +q.get('far');
+      if (q.get('fx')) { let on = 0; setInterval(() => { if (on || !TT.Battle.active || !/^What will/.test($('bmsg').textContent)) return; on = 1; const o = TT.tween, k = +(q.get('fxs') || 6); TT.tween = (d, f) => o(d * k, f); (async () => { for (;;) { await TT.Battle.fxTest(q.get('fx'), 1.5); } })(); }, 200); }      // test: loop one move's effect in slow motion
       if (q.get('duo')) { duoForce = q.get('duo'); duoWait = 1.2; }
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       if (q.get('zoom')) setInterval(() => { if (!TT.Battle.active && !flying) TT.camZoom = +q.get('zoom'); }, 50);      // test: bring the camera close to check a model
@@ -370,6 +371,64 @@
     return true;
   }
 
+  // ---------- saying things in more than one way ----------
+  // vary(key, options): each option is a list of lines [[who, text], ...]. Options are dealt like a shuffled pack: nothing comes round again until all the
+  // others have been heard. A text given as a list of wordings picks one, so even a repeat sounds a little different.
+  // While voices are on, an option whose lines have not been recorded yet is left out, so nobody suddenly goes silent.
+  function vary(key, options, optional) {
+    const made = options.map(o => { const out = []; for (const l of o) { const ts = (Array.isArray(l[1]) ? l[1] : [l[1]]).filter(t => TT.canSay(l[0], t)); if (!ts.length) return null; out.push([l[0], TT.pick(ts)]); } return out; });
+    const id = o => TT.voiceKey(o[0][0], Array.isArray(o[0][1]) ? o[0][1][0] : o[0][1]), ok = options.map((o, i) => i).filter(i => made[i]);
+    if (!ok.length) return optional ? [] : options[0].map(l => [l[0], Array.isArray(l[1]) ? l[1][0] : l[1]]);
+    const mem = S.said || (S.said = {}); let used = mem[key] || (mem[key] = []);
+    let pool = ok.filter(i => used.indexOf(id(options[i])) < 0);
+    if (!pool.length) { const last = used[used.length - 1]; used = mem[key] = ok.length > 1 ? [last] : []; pool = ok.filter(i => used.indexOf(id(options[i])) < 0); }
+    const i = TT.pick(pool); used.push(id(options[i])); if (used.length > 40) used.shift();
+    return made[i];
+  }
+  // Team Rocket's lines. J, M, R = Jessie, James, Meowth.
+  const RK = (() => {
+    const J = 'Jessie', M = 'James', R = 'Meowth', T = 'Team Rocket';
+    return {
+      intro: [
+        [['???', 'Prepare for trouble!'], ['???', 'And make it double!'], [J, 'Jessie!'], [M, 'James!'], [R, "Meowth, that's right!"]],
+        [[J, 'Prepare for trouble, twerp!'], [M, 'And make it double trouble!'], [R, 'Meowth is here too!']],
+        [[J, 'To save the world from boring days!'], [M, 'To grab rare Pokémon in sneaky ways!'], [R, 'Team Rocket, at your service!']],
+        [[M, 'Guess who just dropped in?'], [J, 'Your favourite villains, of course!'], [R, 'And the brains of the team. Me!']],
+        [[J, 'Did you miss us, twerp?'], [M, 'We practised our entrance all morning.'], [R, 'Just get on with it, you two!']],
+        [[R, 'Surprise! You did not see this balloon coming.'], [J, 'It is a very sneaky balloon.'], [M, 'It is huge, and it has your face on it, Meowth.']],
+      ],
+      place: {
+        town: [[[M, 'What a sleepy little town. Perfect for a quick snatch.']], [[J, 'Nobody will notice one missing Pokémon in a town this small.']], [[R, 'Nice pond. Shame we are too busy to go fishing.']], [[M, 'I rather like it here. Can we stay for lunch?'], [J, 'No!']]],
+        city: [[[J, 'The big City! So many shiny things to take.']], [[M, 'Ooh, is that a bakery?'], [R, 'Focus, James!']], [[J, 'Even Officer Gus cannot catch us up here.']], [[R, 'City folk never look up. Lucky for us!']]],
+        world: [[[M, 'We followed you across the whole Wide World.'], [R, 'My paws hurt!']], [[J, 'Out here there is nobody to help you, twerp!']], [[R, 'Mountains, rivers, forests. Too much nature for me.']], [[M, 'The view from the balloon is lovely today.'], [J, 'We are not here for the view!']]],
+        volcano: [[[R, 'It is way too hot here! My fur is going frizzy.']], [[M, 'The balloon nearly melted on the way in.']], [[J, 'A little heat will not stop Team Rocket!']], [[R, 'Who builds a home next to a volcano?']]],
+      },
+      gohan: [[[J, 'You brought a little friend along? How sweet.'], [R, 'Uh, Jessie. That kid has a Lugia.']]],
+      goku: [[[M, 'Is that Goku? With a Rayquaza?'], [R, 'We are going to need a bigger balloon.']]],
+      vegeta: [[[R, 'Now there are three of them? This is not fair!']], [[M, 'That spiky one keeps glaring at me.']]],
+      balls: [[[J, 'And those Dragon Balls you carry will make a lovely bonus!']], [[M, 'Look at all those Dragon Balls. We could wish for a new balloon!']]],
+      robot: [[[R, 'You broke our robot, twerp. That thing was expensive!']]],
+      many: [[[M, 'I have lost count of how many times we have tried this.'], [J, 'Then this is the time it works!']], [[R, 'New plan, same as the old plan. Grab and go!']]],
+      demand: [[[J, 'Hand over your partner, twerp!']], [[M, 'We will be taking that Pokémon now. Thank you kindly.']], [[R, 'Net time! Say goodbye to your little pal.']]],
+      grab: [[[R, 'Gotcha! Right in the net!']], [[M, 'Caught it! I actually caught it!']], [[J, 'Ha! Easy as pie.']]],
+      win: [
+        [[J, ['We lost AGAIN?!', 'We lost? AGAIN?!']], [R, ["It's not fair!", 'So not fair!']]],
+        [[M, 'But we practised so hard!'], [J, 'Stop crying, James!']],
+        [[R, 'I knew we should have stayed in bed today.']],
+        [[J, 'This is all your fault, Meowth!'], [R, 'My fault?!']],
+        [[M, 'That twerp keeps getting stronger.'], [J, 'And we keep getting flatter!']],
+        [[R, 'The boss is not going to like this.']],
+        [[J, 'Next time, twerp. Next time!']],
+      ],
+      lose: [
+        [[M, 'We... won? We actually won?!'], [R, 'Uh oh. The balloon is leaking!']],
+        [[J, 'We won! Quick, somebody take a picture!'], [M, 'Wait. The net has a hole in it.']],
+        [[R, 'Victory! Hold on, why is the balloon going down?']],
+      ],
+      blast: [[[T, "Looks like Team Rocket's blasting off agaaaain!"]], [[T, "We're blasting off agaaaain!"]], [[T, 'Up, up and away we go agaaaain!']], [[T, 'See you next time, twerp! Whoaaaa!']], [[T, 'Not the sky agaaaain!']]],
+    };
+  })();
+
   // ---------- the Dragon Radar and grown-up help ----------
   // Bulma gives the real radar after the first wish. Dad always has one, and a grown-up can lend it to a child for a while (from Dad mode, or from the menu on the child's own device).
   const radarOn = () => !!S && !!(S.flags.radar || S.ch === 'dad' || (S.radarUntil || 0) > Date.now());
@@ -530,9 +589,9 @@
     S.flags.goku = 1; applyFlags(); TT.sfx.caught(); TT.cry('rayquaza'); save();
   }
   async function nurse() {
-    await TT.say([['Nurse Joy', 'Welcome to the Poké Center! Let me take care of your Pokémon.']]);
+    await TT.say(vary('nurseHi', [[['Nurse Joy', 'Welcome to the Poké Center! Let me take care of your Pokémon.']], [['Nurse Joy', 'Hello again! Your Pokémon look like they need a rest.']], [['Nurse Joy', 'Welcome back! Let me look after your team.']], [['Nurse Joy', 'Oh, what brave Pokémon! Let me patch them up.']]]));
     S.party.forEach(m => m.hp = TT.maxHp(m)); TT.sfx.heal(); await TT.wait(0.8);
-    await TT.say([['Nurse Joy', 'All better! Your Pokémon are full of energy. ♪']]);
+    await TT.say(vary('nurseDone', [[['Nurse Joy', 'All better! Your Pokémon are full of energy. ♪']], [['Nurse Joy', 'There we go! Good as new. ♪']], [['Nurse Joy', 'All healed up and ready for adventure!']], [['Nurse Joy', 'Your Pokémon feel wonderful again. Take care out there!']]]));
   }
   async function giveStar(n) {
     if (S.stars.indexOf(n) >= 0) return;
@@ -761,20 +820,26 @@
     P(bal, 'box', 0x9a6a3a, [0, 1.2, 0], [1.6, 1.1, 1.6]); for (const s of [1, -1]) P(bal, 'cyl', 0x6a5a48, [s * 0.7, 2.6, 0], [0.03, 2.2, 0.03]);
     player.h = Math.PI;
     await TT.tween(1.6, k => { g.position.y = by + 14 * (1 - TT.ease(k)); });
-    const lines = [['???', 'Prepare for trouble!'], ['???', 'And make it double!'], ['Jessie', 'Jessie!'], ['James', 'James!'], ['Meowth', "Meowth, that's right!"]];
+    // what they say changes every time: a different entrance, a remark about this place or about how far the trainer has come, and a different demand
+    const area = areaKey(player.x, player.z), fl = S.flags, lines = vary('rkIntro', RK.intro).slice();
     if (n === 1) lines.push(['James', 'And this time our Pumpkaboo evolved into Gourgeist!']);
-    lines.push(['Jessie', 'Hand over that ' + pn + ', twerp!']);
+    else { let ctx = (RK.place[area] || RK.place.town).slice(); if (fl.vegeta) ctx = ctx.concat(RK.vegeta); else if (fl.goku) ctx = ctx.concat(RK.goku); else if (fl.gohan) ctx = ctx.concat(RK.gohan);
+      if (S.stars.length >= 4) ctx = ctx.concat(RK.balls); if (fl.hideout) ctx = ctx.concat(RK.robot); if (n >= 4) ctx = ctx.concat(RK.many); lines.push(...vary('rkCtx', ctx, true)); }
+    lines.push(...vary('rkDemand', [[['Jessie', 'Hand over that ' + pn + ', twerp!']]].concat(RK.demand)));
     await TT.say(lines);
     const fx = follower.x, fz = follower.z; TT.sfx.throw();
     await TT.tween(0.8, k => { follower.x = fx + (bx - fx) * k; follower.z = fz + (bz + 0.2 - fz) * k; follower.root.position.set(follower.x, by + Math.sin(k * 3.14) * 2, follower.z); });
-    await TT.say([['Meowth', 'Gotcha! ' + pn + ' is ours now!'], [me, 'Hey! Give ' + pn + ' back!'], [pn, '(' + pn + ' broke out of the net!)'], [me, pn + ", let's battle and send them flying!"]]);
+    await TT.say([].concat(vary('rkGrab', [[['Meowth', 'Gotcha! ' + pn + ' is ours now!']]].concat(RK.grab)),
+      vary('rkCry', [[[me, 'Hey! Give ' + pn + ' back!']], [[me, 'Hey! That is my partner!']], [[me, 'Let go of my friend!']], [[me, 'Not again, Team Rocket!']]]),
+      [[pn, '(' + pn + TT.pick([' broke out of the net!', ' wriggled out of the net!', ' chewed through the net!', ' slipped free and ran back!']) + ')']],
+      vary('rkCall', [[[me, pn + ", let's battle and send them flying!"]], [[me, "Okay team, let's send them flying!"]], [[me, 'Time to teach Team Rocket a lesson!']]])));
     pm.hp = TT.maxHp(pm);
     const L = Math.max(2, pm.lvl - 3);
     const r = await TT.Battle.start({ foes: [TT.mon(n === 0 ? 'pumpkaboo' : 'gourgeist', L), TT.mon('inkay', L), TT.mon('meowth', L)], trainer: 'Team Rocket', people: ['jessie', 'james'], easy: true, music: 'rocket', after: 'rocket', allies: allies(), stage: stageHere() });
-    if (r === 'win') await TT.say([['Jessie', 'We lost AGAIN?!'], ['Meowth', "It's not fair!"]]);
-    else { S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say([['James', 'We... won? We actually won?!'], ['Meowth', 'Uh oh. The balloon is leaking!'], [pn, '(' + pn + ' jumped back to you!)']]); }
+    if (r === 'win') await TT.say(vary('rkWin', RK.win));
+    else { S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say(vary('rkLose', RK.lose).concat([[pn, '(' + pn + ' jumped back to you!)']])); }
     TT.sfx.rocket();
-    TT.say([['Team Rocket', "Looks like Team Rocket's blasting off agaaaain!"]]);
+    TT.say(vary('rkBlast', RK.blast));
     await TT.tween(2.2, k => { g.position.set(bx + k * k * 40, by + k * k * 60, bz - k * 30); g.rotation.z = k * 3; g.scale.setScalar(1 - k * 0.7); });
     scene.remove(g); actors.length = 0; const star = P(scene, 'sph', TT.glow(0xffffff), [player.x + 12, by + 14, player.z - 30], 0.5); TT.sfx.pick();
     await TT.tween(0.5, k => star.scale.setScalar(0.5 + Math.sin(k * 3.14) * 1.2)); scene.remove(star);

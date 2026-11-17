@@ -77,6 +77,12 @@
     $('foeDots').textContent = st.wild || !st.foes || st.foes.length < 2 ? '' : st.foes.map(f => f.hp > 0 ? '●' : '○').join('');
   }
   async function say(t, d) { setMsg(t); await TT.wait(d == null ? 1.15 : d); }
+  // one of several wordings, never the same one twice running
+  const lastSaid = {}; const oneOf = (key, a) => { let i, n = 0; do i = (Math.random() * a.length) | 0; while (i === lastSaid[key] && a.length > 1 && n++ < 8); lastSaid[key] = i; return a[i]; };
+  // how a wild Pokémon turns up depends on where the battle is
+  const WILD_AT = { pond: ['splashed out of the pond', 'popped up from the water'], river: ['leapt out of the river', 'splashed up the bank'], forest: ['dropped out of a tree', 'crept out of the bushes'], mountain: ['tumbled down the rocks', 'stepped out from behind a boulder'], peak: ['came down from the peak'], volcano: ['stepped out of the smoke', 'climbed out of the ash'], lair: ['stepped out of the smoke'], city: ['ran out of an alley', 'hopped off a rooftop'], park: ['jumped out of a flower bed', 'rolled across the grass'], meadow: ['jumped out of the tall grass', 'rustled out of the grass'] };
+  const wildLine = (nm, stage) => { const w = WILD_AT[stage] || WILD_AT.meadow; return oneOf('wild', ['A wild ' + nm + ' appeared!', 'A wild ' + nm + ' ' + oneOf('wildAt', w) + '!', 'Whoa! A wild ' + nm + '!', 'A wild ' + nm + ' wants to battle!', 'Look out! A wild ' + nm + ' ' + oneOf('wildAt', w) + '!']); };
+  const goLine = nm => oneOf('go', ['Go, ' + nm + '!', nm + ', I choose you!', "You're up, " + nm + '!', "Let's go, " + nm + '!', 'Show them, ' + nm + '!']);
   const gesture = (g, k) => { if (st.me_h) st.me_h.userData.gesture = g; if (k) setTimeout(() => { if (st && st.me_h && st.me_h.userData.gesture === g) st.me_h.userData.gesture = null; }, k * 1000); };
 
   function choose() {
@@ -97,110 +103,235 @@
     });
   }
 
-  // ---------------- attack visuals ----------------
-  async function special(type, ao, dobj, dir) {
-    const col = TT.TYPE_COL[type] || 0xffffff, x0 = ao.position.x, z = ao.position.z, y0 = mid(ao), x1 = dobj.position.x, z1 = dobj.position.z, y1 = mid(dobj);
-    const lerp = (k, wob) => [x0 + dir * 0.4 + (x1 - x0 - dir * 0.4) * k, y0 + (y1 - y0) * k + (wob || 0), z + (z1 - z) * k];
-    // charge-up: sparks spiral into the attacker
-    const ch = parts(9, [col, 0xffffff], x0, y0, z, 0.08), ring = P(TT.scene, RING, glowT(col, 0.6), [x0, 0.05, z], 0.3, [1.57, 0, 0]);
-    await TT.tween(0.34, q => { setS(ao, 1 + 0.1 * q, 1 - 0.14 * q); ring.scale.setScalar(0.3 + q * 0.9); ring.material.opacity = 0.6 * (1 - q); ch.forEach((p, i) => { const a = i * 0.7 + q * 5, r = 1.3 * (1 - q); p.position.set(x0 + Math.cos(a) * r, y0 + Math.sin(a) * r * 0.8, z + 0.3); }); });
-    kill(ch); TT.scene.remove(ring);
-    TT.sfx.move(type);
-    if (type === 'electric') {
-      const segs = []; for (let i = 0; i < 10; i++) segs.push(P(TT.scene, 'box', TT.glow(i % 2 ? 0xfff27a : 0xffffff), [0, 0, 0], [0.5, 0.1, 0.1]));
-      const zig = pts => { for (let i = 0; i < segs.length; i++) { const a = pts[i], b = pts[i + 1]; if (!b) { segs[i].visible = false; continue; } segs[i].visible = Math.random() > 0.12; segs[i].position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); segs[i].rotation.set(0, 0, Math.atan2(b[1] - a[1], b[0] - a[0])); segs[i].scale.x = Math.hypot(b[0] - a[0], b[1] - a[1]); } };
-      await TT.tween(0.32, () => { const pts = []; for (let i = 0; i <= 10; i++) pts.push(lerp(i / 10, i && i < 10 ? rand(-0.4, 0.4) : 0)); zig(pts); setS(ao, 0.95, 1.1); });
-      flash('#fff6b0', 0.55);                                    // and a bolt from the sky onto the target
-      await TT.tween(0.22, () => { const pts = []; for (let i = 0; i <= 10; i++) pts.push([x1 + (i && i < 10 ? rand(-0.5, 0.5) : 0), 9 - i * (9 - y1) / 10, z1]); zig(pts); });
-      kill(segs);
-    } else if (type === 'dragon' || type === 'psychic' || type === 'ghost') {
-      const n = 14, ps = [], c2 = type === 'dragon' ? [0x8a5af8, 0x5ab0ff, 0xffffff] : type === 'psychic' ? [0xf06090, 0xffb0d0, 0xffffff] : [0x5a3a8a, 0x8a5ac0, 0x2a1a3a];
-      for (let i = 0; i < n; i++) ps.push(P(TT.scene, 'sphS', TT.glow(c2[i % 3]), [x0, y0, z], 0.16));
-      await TT.tween(0.6, q => ps.forEach((m, i) => { const k = (q - i / n * 0.45) / 0.55; m.visible = k > 0 && k < 1; if (!m.visible) return; const p = lerp(k), a = k * 14 + i * 0.9, r = type === 'ghost' ? 0.6 * (1 - k) : 0.35; m.position.set(p[0], p[1] + Math.sin(a) * r, p[2] + Math.cos(a) * r); m.scale.setScalar(0.12 + 0.12 * Math.sin(k * 3.14)); }));
-      kill(ps);
-    } else if (type === 'rock') {
-      const rs = []; for (let i = 0; i < 3; i++) rs.push(P(TT.scene, 'rock', 0x9a8f80, [x0, y0, z], rand(0.25, 0.4), [rand(0, 3), rand(0, 3), 0]));
-      await TT.tween(0.6, q => rs.forEach((m, i) => { const k = TT.clamp((q - i * 0.12) / 0.64, 0, 1), p = lerp(k); m.visible = k > 0 && k < 1; m.position.set(p[0] + (i - 1) * 0.3 * k, p[1] + Math.sin(k * 3.14) * 2.2, p[2] + (i - 1) * 0.4 * k); m.rotation.x += 0.3; }));
-      kill(rs);
-    } else if (type === 'steel') {
-      const sh = []; for (let i = 0; i < 8; i++) sh.push(P(TT.scene, 'box', glowT(i % 2 ? 0xe8eef8 : 0xa8b0c8, 0.95), [x0, y0, z], [0.36, 0.06, 0.12]));
-      await TT.tween(0.45, q => sh.forEach((m, i) => { const k = TT.clamp((q - i * 0.04) / 0.7, 0, 1), p = lerp(k); m.position.set(p[0], p[1] + (i % 3 - 1) * 0.3 * Math.sin(k * 3.14), p[2] + (i % 4 - 1.5) * 0.25 * Math.sin(k * 3.14)); m.rotation.set(0, 0, k * 12 + i); }));
-      kill(sh);
-    } else {
-      const n = type === 'water' ? 12 : type === 'grass' ? 9 : type === 'flying' ? 5 : 8, ps = [];
-      for (let i = 0; i < n; i++) {
-        let m;
-        if (type === 'grass') m = P(TT.scene, 'sph', TT.glow(i % 2 ? 0x7ad85a : 0x4aa84a), [x0, y0, z], [0.22, 0.03, 0.11]);
-        else if (type === 'flying') m = P(TT.scene, 'sph', glowT(0xffffff, 0.8), [x0, y0, z], [0.12, 0.55, 0.32]);
-        else if (type === 'fire') m = P(TT.scene, 'sphS', TT.glow(i % 3 === 0 ? 0xffe060 : i % 3 === 1 ? 0xff7a1a : 0xff4020), [x0, y0, z], 0.22);
-        else if (type === 'water') m = P(TT.scene, 'sphS', TT.glow(i % 2 ? 0x6ac0ff : 0xcdeeff), [x0, y0, z], 0.15);
-        else m = P(TT.scene, RING, glowT(i % 2 ? col : 0xffffff, 0.85), [x0, y0, z], 0.2, [0, 1.57, 0]);
-        m.visible = false; ps.push(m);
-      }
-      await TT.tween(0.6, q => {
-        setS(ao, 1 - 0.1 * Math.max(0, 1 - q * 3), 1 + 0.16 * Math.max(0, 1 - q * 3));
-        ps.forEach((m, i) => {
-          const k = (q - i / n * 0.45) / 0.55; m.visible = k > 0 && k < 1; if (!m.visible) return;
-          const wob = type === 'water' ? Math.sin(k * 3.14) * 0.6 : Math.sin(k * 9 + i * 2) * (type === 'grass' ? 0.4 : 0.15), p = lerp(k, wob);
-          m.position.set(p[0], p[1], p[2] + Math.cos(k * 7 + i) * 0.25);
-          if (type === 'grass') m.rotation.set(k * 20 + i, k * 14, 0); else if (type === 'fire') m.scale.setScalar(0.16 + k * 0.34); else if (type !== 'water' && type !== 'flying') m.scale.setScalar(0.15 + k * 0.45);
-        });
-      });
-      kill(ps);
+  // ---------------- glowing particles ----------------
+  // Every spark, flame, droplet and puff of smoke in a battle lives in one buffer and is drawn in one go, so an attack can throw out hundreds of them.
+  const FX = { max: 340, p: [], q: (navigator.deviceMemory || 8) <= 4 ? 0.62 : 1 };
+  let fxPts = null, fxPos, fxCol, fxSize; const _fc = new THREE.Color(), jit = v => (Math.random() * 2 - 1) * v;
+  function fxInit() {
+    if (!fxPts) {
+      const g = new THREE.BufferGeometry(); fxPos = new Float32Array(FX.max * 3); fxCol = new Float32Array(FX.max * 4); fxSize = new Float32Array(FX.max);
+      g.setAttribute('position', new THREE.BufferAttribute(fxPos, 3)); g.setAttribute('col', new THREE.BufferAttribute(fxCol, 4)); g.setAttribute('size', new THREE.BufferAttribute(fxSize, 1)); g.setDrawRange(0, 0);
+      // a soft round dot with a white-hot middle; a negative alpha means "no hot middle" (smoke, dust)
+      // glowing particles add their light to what is behind them; smoke and dust cover it instead. One blend mode does both: colour is sent already multiplied by alpha.
+      fxPts = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms: { scale: { value: 500 } }, transparent: true, depthWrite: false, premultipliedAlpha: true, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+        vertexShader: 'attribute float size; attribute vec4 col; varying vec4 vC; uniform float scale; void main(){ vC = col; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = min(220.0, size * scale / -mv.z); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'varying vec4 vC; void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float glow = step(0.0, vC.a); float a = abs(vC.a) * smoothstep(1.0, 0.25, d); vec3 c = mix(vC.rgb, vec3(1.0), smoothstep(0.65, 0.0, d) * 0.55 * glow); gl_FragColor = vec4(c * a, a * mix(1.0, 0.3, glow)); }' }));
+      fxPts.frustumCulled = false; fxPts.renderOrder = 9;
     }
-    setS(ao, 1);
+    if (fxPts.parent !== TT.scene) TT.scene.add(fxPts);
   }
-  // what the hit looks like on the target, by type: [mesh, update(mesh, q)]
-  function impact(type, dx, y, z) {
-    const out = [];
-    if (type === 'fire') for (let i = 0; i < 6; i++) { const ox = rand(-0.4, 0.4), oz = rand(-0.3, 0.3); out.push([P(TT.scene, 'cone', TT.glow(i % 2 ? 0xffe060 : 0xff6a1a), [dx + ox, 0.2, z + oz], [0.18, 0.1, 0.18]), (m, q) => { m.scale.set(0.2 * (1 - q) + 0.05, 0.2 + Math.sin(q * 3.14) * 1.4, 0.2 * (1 - q) + 0.05); m.position.y = 0.1 + Math.sin(q * 3.14) * 0.6; }]); }
-    else if (type === 'water') { out.push([P(TT.scene, RING, glowT(0xcdeeff, 0.9), [dx, 0.1, z], 0.3, [1.57, 0, 0]), (m, q) => { m.scale.setScalar(0.3 + q * 2); m.material.opacity = 0.9 * (1 - q); }]); for (let i = 0; i < 8; i++) { const a = i * 0.785; out.push([P(TT.scene, 'sphS', TT.glow(0x9ad8ff), [dx, 0.2, z], 0.1), (m, q) => m.position.set(dx + Math.cos(a) * q * 1.2, 0.2 + Math.sin(q * 3.14) * 1.2, z + Math.sin(a) * q * 1.2)]); } }
-    else if (type === 'psychic' || type === 'dragon' || type === 'ghost') { const c = type === 'psychic' ? 0xf06090 : type === 'dragon' ? 0x8a5af8 : 0x6a3a9a; for (let i = 0; i < 3; i++) out.push([P(TT.scene, RING, glowT(c, 0.8), [dx, y, z], 0.2, [0, 1.57, 0]), (m, q) => { const k = TT.clamp(q * 1.5 - i * 0.25, 0, 1); m.scale.setScalar(0.2 + k * 1.4); m.material.opacity = 0.8 * (1 - k); }]); }
-    else if (type === 'grass' || type === 'flying') for (let i = 0; i < 10; i++) out.push([P(TT.scene, 'sph', TT.glow(type === 'grass' ? (i % 2 ? 0x7ad85a : 0x4aa84a) : 0xffffff), [dx, y, z], type === 'grass' ? [0.18, 0.03, 0.09] : [0.08, 0.3, 0.08]), (m, q) => { const a = i * 0.63 + q * 9; m.position.set(dx + Math.cos(a) * (0.5 + q * 0.6), 0.2 + q * 2 + i * 0.05, z + Math.sin(a) * (0.5 + q * 0.6)); m.rotation.set(q * 9, a, 0); }]);
-    else { out.push([P(TT.scene, RING, glowT(0xffffff, 0.8), [dx, 0.08, z], 0.3, [1.57, 0, 0]), (m, q) => { m.scale.setScalar(0.3 + q * 2.2); m.material.opacity = 0.8 * (1 - q); }]); for (let i = 0; i < 6; i++) { const a = i * 1.05; out.push([P(TT.scene, 'sphS', TT.glow(0xd8c8a8), [dx, 0.15, z], 0.16), (m, q) => { m.position.set(dx + Math.cos(a) * q * 1.4, 0.15 + Math.sin(q * 3.14) * 0.4, z + Math.sin(a) * q * 1.4); m.scale.setScalar(0.18 * (1 - q)); }]); } }
+  // one particle: where, how fast, how long, size from → to, colour from → to, alpha, gravity, drag
+  function fxAdd(x, y, z, vx, vy, vz, life, s0, s1, c0, c1, a, grav, drag) {
+    if (FX.p.length >= FX.max) return; _fc.setHex(c0); const r0 = _fc.r, g0 = _fc.g, b0 = _fc.b; _fc.setHex(c1 == null ? c0 : c1);
+    FX.p.push({ x, y, z, vx, vy, vz, life, t: 0, s0, s1: s1 == null ? s0 : s1, r0, g0, b0, r1: _fc.r, g1: _fc.g, b1: _fc.b, a: a == null ? 1 : a, g: grav || 0, d: drag || 0 });
+  }
+  function fxTick(dt) {
+    if (!fxPts) return; const L = FX.p; if (!L.length && !fxPts.geometry.drawRange.count) return;
+    for (let i = L.length - 1; i >= 0; i--) { const p = L[i]; p.t += dt; if (p.t >= p.life) { L[i] = L[L.length - 1]; L.pop(); continue; } p.vy -= p.g * dt; const dr = Math.max(0, 1 - p.d * dt); p.vx *= dr; p.vy *= dr; p.vz *= dr; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; }
+    let n = 0; for (const p of L) { const k = p.t / p.life, j = n * 3, c = n * 4; fxPos[j] = p.x; fxPos[j + 1] = p.y; fxPos[j + 2] = p.z; fxCol[c] = p.r0 + (p.r1 - p.r0) * k; fxCol[c + 1] = p.g0 + (p.g1 - p.g0) * k; fxCol[c + 2] = p.b0 + (p.b1 - p.b0) * k; fxCol[c + 3] = p.a * Math.min(1, k * 9) * (1 - k * k); fxSize[n] = p.s0 + (p.s1 - p.s0) * k; n++; }
+    const g = fxPts.geometry; g.setDrawRange(0, n); g.attributes.position.needsUpdate = g.attributes.col.needsUpdate = g.attributes.size.needsUpdate = true;
+    const cv = $('c'); if (cv) fxPts.material.uniforms.scale.value = cv.height * 1.3737;          // 1 / (2 tan(20°)): the camera's field of view is 40°
+  }
+  // a burst in all directions (or only upwards with hemi). o: { v speed, up, life, s, s1, cols, c1, a, g, d, r spawn radius, hemi, flat }
+  function fxBurst(n, x, y, z, o) {
+    n = Math.max(1, Math.round(n * FX.q));
+    for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, e = Math.acos(1 - Math.random() * (o.hemi ? 1 : 2)), sp = o.v * (0.35 + Math.random() * 0.65), r = o.r || 0.1;
+      fxAdd(x + jit(r), y + jit(r), z + jit(r), Math.sin(e) * Math.cos(a) * sp, (o.flat ? 0.15 : 1) * Math.cos(e) * sp + (o.up || 0), Math.sin(e) * Math.sin(a) * sp, o.life * (0.55 + Math.random() * 0.45), o.s * (0.7 + Math.random() * 0.6), o.s1 == null ? null : o.s1 * (0.7 + Math.random() * 0.6), o.cols[(Math.random() * o.cols.length) | 0], o.c1, o.a, o.g, o.d); }
+  }
+  // a stream from a to b: call every frame with the time that passed. Particles live just long enough to arrive.
+  function fxJet(rate, dt, a, b, speed, o) {
+    let n = rate * dt * FX.q + (o.acc || 0); o.acc = n % 1; n |= 0; const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L = Math.hypot(dx, dy, dz) || 1, sp = o.sp || 0;
+    for (let i = 0; i < n; i++) { const v = speed * (0.85 + Math.random() * 0.3); fxAdd(a[0] + jit(o.r || 0.08), a[1] + jit(o.r || 0.08), a[2] + jit(o.r || 0.08), dx / L * v + jit(sp), dy / L * v + jit(sp) + (o.up || 0), dz / L * v + jit(sp), L / v * (o.lifeK || 1), o.s * (0.7 + Math.random() * 0.6), o.s1, o.cols[(Math.random() * o.cols.length) | 0], o.c1, o.a, o.g, o.d); }
+  }
+  // like TT.tween, but the callback also gets the seconds since its last call
+  const run = (dur, f) => { let lq = 0; return TT.tween(dur, q => { const dt = (q - lq) * dur; lq = q; f(q, dt); }); };
+  const FIRE = [0xfff2a0, 0xffc23a, 0xff7a1a, 0xff4a12], WATER = [0xeaf7ff, 0x9ad8ff, 0x4a9cf0], VOLT = [0xffffff, 0xfff27a, 0xffd23a], LEAF = [0xb8f070, 0x7ad85a, 0x4aa84a], FROST = [0xffffff, 0xd8f2ff, 0xa8dcff],
+    PSY = [0xffd0e6, 0xf06090, 0xc060e0], DRAG = [0xffffff, 0x8ab0ff, 0x8a5af8], GHOST = [0xb48ae8, 0x7a4ac0, 0x4a2a80], DUST = [0xd8c8a8, 0xc0b090, 0xe8dcc0];
+  const typeCols = t => t === 'fire' ? FIRE : t === 'water' ? WATER : t === 'electric' ? VOLT : t === 'grass' || t === 'bug' ? LEAF : t === 'ice' ? FROST : t === 'psychic' ? PSY : t === 'dragon' ? DRAG : t === 'ghost' || t === 'dark' ? GHOST : t === 'fighting' ? [0xffffff, 0xff8a5a, 0xe04030] : t === 'steel' ? [0xffffff, 0xdfe8f8, 0xfff0b0] : t === 'rock' ? DUST : [0xffffff, 0xfff2c0, 0xe8e0d0];
+
+  // ---------------- attack visuals ----------------
+  // A special move: the attacker gathers power, then lets it go in a way that suits its type. pw (about 0.75–1.8) grows with the move's strength.
+  async function special(type, ao, dobj, dir, pw) {
+    pw = pw || 1; fxInit();
+    const col = TT.TYPE_COL[type] || 0xffffff, C = typeCols(type), x0 = ao.position.x, z = ao.position.z, y0 = mid(ao), x1 = dobj.position.x, z1 = dobj.position.z, y1 = mid(dobj), ax = ao.position.x;
+    const lerp = (k, wob) => [x0 + dir * 0.4 + (x1 - x0 - dir * 0.4) * k, y0 + (y1 - y0) * k + (wob || 0), z + (z1 - z) * k];
+    const p0 = [x0 + dir * 0.5, y0, z], p1 = [x1, y1, z1];
+    // gather power: light streams into the attacker, a ring spreads on the ground, and it leans back
+    const ring = P(TT.scene, RING, glowT(col, 0.7), [x0, 0.05, z], 0.3, [1.57, 0, 0]);
+    await run(0.36, (q, dt) => {
+      setS(ao, 1 + 0.1 * q, 1 - 0.14 * q); ao.position.x = ax - dir * 0.22 * q; ring.scale.setScalar(0.3 + q * 1.2 * pw); ring.material.opacity = 0.7 * (1 - q);
+      let n = 70 * pw * dt * FX.q + (ring.userData.acc || 0); ring.userData.acc = n % 1;
+      for (let i = 0; i < (n | 0); i++) { const a = Math.random() * 6.283, r = 1.2 + Math.random() * 0.5; fxAdd(x0 + Math.cos(a) * r, y0 + Math.sin(a) * r * 0.8, z + jit(0.3), -Math.cos(a) * r / 0.28, -Math.sin(a) * r * 0.8 / 0.28, 0, 0.28, 0.16, 0.05, C[(Math.random() * C.length) | 0], 0xffffff, 0.9); }
+    });
+    TT.scene.remove(ring); TT.sfx.move(type);
+    fxBurst(10 * pw, p0[0], p0[1], p0[2], { v: 2.5, life: 0.3, s: 0.3, s1: 0.05, cols: C, a: 0.9 });
+    const lunge = q => { ao.position.x = ax - dir * 0.22 + dir * 0.5 * Math.min(1, q * 5) - dir * 0.28 * Math.max(0, q - 0.75) * 4; setS(ao, 1 - 0.08 * Math.max(0, 1 - q * 3), 1 + 0.14 * Math.max(0, 1 - q * 3)); };
+    if (type === 'fire') {                       // a roaring stream of flame that swells as it goes, with embers
+      const o = { sp: 1.2, s: 0.34 * pw, s1: 1.05 * pw, cols: FIRE, c1: 0xe03a0a, a: 1, up: 0.5, lifeK: 1.05 }, e = { sp: 2.2, s: 0.09, s1: 0.03, cols: [0xfff2a0, 0xffb020], a: 1, up: 1.5, g: -2, lifeK: 1.3 };
+      await run(0.6, (q, dt) => { lunge(q); fxJet(300 * pw, dt, p0, p1, 10.5, o); fxJet(50, dt, p0, p1, 9, e); });
+    } else if (type === 'water') {               // a hard jet of water that arcs and sprays
+      const o = { sp: 0.45, s: 0.24 * pw, s1: 0.46 * pw, cols: [0x4a9cf0, 0x3a84e0, 0x6ab8ff], c1: 0x2a6ad0, a: -0.92, up: 1.3, g: 4.5, lifeK: 1.02 }, m = { sp: 1.1, s: 0.12, s1: 0.26, cols: [0xffffff, 0xdff2ff], a: 0.75, up: 1.0, g: 3 };
+      await run(0.6, (q, dt) => { lunge(q); fxJet(300 * pw, dt, p0, p1, 12, o); fxJet(110 * pw, dt, p0, p1, 11.5, m); });
+    } else if (type === 'electric') {            // forked lightning along the ground, then a bolt from the sky
+      const segs = []; for (let i = 0; i < 20; i++) segs.push(P(TT.scene, 'box', TT.glow(i % 2 ? 0xfff27a : 0xffffff), [0, 0, 0], [0.5, i < 10 ? 0.14 : 0.07, 0.1]));
+      const zig = (pts, off) => { for (let i = 0; i < 10; i++) { const a = pts[i], b = pts[i + 1], m = segs[off + i]; m.visible = Math.random() > 0.1; m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); m.rotation.set(0, 0, Math.atan2(b[1] - a[1], b[0] - a[0])); m.scale.x = Math.hypot(b[0] - a[0], b[1] - a[1]); } };
+      const path = (w, f) => { const pts = []; for (let i = 0; i <= 10; i++) pts.push(f(i / 10, i && i < 10 ? rand(-w, w) : 0)); return pts; };
+      await run(0.36, (q, dt) => { lunge(q); zig(path(0.45, lerp), 0); zig(path(0.8, lerp), 10); const k = Math.random(), pt = lerp(k); fxBurst(5 * pw, pt[0], pt[1], pt[2], { v: 4, life: 0.25, s: 0.12, s1: 0.03, cols: VOLT, a: 1, g: 5 }); });
+      flash('#fff6b0', 0.6); B.shake = Math.max(B.shake, 0.5);
+      const sky = (k, w) => [x1 + w, 10 - k * (10 - y1), z1];
+      await run(0.24, () => { zig(path(0.5, sky), 0); zig(path(0.9, sky), 10); fxBurst(8 * pw, x1, y1, z1, { v: 6, life: 0.3, s: 0.14, s1: 0.03, cols: VOLT, a: 1, g: 8 }); });
+      kill(segs);
+    } else if (type === 'grass' || type === 'bug') {   // razor leaves spinning in a sparkling green wind
+      const ps = []; for (let i = 0; i < 11; i++) { const m = P(TT.scene, 'sph', TT.glow(i % 2 ? 0x7ad85a : 0x4aa84a), [x0, y0, z], [0.26, 0.035, 0.12]); m.visible = false; ps.push(m); }
+      const o = { sp: 0.9, s: 0.1, s1: 0.03, cols: LEAF, a: 0.95, up: 0.3 };
+      await run(0.62, (q, dt) => { lunge(q); fxJet(90 * pw, dt, p0, p1, 9, o); ps.forEach((m, i) => { const k = (q - i / 11 * 0.45) / 0.55; m.visible = k > 0 && k < 1; if (!m.visible) return; const p = lerp(k, Math.sin(k * 9 + i * 2) * 0.45); m.position.set(p[0], p[1], p[2] + Math.cos(k * 7 + i) * 0.3); m.rotation.set(k * 22 + i, k * 15, 0); }); });
+      kill(ps);
+    } else if (type === 'ice') {                 // a freezing wind carrying shards of ice
+      const sh = []; for (let i = 0; i < 7; i++) { const m = P(TT.scene, 'cone', TT.glow(i % 2 ? 0xd8f2ff : 0xffffff), [x0, y0, z], [0.09, 0.42, 0.09]); m.visible = false; sh.push(m); }
+      const o = { sp: 0.8, s: 0.3 * pw, s1: 0.8 * pw, cols: FROST, c1: 0xbfe0ff, a: 0.5, lifeK: 1.05 }, sn = { sp: 1.6, s: 0.07, s1: 0.05, cols: [0xffffff], a: 1, g: 1.5 };
+      await run(0.6, (q, dt) => { lunge(q); fxJet(150 * pw, dt, p0, p1, 9.5, o); fxJet(90, dt, p0, p1, 10, sn); sh.forEach((m, i) => { const k = (q - i / 7 * 0.4) / 0.6; m.visible = k > 0 && k < 1; if (!m.visible) return; const p = lerp(k, Math.sin(k * 3.14) * 0.3 * (i % 3 - 1)); m.position.set(p[0], p[1], p[2] + (i % 2 ? 0.25 : -0.25) * Math.sin(k * 3.14)); m.rotation.set(0, 0, -dir * 1.57 + Math.sin(k * 20 + i) * 0.15); }); });
+      kill(sh);
+    } else if (type === 'psychic') {             // rings of thought that swell as they roll toward the target
+      const rs = []; for (let i = 0; i < 5; i++) { const m = P(TT.scene, RING, glowT(i % 2 ? 0xf06090 : 0xc060e0, 0.9), [x0, y0, z], 0.2, [0, 1.57, 0]); m.visible = false; rs.push(m); }
+      await run(0.66, (q, dt) => { lunge(q); rs.forEach((m, i) => { const k = (q - i * 0.1) / 0.6; m.visible = k > 0 && k < 1; if (!m.visible) return; const p = lerp(k); m.position.set(p[0], p[1], p[2]); m.scale.setScalar((0.25 + k * 0.75) * pw); m.material.opacity = 0.9 * (1 - k * 0.6); m.rotation.z = k * 6; });
+        const k = Math.min(1, q * 1.3), p = lerp(k), a = q * 26; let n = 150 * pw * dt * FX.q; for (let i = 0; i < n; i++) fxAdd(p[0], p[1] + Math.sin(a + i) * 0.5, p[2] + Math.cos(a + i) * 0.5, jit(0.4), jit(0.4), jit(0.4), 0.4, 0.2, 0.04, PSY[(Math.random() * 3) | 0], 0xffffff, 0.9); });
+      kill(rs);
+    } else if (type === 'dragon') {              // a beam of dragon fire with light spiralling round it
+      const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) - 1.5708, mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+      const outer = P(TT.scene, 'cyl', glowT(0x9a6aff, 0.8), [mx, my, z], [0.12, L, 0.12], [0, 0, ang]), core = P(TT.scene, 'cyl', TT.glow(0xffffff), [mx, my, z], [0.05, L, 0.05], [0, 0, ang]);
+      flash('#c8b0ff', 0.35);
+      await run(0.55, (q, dt) => { lunge(q); const w = Math.sin(Math.min(1, q * 4) * 1.57) * (1 - Math.max(0, q - 0.8) * 5) * pw * (1 + Math.sin(q * 60) * 0.12); outer.scale.set(0.13 * w, L, 0.13 * w); core.scale.set(0.055 * w, L, 0.055 * w);
+        let n = 260 * pw * dt * FX.q; for (let i = 0; i < n; i++) { const k = Math.random(), p = lerp(k), a = k * 20 + q * 30, r = i % 3 ? 0.32 : 0.05; fxAdd(p[0], p[1] + Math.sin(a) * r, p[2] + Math.cos(a) * r, dir * 3, jit(0.5), jit(0.5), 0.32, i % 3 ? 0.2 : 0.5, 0.05, DRAG[(Math.random() * 3) | 0], 0xffffff, i % 3 ? 0.95 : 0.6); }
+        fxBurst(3, x1 - dir * 0.3, y1, z1, { v: 3, life: 0.3, s: 0.35, s1: 0.08, cols: DRAG, a: 0.9 }); });
+      TT.scene.remove(outer); TT.scene.remove(core);
+    } else if (type === 'ghost' || type === 'dark') {  // three shadowy orbs that weave toward the target, trailing wisps
+      const orbs = []; for (let i = 0; i < 3; i++) { const m = P(TT.scene, 'sphS', new THREE.MeshBasicMaterial({ color: 0x2a1648 }), [x0, y0, z], 0.2 * pw); m.visible = false; orbs.push(m); }
+      await run(0.68, (q, dt) => { lunge(q); orbs.forEach((m, i) => { const k = (q - i * 0.12) / 0.7; m.visible = k > 0 && k < 1; if (!m.visible) return; const p = lerp(k), a = k * 9 + i * 2.1, r = 0.7 * Math.sin(k * 3.14); m.position.set(p[0], p[1] + Math.sin(a) * r, p[2] + Math.cos(a) * r);
+        let n = 70 * dt * FX.q + (m.userData.acc || 0); m.userData.acc = n % 1; for (let j = 0; j < (n | 0); j++) { fxAdd(m.position.x, m.position.y, m.position.z, jit(0.3), 0.4 + jit(0.3), jit(0.3), 0.45, 0.36, 0.08, j % 2 ? 0x3a2060 : 0x2a1648, 0x1a0a30, -0.8); if (j % 2) fxAdd(m.position.x, m.position.y, m.position.z, jit(0.6), jit(0.6), jit(0.6), 0.35, 0.14, 0.03, 0xb48ae8, 0xffffff, 0.9); } }); });
+      kill(orbs);
+    } else if (type === 'rock') {                // boulders lobbed in a high arc, trailing dust
+      const rs = []; for (let i = 0; i < 4; i++) rs.push(P(TT.scene, 'rock', 0x9a8f80, [x0, y0, z], rand(0.3, 0.48) * pw, [rand(0, 3), rand(0, 3), 0]));
+      await run(0.66, (q, dt) => { lunge(q); rs.forEach((m, i) => { const k = TT.clamp((q - i * 0.1) / 0.66, 0, 1), p = lerp(k); m.visible = k > 0 && k < 1; m.position.set(p[0] + (i - 1.5) * 0.25 * k, p[1] + Math.sin(k * 3.14) * 2.4, p[2] + (i - 1.5) * 0.35 * k); m.rotation.x += 0.3; m.rotation.z += 0.2; if (m.visible && Math.random() < 0.5) fxAdd(m.position.x, m.position.y, m.position.z, jit(0.4), jit(0.4), jit(0.4), 0.5, 0.25, 0.6, DUST[(Math.random() * 3) | 0], null, -0.45); }); });
+      kill(rs);
+    } else if (type === 'steel') {               // a volley of spinning blades throwing sparks
+      const sh = []; for (let i = 0; i < 9; i++) sh.push(P(TT.scene, 'box', glowT(i % 2 ? 0xe8eef8 : 0xa8b0c8, 0.95), [x0, y0, z], [0.4, 0.06, 0.13]));
+      const o = { sp: 1.5, s: 0.08, s1: 0.02, cols: [0xffffff, 0xfff0b0], a: 1, g: 4 };
+      await run(0.48, (q, dt) => { lunge(q); fxJet(110 * pw, dt, p0, p1, 13, o); sh.forEach((m, i) => { const k = TT.clamp((q - i * 0.04) / 0.68, 0, 1), p = lerp(k); m.visible = k > 0 && k < 1; m.position.set(p[0], p[1] + (i % 3 - 1) * 0.32 * Math.sin(k * 3.14), p[2] + (i % 4 - 1.5) * 0.26 * Math.sin(k * 3.14)); m.rotation.set(0, 0, k * 14 + i); }); });
+      kill(sh);
+    } else if (type === 'flying') {              // blades of wind in a rushing gust
+      const ps = []; for (let i = 0; i < 6; i++) { const m = P(TT.scene, 'sph', glowT(0xffffff, 0.85), [x0, y0, z], [0.1, 0.62, 0.36]); m.visible = false; ps.push(m); }
+      const o = { sp: 1.1, s: 0.12, s1: 0.3, cols: [0xffffff, 0xe6f2ff], a: 0.55, lifeK: 1.05 };
+      await run(0.56, (q, dt) => { lunge(q); fxJet(170 * pw, dt, p0, p1, 13, o); ps.forEach((m, i) => { const k = (q - i / 6 * 0.4) / 0.6; m.visible = k > 0 && k < 1; if (!m.visible) return; const p = lerp(k, Math.sin(k * 9 + i * 2) * 0.2); m.position.set(p[0], p[1], p[2] + Math.cos(k * 7 + i) * 0.3); m.rotation.z = dir * 0.3; m.material.opacity = 0.85 * (1 - k * 0.5); }); });
+      kill(ps);
+    } else {                                     // anything else: bright pulses in the move's own colour
+      const rs = []; for (let i = 0; i < 6; i++) { const m = P(TT.scene, RING, glowT(i % 2 ? col : 0xffffff, 0.85), [x0, y0, z], 0.2, [0, 1.57, 0]); m.visible = false; rs.push(m); }
+      const o = { sp: 0.8, s: 0.14, s1: 0.04, cols: C, a: 0.9 };
+      await run(0.6, (q, dt) => { lunge(q); fxJet(110 * pw, dt, p0, p1, 10, o); rs.forEach((m, i) => { const k = (q - i / 6 * 0.45) / 0.55; m.visible = k > 0 && k < 1; if (!m.visible) return; const p = lerp(k); m.position.set(p[0], p[1], p[2]); m.scale.setScalar(0.15 + k * 0.5); }); });
+      kill(rs);
+    }
+    setS(ao, 1); ao.position.x = ax;
+  }
+  // what the hit looks like on the target, by type. Particles are thrown straight away; the meshes come back as [mesh, update(mesh, q)]
+  function impact(type, dx, y, z, pw) {
+    pw = pw || 1; fxInit(); const out = [], C = typeCols(type);
+    const ringG = (c, o) => out.push([P(TT.scene, RING, glowT(c, o || 0.9), [dx, 0.08, z], 0.3, [1.57, 0, 0]), (m, q) => { m.scale.setScalar(0.3 + q * 2.6 * pw); m.material.opacity = (o || 0.9) * (1 - q); }]);
+    if (type === 'fire') {
+      fxBurst(46 * pw, dx, y - 0.2, z, { v: 4.2, up: 2.2, hemi: 1, life: 0.75, s: 0.4, s1: 1.0, cols: FIRE, c1: 0x902008, a: 0.92, g: -1.5, d: 1.5, r: 0.3 });
+      fxBurst(14 * pw, dx, y, z, { v: 1.6, up: 2.4, hemi: 1, life: 1.0, s: 0.5, s1: 1.3, cols: [0x4a4038, 0x6a5a50], a: -0.4, g: -1, d: 1, r: 0.3 });
+      fxBurst(16, dx, y, z, { v: 6, up: 2, life: 0.7, s: 0.08, s1: 0.03, cols: [0xfff2a0, 0xffb020], a: 1, g: 5 });
+      for (let i = 0; i < 7; i++) { const ox = rand(-0.5, 0.5), oz = rand(-0.4, 0.4); out.push([P(TT.scene, 'cone', TT.glow(i % 2 ? 0xffe060 : 0xff6a1a), [dx + ox, 0.2, z + oz], [0.18, 0.1, 0.18]), (m, q) => { m.scale.set(0.24 * (1 - q) + 0.05, 0.2 + Math.sin(q * 3.14) * 1.7 * pw, 0.24 * (1 - q) + 0.05); m.position.y = 0.1 + Math.sin(q * 3.14) * 0.7; }]); }
+      ringG(0xff9a3a, 0.8);
+    } else if (type === 'water') {
+      fxBurst(34 * pw, dx, y - 0.2, z, { v: 5.5, up: 2.5, hemi: 1, life: 0.8, s: 0.2, s1: 0.12, cols: [0x4a9cf0, 0x6ab8ff, 0x3a84e0], a: -0.95, g: 13, r: 0.25 }); fxBurst(18 * pw, dx, y - 0.2, z, { v: 5, up: 3, hemi: 1, life: 0.7, s: 0.12, s1: 0.06, cols: [0xffffff, 0xdff2ff], a: 0.9, g: 13, r: 0.25 });
+      fxBurst(14, dx, y, z, { v: 2, up: 1, hemi: 1, life: 0.7, s: 0.4, s1: 1.0, cols: [0xffffff, 0xdff2ff], a: 0.4, d: 2 });
+      ringG(0xcdeeff); out.push([P(TT.scene, RING, glowT(0x9ad8ff, 0.8), [dx, 0.08, z], 0.2, [1.57, 0, 0]), (m, q) => { const k = Math.max(0, q * 1.4 - 0.4); m.scale.setScalar(0.2 + k * 2); m.material.opacity = 0.8 * (1 - k); }]);
+    } else if (type === 'electric') {
+      fxBurst(46 * pw, dx, y, z, { v: 7.5, life: 0.4, s: 0.15, s1: 0.03, cols: VOLT, a: 1, g: 7 });
+      fxBurst(8, dx, y, z, { v: 1.5, life: 0.35, s: 0.9, s1: 0.3, cols: [0xfff6b0], a: 0.6 });
+      for (let i = 0; i < 6; i++) { const a = i * 1.05; out.push([P(TT.scene, 'box', TT.glow(i % 2 ? 0xfff27a : 0xffffff), [dx, 0.1, z], [0.7, 0.06, 0.06], [0, a, 0]), (m, q) => { m.visible = (q * 14 | 0) % 2 === 0; m.position.set(dx + Math.cos(a) * (0.5 + q * 0.9), 0.1 + Math.random() * 0.25, z - Math.sin(a) * (0.5 + q * 0.9)); }]); }
+      ringG(0xfff27a, 0.8);
+    } else if (type === 'grass' || type === 'bug') {
+      fxBurst(30 * pw, dx, y, z, { v: 4, up: 1.5, life: 0.6, s: 0.12, s1: 0.03, cols: LEAF, a: 1, g: 3 });
+      for (let i = 0; i < 12; i++) out.push([P(TT.scene, 'sph', TT.glow(i % 2 ? 0x7ad85a : 0x4aa84a), [dx, y, z], [0.2, 0.03, 0.1]), (m, q) => { const a = i * 0.52 + q * 10; m.position.set(dx + Math.cos(a) * (0.5 + q * 0.8), 0.2 + q * 2.4 + i * 0.05, z + Math.sin(a) * (0.5 + q * 0.8)); m.rotation.set(q * 9, a, 0); m.scale.setScalar(1 - q * 0.6); }]);
+    } else if (type === 'ice') {
+      fxBurst(36 * pw, dx, y, z, { v: 4, up: 1.5, hemi: 1, life: 0.8, s: 0.1, s1: 0.05, cols: [0xffffff], a: 1, g: 4, r: 0.3 });
+      fxBurst(16 * pw, dx, y - 0.2, z, { v: 2, life: 0.8, s: 0.5, s1: 1.2, cols: FROST, a: 0.45, d: 2 });
+      for (let i = 0; i < 7; i++) { const a = i * 0.9, r = 0.25 + (i % 3) * 0.22, tilt = rand(-0.35, 0.35); out.push([P(TT.scene, 'cone', TT.glow(i % 2 ? 0xd8f2ff : 0x9ad0ff), [dx + Math.cos(a) * r, 0, z + Math.sin(a) * r * 0.7], [0.16, 0.1, 0.16], [0, 0, tilt]), (m, q) => { const k = q < 0.25 ? q / 0.25 : 1; m.scale.set(0.16, (0.5 + (i % 3) * 0.35) * k * pw * (q > 0.75 ? (1 - q) * 4 : 1) + 0.02, 0.16); m.position.y = m.scale.y * 0.5; }]); }
+      ringG(0xd8f2ff, 0.8);
+    } else if (type === 'psychic') {
+      for (let i = 0; i < 26 * pw * FX.q; i++) { const a = Math.random() * 6.283, e = Math.random() * 3.14, r = 1.6; fxAdd(dx + Math.sin(e) * Math.cos(a) * r, y + Math.cos(e) * r, z + Math.sin(e) * Math.sin(a) * r, -Math.sin(e) * Math.cos(a) * r / 0.35, -Math.cos(e) * r / 0.35, -Math.sin(e) * Math.sin(a) * r / 0.35, 0.35, 0.2, 0.05, PSY[(Math.random() * 3) | 0], 0xffffff, 0.95); }
+      for (let i = 0; i < 3; i++) out.push([P(TT.scene, RING, glowT(i % 2 ? 0xc060e0 : 0xf06090, 0.85), [dx, y, z], 0.2, [0, 1.57, 0]), (m, q) => { const k = TT.clamp(q * 1.5 - i * 0.25, 0, 1); m.scale.setScalar(0.2 + k * 1.6 * pw); m.material.opacity = 0.85 * (1 - k); m.rotation.z = k * 3; }]);
+    } else if (type === 'dragon') {
+      fxBurst(52 * pw, dx, y, z, { v: 5.5, life: 0.6, s: 0.3, s1: 0.06, cols: DRAG, a: 0.95, d: 1.5 });
+      fxBurst(8, dx, y, z, { v: 1, life: 0.4, s: 1.2, s1: 0.4, cols: [0xc8b0ff], a: 0.6 });
+      for (let i = 0; i < 2; i++) out.push([P(TT.scene, RING, glowT(i ? 0x5ab0ff : 0x8a5af8, 0.85), [dx, y, z], 0.2, [0, 1.57, 0]), (m, q) => { const k = TT.clamp(q * 1.4 - i * 0.3, 0, 1); m.scale.setScalar(0.2 + k * 2 * pw); m.material.opacity = 0.85 * (1 - k); }]);
+      ringG(0x8a5af8, 0.8);
+    } else if (type === 'ghost' || type === 'dark') {
+      fxBurst(30 * pw, dx, y, z, { v: 3.2, life: 0.7, s: 0.45, s1: 0.9, cols: [0x2a1648, 0x3a2060], a: -0.6, d: 2 });
+      fxBurst(22 * pw, dx, y - 0.3, z, { v: 1.2, up: 2.6, hemi: 1, life: 0.8, s: 0.26, s1: 0.05, cols: GHOST, a: 0.9, r: 0.5 });
+      if (type === 'dark') for (let i = 0; i < 3; i++) out.push([P(TT.scene, 'box', new THREE.MeshBasicMaterial({ color: 0x2a1648 }), [dx + (i - 1) * 0.28, y + 0.1, z + 0.45], [0.06, 1.5, 0.06], [0, 0, 0.6]), (m, q) => { m.scale.y = Math.sin(Math.min(1, q * 2.5) * 3.14) * 1.6 + 0.01; }]);
+    } else if (type === 'rock') {
+      fxBurst(34 * pw, dx, y - 0.3, z, { v: 3.5, up: 1.2, hemi: 1, life: 0.9, s: 0.45, s1: 1.1, cols: DUST, a: -0.5, d: 2, r: 0.3 });
+      for (let i = 0; i < 7; i++) { const a = i * 0.9, sp = rand(1.4, 2.6); out.push([P(TT.scene, 'rock', 0x8a8074, [dx, y, z], rand(0.1, 0.2), [rand(0, 3), rand(0, 3), 0]), (m, q) => { m.position.set(dx + Math.cos(a) * q * sp, Math.max(0.1, y + Math.sin(q * 3.14) * 1.3 - q * y), z + Math.sin(a) * q * sp * 0.7); m.rotation.x += 0.3; }]); }
+      ringG(0xe8dcc0, 0.7);
+    } else if (type === 'steel') {
+      fxBurst(44 * pw, dx, y, z, { v: 8, life: 0.4, s: 0.1, s1: 0.02, cols: [0xffffff, 0xfff0b0, 0xffd060], a: 1, g: 9 }); ringG(0xe8eef8, 0.8);
+    } else if (type === 'flying') {          // a little whirlwind
+      for (let i = 0; i < 40 * pw * FX.q; i++) { const a = Math.random() * 6.283, r = 0.3 + Math.random() * 0.7, sp = 5; fxAdd(dx + Math.cos(a) * r, 0.1 + Math.random() * 0.4, z + Math.sin(a) * r, -Math.sin(a) * sp, 2.5 + Math.random() * 2.5, Math.cos(a) * sp, 0.6, 0.14, 0.3, 0xffffff, 0xdfeeff, 0.6, 0, 2.2); }
+      ringG(0xffffff, 0.7);
+    } else {                                 // a solid thump: shockwave, dust and stars in the move's colour
+      fxBurst(22 * pw, dx, y - 0.4, z, { v: 3.2, flat: 1, life: 0.6, s: 0.35, s1: 0.8, cols: DUST, a: -0.45, d: 2.5, r: 0.2 });
+      fxBurst(24 * pw, dx, y, z, { v: 5.5, life: 0.4, s: 0.16, s1: 0.03, cols: C, a: 1, g: 4 });
+      ringG(type === 'fighting' ? 0xff6a4a : 0xffffff, 0.85);
+      if (type === 'fighting') out.push([P(TT.scene, RING, glowT(0xffb090, 0.9), [dx, y, z + 0.3], 0.2), (m, q) => { m.scale.setScalar(0.2 + q * 1.8 * pw); m.material.opacity = 0.9 * (1 - q); }]);
+    }
     return out;
   }
-  async function hitFx(dobj, dir, type, dmg, eff) {
+  async function hitFx(dobj, dir, type, dmg, eff, pw) {
+    pw = pw || 1;
     const dx = dobj.position.x, y = mid(dobj), z = dobj.position.z;
-    TT.sfx.hit(); B.shake = eff > 1 ? 0.55 : 0.3; TT.hitStop = eff > 1 ? 0.13 : 0.08; focus(dx > A().x ? 0.5 : -0.5, 0.15);
+    TT.sfx.hit(); B.shake = (eff > 1 ? 0.55 : 0.3) * Math.min(1.5, pw); TT.hitStop = eff > 1 ? 0.13 : 0.08; focus(dx > A().x ? 0.5 : -0.5, 0.15);
     if (eff > 1) flash('#ffffff', 0.6);
-    const burst = parts(10, [0xffffff, TT.TYPE_COL[type] || 0xffffff, 0xffe060], dx, y, z, 0.12);
+    fxInit(); fxBurst(18 * pw, dx, y, z + 0.2, { v: 5, life: 0.35, s: 0.2, s1: 0.04, cols: [0xffffff, TT.TYPE_COL[type] || 0xffffff, 0xffe060], a: 1 }); if (eff > 1) fxBurst(10, dx, y, z + 0.2, { v: 1.5, life: 0.3, s: 1.3, s1: 0.4, cols: [0xffffff], a: 0.55 });
     const star = []; for (let i = 0; i < 4; i++) star.push(P(TT.scene, 'box', TT.glow(0xffffff), [dx, y, z + 0.4], [0.9, 0.07, 0.07], [0, 0, i * 0.785]));
-    const ring = P(TT.scene, RING, glowT(0xffffff, 0.9), [dx, y, z + 0.3], 0.2), fx = impact(type, dx, y, z);
+    const ring = P(TT.scene, RING, glowT(0xffffff, 0.9), [dx, y, z + 0.3], 0.2), fx = impact(type, dx, y, z, pw);
     const num = TT.label('-' + dmg, eff > 1 ? 'rgba(232,64,42,.95)' : 'rgba(35,50,74,.9)'); num.position.set(dx, y + 0.9, z + 0.5); num.scale.set(1.6, 0.4, 1); TT.scene.add(num);
     await TT.tween(0.5, q => {
       const kb = Math.sin(Math.min(1, q * 1.6) * 3.14);
-      dobj.position.x = dx + dir * 0.55 * kb + Math.sin(q * 50) * 0.05 * (1 - q); setS(dobj, 1 - 0.16 * kb, 1 + 0.1 * kb); dobj.rotation.z = -dir * 0.32 * kb;
+      dobj.position.x = dx + dir * 0.55 * Math.min(1.5, pw) * (eff > 1 ? 1.3 : 1) * kb + Math.sin(q * 50) * 0.05 * (1 - q); setS(dobj, 1 - 0.16 * kb, 1 + 0.1 * kb); dobj.rotation.z = -dir * 0.32 * kb;
       dobj.visible = q > 0.7 || (q * 12 | 0) % 2 === 0;
-      burst.forEach((b, i) => { const a = i * 0.63; b.position.set(dx + Math.cos(a) * q * 1.5, y + Math.sin(a) * q * 1.5, z + 0.3); b.scale.setScalar(0.14 * (1 - q)); });
       star.forEach(s => s.scale.set(1.5 * (1 - q) + 0.01, 0.07, 0.07));
       ring.scale.setScalar(0.2 + q * 1.4); ring.material.opacity = 0.9 * (1 - q);
       fx.forEach(([m, f]) => f(m, q));
       num.position.y = y + 0.9 + q * 0.8; num.material.opacity = q < 0.7 ? 1 : (1 - q) / 0.3;
     });
-    kill(burst); kill(star); TT.scene.remove(ring); fx.forEach(([m]) => TT.scene.remove(m)); TT.scene.remove(num); num.material.map.dispose();
+    kill(star); TT.scene.remove(ring); fx.forEach(([m]) => TT.scene.remove(m)); TT.scene.remove(num); num.material.map.dispose();
     dobj.position.x = dx; dobj.rotation.z = 0; setS(dobj, 1); dobj.visible = true;
   }
   // the visible part of an attack; `apply` runs at the moment of impact
-  async function animAtk(ao, dobj, type, dmg, eff, apply) {
+  async function animAtk(ao, dobj, type, dmg, eff, apply, pw) {
+    pw = pw || 1; fxInit();
     const x0 = ao.position.x, y0 = ao.position.y, dir = dobj.position.x > x0 ? 1 : -1, phys = type === 'normal' || type === 'dark' || type === 'bug' || type === 'fighting';
     focus(x0 > A().x ? 0.55 : -0.55, 0.25);
     if (phys) {
       await TT.tween(0.22, q => { ao.position.x = x0 - dir * 0.45 * ease(q); setS(ao, 1 + 0.14 * q, 1 - 0.2 * q); });        // crouch
-      TT.sfx.whoosh();
+      TT.sfx.whoosh(); fxBurst(12, x0, 0.15, ao.position.z, { v: 2.4, flat: 1, life: 0.5, s: 0.3, s1: 0.7, cols: DUST, a: -0.45, d: 2.5 });            // dust where it kicks off
+      const TC = typeCols(type);
       const reach = Math.abs(dobj.position.x - x0) - 0.9, lines = []; for (let i = 0; i < 4; i++) lines.push(P(TT.scene, 'box', glowT(0xffffff, 0.6), [x0, mid(ao) + (i - 1.5) * 0.18, ao.position.z], [0.8, 0.04, 0.04]));
-      await TT.tween(0.16, q => { ao.position.x = x0 - dir * 0.45 + dir * (reach + 0.45) * q; setS(ao, 0.9, 1.15); ao.position.y = y0 + Math.sin(q * 3.14) * 0.6; ao.rotation.z = -dir * 0.4 * q; lines.forEach((l, i) => { l.position.x = ao.position.x - dir * (0.6 + i * 0.15); l.material.opacity = 0.6 * (1 - q); }); });  // leap
+      await TT.tween(0.16, q => { ao.position.x = x0 - dir * 0.45 + dir * (reach + 0.45) * q; setS(ao, 0.9, 1.15); ao.position.y = y0 + Math.sin(q * 3.14) * 0.6; ao.rotation.z = -dir * 0.4 * q; for (let i = 0; i < 4; i++) fxAdd(ao.position.x - dir * 0.2, mid(ao) + jit(0.3), ao.position.z + jit(0.2), -dir * 2, jit(0.5), 0, 0.3, 0.3, 0.05, TC[(Math.random() * TC.length) | 0], 0xffffff, 0.8); lines.forEach((l, i) => { l.position.x = ao.position.x - dir * (0.6 + i * 0.15); l.material.opacity = 0.6 * (1 - q); }); });  // leap
       kill(lines); apply();
       const back = TT.tween(0.4, q => { ao.position.x = x0 + dir * reach * (1 - ease(q)); ao.position.y = y0 + Math.sin(q * 3.14) * 0.8; ao.rotation.z = -dir * 0.4 * (1 - q); setS(ao, 1); });
-      await hitFx(dobj, dir, type, dmg, eff); await back;
+      await hitFx(dobj, dir, type, dmg, eff, pw); await back;
       ao.position.x = x0; ao.position.y = y0; ao.rotation.z = 0;
     } else {
-      await special(type, ao, dobj, dir);
+      await special(type, ao, dobj, dir, pw);
       apply();
-      await hitFx(dobj, dir, type, dmg, eff);
+      await hitFx(dobj, dir, type, dmg, eff, pw);
     }
     focus(0, 0);
   }
+  // test hook: play one move's visuals in the current battle without changing anything, e.g. TT.Battle.fxTest('fire', 1.5)
+  B.fxTest = (type, pw, foe) => st ? animAtk(foe ? st.obj.foe : st.obj.me, foe ? st.obj.me : st.obj.foe, type, 12, 1, () => { }, pw) : null;
   async function attack(att, def, mv, ao, dobj, mult, who) {
     if (ao === st.obj.me) gesture('point', 0.9);
     await say((who ? who + "'s " : '') + TT.monName(att) + ' used ' + mv[0] + '!', 0.5);
@@ -209,9 +340,10 @@
     const ez = TT.S && TT.S.easy && !st.watch ? (dobj === st.obj.foe ? 1.4 : dobj === st.obj.me ? 0.65 : 1) : 1;
     const dmg = Math.max(1, Math.floor(mv[2] * TT.stat(att, 3) / TT.stat(def, 4) * 0.3 * (mult || 1) * eff * ez * TT.rand(0.85, 1)));
     const hp = Math.max(0, def.hp - dmg);
-    emit('atk', { s: sideOf(ao), ty: mv[1], dmg, hp, eff });
-    await animAtk(ao, dobj, mv[1], dmg, eff, () => { def.hp = hp; bars(); });
-    if (eff > 1) await say("It's super effective!", 0.8); else if (eff < 1) await say("It's not very effective...", 0.8);
+    const pw = TT.clamp(mv[2] / 55, 0.75, 1.7) * (att.sup && att.sup[0] === mv[0] ? 1.15 : 1);          // stronger moves look bigger
+    emit('atk', { s: sideOf(ao), ty: mv[1], dmg, hp, eff, pw });
+    await animAtk(ao, dobj, mv[1], dmg, eff, () => { def.hp = hp; bars(); }, pw);
+    if (eff > 1) await say(oneOf('se', ["It's super effective!", 'A super effective hit!', 'That really worked!', 'Super effective! What a hit!']), 0.8); else if (eff < 1) await say(oneOf('nve', ["It's not very effective...", 'That barely tickled...', 'Not very effective. Try another move!']), 0.8);
   }
   async function faint(o, dir) {
     emit('faint', { s: sideOf(o) }); o.userData.shut = true;       // eyes closed
@@ -221,6 +353,7 @@
     B.shake = o.userData.boss ? 0.8 : 0.15; if (o.userData.boss) { flash('#ffffff', 0.8); TT.hitStop = 0.25; }
     await TT.wait(0.25);
     const dust = parts(8, [0xd8c8a8, 0xffffff], o.position.x, 0.2, o.position.z, 0.15);
+    fxInit(); fxBurst(26, o.position.x, 0.3, o.position.z, { v: 2.6, up: 1, hemi: 1, life: 0.9, s: 0.5, s1: 1.2, cols: DUST, a: -0.5, d: 2, r: 0.4 }); fxBurst(8, o.position.x, 0.8, o.position.z, { v: 1.5, up: 2.5, hemi: 1, life: 0.9, s: 0.16, s1: 0.05, cols: [0xfff27a, 0xffffff], a: 1, g: 2 });
     await TT.tween(0.4, q => { setS(o, Math.max(0.01, 1 - q)); o.position.y = -q * 0.2; dust.forEach((d, i) => { const a = i * 0.785; d.position.set(o.position.x + Math.cos(a) * q * 1.6, 0.2 + q * 0.4, o.position.z + Math.sin(a) * q * 1.6); d.scale.setScalar(0.2 * (1 - q)); }); });
     kill(dust); o.visible = false;
   }
@@ -377,11 +510,11 @@
   }
   async function throwBall() {
     const S = TT.S, foe = st.foe;
-    S.balls--; setMsg('You threw a Poké Ball!');
+    S.balls--; setMsg(oneOf('throw', ['You threw a Poké Ball!', 'Poké Ball, go!', 'Here goes a Poké Ball!']));
     const k0 = foe.hp / mxOf(foe), chance = k0 < 0.3 ? 1 : TT.clamp(0.3 + 0.75 * (1 - k0) - (foe.boss ? 0.25 : 0), 0, 1), ok = Math.random() < chance, shakes = ok ? 3 : 1 + (Math.random() * 2 | 0);
     emit('ball', { ok, shakes });
     await ballAnim(ok, shakes);
-    await say(ok ? 'Gotcha! ' + TT.monName(foe) + ' was caught!' : 'Oh no! ' + TT.monName(foe) + ' broke free!', ok ? 1.6 : 1);
+    await say(ok ? oneOf('caught', ['Gotcha! ' + TT.monName(foe) + ' was caught!', 'Yes! You caught ' + TT.monName(foe) + '!', TT.monName(foe) + ' is yours now!']) : oneOf('free', ['Oh no! ' + TT.monName(foe) + ' broke free!', 'So close! ' + TT.monName(foe) + ' popped out!', TT.monName(foe) + ' shook the ball open!']), ok ? 1.6 : 1);
     return ok;
   }
 
@@ -407,9 +540,9 @@
     TT.tween(1.2, q => { camK = ease(q); });
     if (st.foe.boss) { await TT.wait(0.4); await bossIntro(fo, st.foe, opts.bossTitle, opts.bossMusic); }
     else if (st.wild) TT.cry(st.foe.sp);
-    await say(st.foe.boss ? TT.monName(st.foe) + ' wants to battle!' : st.wild ? 'A wild ' + TT.monName(st.foe) + ' appeared!' : opts.trainer + ' sent out ' + TT.monName(st.foe) + '!', 1.3);
+    await say(st.foe.boss ? TT.monName(st.foe) + ' wants to battle!' : st.wild ? wildLine(TT.monName(st.foe), opts.stage) : opts.trainer + ' sent out ' + TT.monName(st.foe) + '!', 1.3);
     if (st.allies.length) await say((st.allies.length > 2 ? st.allies.slice(0, -1).map(a => a.n).join(', ') + ' and ' + st.allies[st.allies.length - 1].n : st.allies.map(a => a.n).join(' and ')) + (st.allies.length > 1 ? ' are' : ' is') + ' here to help!', 1);
-    setMsg('Go, ' + TT.monName(st.me) + '!'); gesture('point', 0.8); await place(-1, st.me, true); await TT.wait(0.35);
+    setMsg(goLine(TT.monName(st.me))); gesture('point', 0.8); await place(-1, st.me, true); await TT.wait(0.35);
     let result = null;
     // a foe ran out of HP: faint, XP, next foe. Returns true when the battle is won.
     const foeDown = async () => {
@@ -440,7 +573,7 @@
       } else if (act.t === 'swap') {
         const alive = S.party.filter(m => m.hp > 0), nx = alive[(alive.indexOf(st.me) + 1) % alive.length], o = st.obj.me;
         setMsg('Come back, ' + TT.monName(st.me) + '!'); await TT.tween(0.3, q => setS(o, Math.max(0.01, 1 - q)));
-        st.me = nx; bars(); setMsg('Go, ' + TT.monName(nx) + '!'); await place(-1, nx, true); await TT.wait(0.3);
+        st.me = nx; bars(); setMsg(goLine(TT.monName(nx))); await place(-1, nx, true); await TT.wait(0.3);
       } else if (act.t === 'ball') {
         if (S.balls <= 0) { await say('No Poké Balls left! Find more around town.', 1.3); foeTurn = false; }
         else if (await throwBall()) { result = 'caught'; await gainXp(st.me, st.foe.lvl * 6 + 4); break; }
@@ -458,7 +591,7 @@
         if (st.me.hp <= 0) {
           await faint(st.obj.me, -1); await say(TT.monName(st.me) + ' fainted!', 1);
           const nx = S.party.find(m => m.hp > 0);
-          if (nx) { st.me = nx; bars(); setMsg('Go, ' + TT.monName(nx) + '!'); await place(-1, nx, true); await TT.wait(0.3); } else result = 'lose';
+          if (nx) { st.me = nx; bars(); setMsg(goLine(TT.monName(nx))); await place(-1, nx, true); await TT.wait(0.3); } else result = 'lose';
         }
       }
     }
@@ -482,7 +615,7 @@
     (st.allyObjs || []).forEach(o => { TT.scene.remove(o); TT.dispose(o); });
     if (st.ssAura) kill(st.ssAura.list);
     st.extras.forEach(o => { TT.scene.remove(o); TT.dispose(o); });
-    st = null; B.active = false; cam.ov = null; W.applyStage(null); W.ARENA = W.STAGES.meadow;
+    st = null; B.active = false; FX.p.length = 0; if (fxPts) fxPts.geometry.setDrawRange(0, 0); cam.ov = null; W.applyStage(null); W.ARENA = W.STAGES.meadow;
   }
 
   // ---- network: owner side receives joins and helper attacks; watcher side receives the event stream ----
@@ -534,7 +667,7 @@
       } else if (!st.me) continue;
       else if (ev.t === 'mon') { const m = { sp: ev.sp, lvl: ev.lvl, hp: ev.hp, mx: ev.mx, boss: ev.boss }; if (ev.s === 'me') st.me = m; else st.foe = m; await place(ev.s === 'me' ? -1 : 1, m, ev.pop); bars(); }
       else if (ev.t === 'msg') $('bmsg').textContent = String(ev.x).replace(/^What will .*/, name + ' is choosing a move…').replace(/^You threw/, name + ' threw');
-      else if (ev.t === 'atk') { const ao = objOf(ev.s), dobj = ev.s === 'foe' ? st.obj.me : st.obj.foe, df = ev.s === 'foe' ? st.me : st.foe; if (ao && dobj) await animAtk(ao, dobj, ev.ty, ev.dmg, ev.eff, () => { df.hp = ev.hp; bars(); }); }
+      else if (ev.t === 'atk') { const ao = objOf(ev.s), dobj = ev.s === 'foe' ? st.obj.me : st.obj.foe, df = ev.s === 'foe' ? st.me : st.foe; if (ao && dobj) await animAtk(ao, dobj, ev.ty, ev.dmg, ev.eff, () => { df.hp = ev.hp; bars(); }, ev.pw); }
       else if (ev.t === 'faint') { const o = objOf(ev.s); if (o) await faint(o, ev.s === 'foe' ? 1 : -1); }
       else if (ev.t === 'ball') await ballAnim(!!ev.ok, ev.shakes | 0);
       else if (ev.t === 'bossintro' && st.obj.foe) await bossIntro(st.obj.foe, st.foe, ev.title, ev.music);
@@ -558,6 +691,7 @@
   };
 
   B.update = function (dt, t) {
+    fxTick(dt);
     if (!st) return;
     for (const k of ['me', 'foe', 'ally']) { const o = st.obj[k]; if (o && o.visible) TT.animCreature(o, t, 0); }
     for (const o of st.allyObjs || []) TT.animCreature(o, t, 0);

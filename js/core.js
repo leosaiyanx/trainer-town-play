@@ -327,6 +327,8 @@
   TT.preVoice = (who, text) => { loadVox(); const V = TT.VOX; if (!ac || !V || TT.muted || !TT.voiceOn) return; const key = TT.voiceKey(who, text); if (V.lines[key] != null) loadClip(key + '.m4a'); };
   function playClip(buf, rate, bus) { const s = ac.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate || 1; s.connect(bus); s.start(); return s; }
   TT.voiceKey = (who, text) => { const s = who + '|' + text; let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
+  // true when a line can be spoken as written: it has a recording, or voices are off anyway, or it is a Pokémon's action written in brackets
+  TT.canSay = (who, text) => { const V = TT.VOX; return !V || TT.muted || !TT.voiceOn || V.lines[TT.voiceKey(who, text)] != null || text[0] === '('; };          // "(Pikachu broke free!)" lines are sounds, not speech
   const duck = on => { if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.16 : 0.42, ac.currentTime, 0.15); };
   TT.hush = () => { vtok++; if (vsrc) { try { vsrc.stop(); } catch (e) { } vsrc = null; duck(false); } };
   // speak one dialogue line; a Pokémon speaker (or a line with no recording) falls back to its cry
