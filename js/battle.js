@@ -214,7 +214,7 @@
     if (eff > 1) await say("It's super effective!", 0.8); else if (eff < 1) await say("It's not very effective...", 0.8);
   }
   async function faint(o, dir) {
-    emit('faint', { s: sideOf(o) });
+    emit('faint', { s: sideOf(o) }); o.userData.shut = true;       // eyes closed
     TT.cry(o.userData.sp, 0.6);
     if (o.userData.aura) { kill(o.userData.aura); o.userData.aura = null; }
     await TT.tween(0.3, q => { o.rotation.z = dir * 1.45 * ease(q); o.position.y = Math.sin(q * 3.14) * 0.15; });

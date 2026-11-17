@@ -106,13 +106,31 @@
   };
   // ---- baking: merge many primitive meshes into one vertex-coloured mesh ----
   const _v = new THREE.Vector3(), _n3 = new THREE.Matrix3();
-  function merge(list, ao) { // list: [{mesh, matrix}]; ao darkens vertices near the ground for depth
+  // ---- one shared picture ("atlas") for every drawn face, people and Pokémon alike. Because it lives in the one character
+  // material, a face is part of the character's own mesh and costs no extra draw call. Cell 0 is plain white (everything
+  // that is not a face points there). Small tablets use half-size cells. ----
+  const CELL = navigator.deviceMemory && navigator.deviceMemory <= 4 ? 64 : 128, PER = 16, ATL = CELL * PER;
+  const atlasC = document.createElement('canvas'); atlasC.width = atlasC.height = ATL;
+  const ax = atlasC.getContext('2d'); ax.fillStyle = '#fff'; ax.fillRect(0, 0, ATL, ATL);
+  TT.atlasTex = new THREE.CanvasTexture(atlasC); TT.atlasTex.generateMipmaps = false; TT.atlasTex.minFilter = THREE.LinearFilter; TT.atlasTex.magFilter = THREE.LinearFilter;
+  TT.cmat.map = TT.atlasTex; TT.cmat.needsUpdate = true;
+  let atlasN = 1; const cellOf = {};
+  // draw(ctx) paints a 128x128 face once; returns the cell number to put on a mesh as userData.cell
+  TT.faceCell = (key, draw) => {
+    if (cellOf[key] != null) return cellOf[key];
+    if (atlasN >= PER * PER) return 0;
+    const n = atlasN++, cx = (n % PER) * CELL, cy = Math.floor(n / PER) * CELL;
+    ax.save(); ax.beginPath(); ax.rect(cx, cy, CELL, CELL); ax.clip(); ax.translate(cx, cy); ax.scale(CELL / 128, CELL / 128); draw(ax); ax.restore();
+    TT.atlasTex.needsUpdate = true; return cellOf[key] = n;
+  };
+  function merge(list, ao, uvs) { // list: [{mesh, matrix}]; ao darkens vertices near the ground for depth; uvs adds atlas coordinates
     let n = 0;
     const gs = list.map(e => { const g0 = e.mesh.geometry, g = g0.index ? (g0._ni || (g0._ni = g0.toNonIndexed())) : g0; n += g.attributes.position.count; if (TT.triStat) { let nm = '?'; for (const k in TT.G) if (TT.G[k] === g0) nm = k; if (nm === '?') nm = g0.type; const sc = e.mesh.scale, big = Math.max(sc.x, sc.y, sc.z); nm += big < 0.12 ? ':tiny' : big < 0.35 ? ':small' : ''; nm = (ao ? 'S ' : 'D ') + nm; TT.triStat[nm] = (TT.triStat[nm] || 0) + g.attributes.position.count / 3; } return g; });
-    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), uv = uvs ? new Float32Array(n * 2) : null; let o = 0, q = 0;
     list.forEach((e, i) => {
       const g = gs[i], pa = g.attributes.position, na = g.attributes.normal, c = e.mesh.material.color, mx = e.matrix, vc = g.attributes.vc;
       _n3.getNormalMatrix(mx);
+      if (uv) { const cell = e.mesh.userData.cell, ua = cell != null && g.attributes.uv, k = cell || 0, u0 = (k % PER) / PER, v0 = 1 - (Math.floor(k / PER) + 1) / PER, sz = 1 / PER; for (let j = 0; j < pa.count; j++, q += 2) { uv[q] = u0 + (ua ? 0.012 + 0.976 * ua.getX(j) : 0.5) * sz; uv[q + 1] = v0 + (ua ? 0.012 + 0.976 * ua.getY(j) : 0.5) * sz; } }
       for (let j = 0; j < pa.count; j++, o += 3) {
         _v.fromBufferAttribute(pa, j).applyMatrix4(mx); pos[o] = _v.x; pos[o + 1] = _v.y; pos[o + 2] = _v.z;
         _v.fromBufferAttribute(na, j).applyMatrix3(_n3).normalize(); nor[o] = _v.x; nor[o + 1] = _v.y; nor[o + 2] = _v.z;
@@ -121,7 +139,7 @@
       }
     });
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); if (uv) g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     const m = new THREE.Mesh(g, TT.vmat); m.castShadow = true; return m;
   }
   const bakeable = ch => ch.isMesh && !ch.isInstancedMesh && ch.material.userData.bake && !ch.userData.keep;
@@ -133,7 +151,7 @@
       else if (!ch.isMesh && !ch.isSprite && ch.children.length) TT.bakeNode(ch, ol && !ch.userData.noOl, ols);
     }
     if (!ms.length) return;
-    const m = merge(ms); m.material = TT.cmat; ms.forEach(e => node.remove(e.mesh)); node.add(m);
+    const m = merge(ms, false, true); m.material = TT.cmat; ms.forEach(e => node.remove(e.mesh)); node.add(m);
     // the baked mesh (and its ink outline) sit exactly on their rig joint, so they borrow its matrix instead of computing their own
     const share = o => { o.matrixAutoUpdate = false; o.matrixWorldAutoUpdate = false; o.matrixWorld = node.matrixWorld; };
     share(m);
@@ -159,7 +177,7 @@
     main.forEach(e => e.mesh.parent.remove(e.mesh));
     const skel = new THREE.Skeleton(bones, bones.map(b => new THREE.Matrix4().copy(b.matrixWorld).invert()));
     const mk = (list, mat) => {
-      const g = merge(list).geometry, n = g.attributes.position.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4); let o = 0;
+      const g = merge(list, false, mat === TT.cmat).geometry, n = g.attributes.position.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4); let o = 0;
       for (const e of list) { const g0 = e.mesh.geometry, gn = g0.index ? g0._ni : g0, cnt = gn.attributes.position.count, wa = e.b2 >= 0 && gn.attributes.w2; for (let j = 0; j < cnt; j++, o += 4) { const w = wa ? wa.getX(j) : 0; si[o] = e.bi; sw[o] = 1 - w; if (wa) { si[o + 1] = e.b2; sw[o + 1] = w; } } }
       g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); g.userData.own = true;
       const m = new THREE.SkinnedMesh(g, mat); m.castShadow = true; m.frustumCulled = false; m.bindMode = 'detached';

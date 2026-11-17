@@ -169,7 +169,7 @@
   // ---------- title screen: the heroes and their partners stand in the plaza, alive ----------
   const SHOW_Z = 15; let show = null, starting = false;
   // test hook: ?solo=ash&pose=walk|run|cheer|talk|point|throw&turn=0.6&dist=3.2 shows one character close up on the title screen
-  const TEST = (() => { const q = new URLSearchParams(location.search), p = q.get('pose') || ''; return { solo: q.get('solo'), pose: p, mv: p === 'walk' ? 1 : p === 'run' ? 1.4 : 0, gest: ['cheer', 'talk', 'point', 'throw'].indexOf(p) >= 0 ? p : null, turn: +(q.get('turn') || 0), dist: +(q.get('dist') || 3.4) }; })();
+  const TEST = (() => { const q = new URLSearchParams(location.search), p = q.get('pose') || ''; return { solo: q.get('solo'), pose: p, mv: p === 'walk' ? 1 : p === 'run' ? 1.4 : 0, gest: ['cheer', 'talk', 'point', 'throw'].indexOf(p) >= 0 ? p : null, turn: +(q.get('turn') || 0), dist: +(q.get('dist') || 3.4), mons: !!q.get('mons'), gap: +(q.get('gap') || 1.2) }; })();
   const readSave = k => { try { const j = JSON.parse(localStorage.getItem(k)); return j && j.v === 1 && j.party && j.party.length ? j : null; } catch (e) { return null; } };
   const kidKey = name => 'tt1_p_' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
   function buildShow() {
@@ -180,9 +180,9 @@
     if (TEST.solo) { cast.length = 0; for (const k of TEST.solo.split(',')) cast.push([k, null, k]); }       // test: one character, close up, in a chosen pose
     const g = new THREE.Group(), list = [];
     for (const [ch, sp0, id] of cast) {
-      const sp = sp0 && TT.DEX[sp0] ? sp0 : STARTER[ch] || 'pikachu', h = TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), p = TT.creature(sp);
+      const mon = TEST.mons && TT.DEX[ch], sp = sp0 && TT.DEX[sp0] ? sp0 : STARTER[ch] || 'pikachu', h = mon ? TT.creature(ch) : TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), p = mon ? new THREE.Group() : TT.creature(sp);
       const sh = new THREE.Mesh(TT.G.disc, shadowMat); sh.rotation.x = -Math.PI / 2; sh.position.y = 0.035; sh.scale.setScalar(0.45); sh.visible = quality < 2; blobs.push(sh);
-      g.add(h); g.add(p); g.add(sh); list.push({ h, p, sh, ch, sp, id, wave: rand(1.5, 4), gt: 0 });
+      g.add(h); g.add(p); g.add(sh); list.push({ h, p, sh, ch, sp, id, mon, wave: rand(1.5, 4), gt: 0 });
     }
     g.position.set(0, 0, SHOW_Z); scene.add(g); show = { g, list };
   }
@@ -193,13 +193,14 @@
     TT.wait(e ? 0.55 : 0.05).then(() => { starting = false; if (mode === 'title') fn(); });
   }
   function updateShow(dt) {
-    const asp = camera.aspect, n = show.list.length, tight = asp < 1, gap = TEST.solo ? 1.2 : tight ? 1.5 : 2.1, po = tight ? 0.5 : 0.8;
+    const asp = camera.aspect, n = show.list.length, tight = asp < 1, gap = TEST.solo ? TEST.gap : tight ? 1.5 : 2.1, po = tight ? 0.5 : 0.8;
     show.list.forEach((e, i) => {
       const x = (i - (n - 1) / 2) * gap, side = i < (n - 1) / 2 ? -1 : 1;
       e.h.position.set(x, 0, 0); e.sh.position.set(x, 0.035, 0); e.p.position.set(x + side * po, 0, 0.9); e.p.rotation.y = -side * 0.3;
       if ((e.wave -= dt) < 0) { e.h.userData.gesture = TT.pick(['cheer', 'talk', 'point']); e.gt = 1.4; e.wave = rand(3.5, 7); }
       if (e.gt > 0 && (e.gt -= dt) <= 0) e.h.userData.gesture = null;
       if (TEST.pose) { e.h.userData.gesture = TEST.gest; e.h.rotation.y = TEST.turn; e.p.visible = false; }
+      if (e.mon) { TT.animCreature(e.h, t, TEST.mv); return; }
       TT.animHuman(e.h, t, TEST.mv); TT.animCreature(e.p, t, 0);
     });
     const hw = (n - 1) / 2 * gap + po + 0.9, d = TEST.solo ? TEST.dist : Math.max(6.4, hw / (0.364 * asp)), short = window.innerHeight < 500 && asp > 1;

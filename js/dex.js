@@ -191,15 +191,12 @@
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
   })();
   // drawn faces: four expressions side by side (0 neutral · 1 blink · 2 talking · 3 big grin). 128 px = from the brow to the chin.
-  const faceCache = new Map();
-  function faceCanvas(o) {
-    if (faceCache.has(o)) return faceCache.get(o);
-    // small tablets get the half-size picture
-    const SC = navigator.deviceMemory && navigator.deviceMemory <= 4 ? 1 : 2, c = document.createElement('canvas'); c.width = 512 * SC; c.height = 128 * SC; const x = c.getContext('2d'); x.scale(SC, SC);
-    const css = h => '#' + new THREE.Color(h).getHexString(), eye = css(o.eye != null ? o.eye : 0x5a3a22), brow = css(o.brow != null ? o.brow : o.hair), ink = '#1c1820';
+  let faceId = 0;
+  const css = h => '#' + new THREE.Color(h).getHexString();
+  function drawFace(x, o, f) {
+    const eye = css(o.eye != null ? o.eye : 0x5a3a22), brow = css(o.brow != null ? o.brow : o.hair), ink = '#1c1820';
     const girl = !!o.lash, EX = 23.5, EY = 47, RX = girl ? 10.5 : 9.6, RY = girl ? 17.5 : 16.5;
-    for (let f = 0; f < 4; f++) {
-      x.save(); x.translate(f * 128, 0); x.lineCap = 'round'; x.lineJoin = 'round';
+    x.fillStyle = css(o.skin); x.fillRect(-2, -2, 132, 132); x.lineCap = 'round'; x.lineJoin = 'round';
       for (const s of [-1, 1]) {
         const ex = 64 + s * EX, ey = EY;
         if (f === 1) { x.strokeStyle = ink; x.lineWidth = 3.4; x.beginPath(); x.moveTo(ex - RX, ey + 3); x.quadraticCurveTo(ex, ey + 10, ex + RX, ey + 3); x.stroke(); }
@@ -232,10 +229,9 @@
         x.strokeStyle = ink; x.lineWidth = 1.8; x.stroke();
       } else { x.strokeStyle = '#6a2a2a'; x.lineWidth = 2.4; x.beginPath(); if (o.grin) { x.moveTo(51, 89); x.quadraticCurveTo(64, 99, 77, 89); } else { x.moveTo(56, 91); x.quadraticCurveTo(64, 96.5, 72, 91); } x.stroke(); }
       if (o.glasses) { x.strokeStyle = '#333340'; x.lineWidth = 2.4; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(64 + s * EX, EY, RX + 4, RY + 3, 0, 0, 7); x.stroke(); } x.beginPath(); x.moveTo(58, EY - 2); x.lineTo(70, EY - 2); x.stroke(); }
-      x.restore();
-    }
-    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; faceCache.set(o, t); return t;       // one picture per kind of character; every copy of that character shares it
   }
+  // the four expression cells of one kind of character (made once, shared by every copy of that character)
+  const faceCells = o => o._fc || (o._fc = [0, 1, 2, 3].map(f => TT.faceCell('h' + (o._fid || (o._fid = ++faceId)) + '_' + f, x => drawFace(x, o, f))));
   function human2(o) {
     const g = new THREE.Group(), ud = g.userData, rig = ud.rig = {}, skin = o.skin, lower = o.lower, top = o.top, T = (parent, rings, seg, arc) => P(parent, TT.tube(rings, seg, arc), WH);
     ud.v2 = 1;
@@ -302,10 +298,10 @@
     T(head, HEADP.map(q => [q[0], q[1], q[1] * 0.97, skin, 0, 0, headZ(q[0])]), 14);
     for (const s of [1, -1]) { P(head, 'sph', skin, [s * 0.19, -0.02, -0.005], [0.03, 0.05, 0.034]); P(head, 'sph', shade(skin, 0.84), [s * 0.197, -0.02, 0.002], [0.012, 0.028, 0.018]); }
     if (o.beard != null) P(head, 'sph', o.beard, [0, -0.15, 0.08], [0.12, 0.09, 0.1]);
-    const tex = faceCanvas(o).clone(); tex.repeat.set(0.25, 1); tex.needsUpdate = true;
-    const fm = new THREE.MeshToonMaterial({ map: tex, transparent: true, gradientMap: TT.grad, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }); fm.userData.own = true;
-    head.add(new THREE.Mesh(FACE_GEO, fm));
-    ud.face = { tex, f: 0 };
+    // one copy of the face patch per expression, each on its own tiny joint: the one in use is full size, the others are shrunk away
+    const fc = faceCells(o); ud.faceF = [];
+    for (let f = 0; f < 4; f++) { const fg = grp(head, 0, 0, 0, 1); P(fg, FACE_GEO, WH).userData.cell = fc[f]; if (f) fg.scale.setScalar(0.001); ud.faceF.push(fg); }
+    ud.face = { f: 0 };
     rig.eyes = grp(head, 0, 0, 0, 1);            // kept so older code that blinks the eye group still finds something
     const face = grp(head, 0, 0, 0, 1);
     hair(head, o);
@@ -361,7 +357,7 @@
     // --- face: blink now and then, move the mouth when talking, grin when cheering ---
     let f = ((t + p) % 3.7) < 0.13 ? 1 : 0;
     if (W.cheer > 0.5) f = 3; else if (W.talk > 0.5) f = Math.sin(t * 17) > 0.1 ? 2 : f;
-    if (u.face.f !== f) { u.face.f = f; u.face.tex.offset.x = f * 0.25; }
+    if (u.face.f !== f) { u.faceF[u.face.f].scale.setScalar(0.001); u.faceF[f].scale.setScalar(1); u.face.f = f; }
   }
 
   TT.animHuman = (g, t, mv) => {
@@ -434,7 +430,52 @@
 
   // ============ CREATURES ============
   // eye styles: dot | big | tiny | slit
+  // Drawn eyes for every Pokémon: an anime eye painted into the shared face picture, wrapped onto the head where the old
+  // ball-shaped eyes used to sit. Two versions per species, open and closed, so everyone can blink. (eyeGeo: 1 keeps the old eyes.)
+  function drawEye(x, st, cx, cy, rx, ry, col, closed) {
+    const ink = '#18141c';
+    if (closed) { x.strokeStyle = ink; x.lineWidth = Math.max(2.6, ry * 0.2); x.lineCap = 'round'; x.beginPath(); x.moveTo(cx - rx, cy - ry * 0.05); x.quadraticCurveTo(cx, cy + ry * 0.75, cx + rx, cy - ry * 0.05); x.stroke(); return; }
+    if (st === 'dot') {             // a glossy dark eye (Pikachu, Eevee...)
+      x.fillStyle = ink; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 7); x.fill();
+      x.save(); x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 7); x.clip(); x.fillStyle = 'rgba(150,90,50,.6)'; x.beginPath(); x.ellipse(cx, cy + ry * 0.75, rx * 0.8, ry * 0.5, 0, 0, 7); x.fill(); x.restore();
+      x.fillStyle = '#fff'; x.beginPath(); x.ellipse(cx - rx * 0.26, cy - ry * 0.36, rx * 0.42, ry * 0.36, 0, 0, 7); x.fill(); x.beginPath(); x.arc(cx + rx * 0.34, cy + ry * 0.3, rx * 0.16, 0, 7); x.fill();
+    } else if (st === 'big') {      // a big bright eye with a coloured iris
+      x.fillStyle = '#fff'; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 7); x.fill();
+      x.save(); x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 7); x.clip();
+      const g = x.createLinearGradient(0, cy - ry, 0, cy + ry); g.addColorStop(0, '#1a1018'); g.addColorStop(0.45, col); g.addColorStop(1, col);
+      x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy + ry * 0.08, rx * 0.82, ry * 0.86, 0, 0, 7); x.fill();
+      x.fillStyle = '#140c10'; x.beginPath(); x.ellipse(cx, cy + ry * 0.08, rx * 0.4, ry * 0.46, 0, 0, 7); x.fill();
+      x.fillStyle = 'rgba(255,255,255,.25)'; x.beginPath(); x.ellipse(cx, cy + ry * 0.62, rx * 0.55, ry * 0.2, 0, 0, 7); x.fill(); x.restore();
+      x.fillStyle = '#fff'; x.beginPath(); x.ellipse(cx - rx * 0.3, cy - ry * 0.4, rx * 0.32, ry * 0.26, -0.3, 0, 7); x.fill(); x.beginPath(); x.arc(cx + rx * 0.36, cy + ry * 0.38, rx * 0.14, 0, 7); x.fill();
+      x.strokeStyle = ink; x.lineWidth = Math.max(2, rx * 0.2); x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, Math.PI + 0.1, -0.1); x.stroke(); x.lineWidth = 1.2; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI); x.stroke();
+    } else if (st === 'tiny') {
+      const r = Math.min(rx, ry); x.fillStyle = '#fff'; x.strokeStyle = ink; x.lineWidth = 1.6; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.stroke(); x.fillStyle = ink; x.beginPath(); x.arc(cx, cy, r * 0.45, 0, 7); x.fill();
+    } else {                        // a fierce eye with a slit pupil
+      x.fillStyle = '#fff'; x.beginPath(); x.ellipse(cx, cy, rx, ry * 0.85, 0, 0, 7); x.fill();
+      x.fillStyle = col; x.beginPath(); x.ellipse(cx, cy, rx * 0.5, ry * 0.8, 0, 0, 7); x.fill(); x.fillStyle = ink; x.beginPath(); x.ellipse(cx, cy, rx * 0.2, ry * 0.7, 0, 0, 7); x.fill();
+      x.strokeStyle = ink; x.lineWidth = Math.max(2.4, rx * 0.22); x.beginPath(); x.ellipse(cx, cy, rx, ry * 0.85, 0, Math.PI, 0); x.stroke(); x.lineWidth = 1.2; x.beginPath(); x.ellipse(cx, cy, rx, ry * 0.85, 0, 0, Math.PI); x.stroke();
+      x.fillStyle = '#fff'; x.beginPath(); x.arc(cx - rx * 0.3, cy - ry * 0.3, rx * 0.14, 0, 7); x.fill();
+    }
+  }
   function mkEyes(head, o, hr) {
+    if (o.eyeGeo || /eyegeo=1/.test(location.search)) return mkEyesGeo(head, o, hr);
+    const hs = o.hs || [hr, hr * 0.92, hr * 0.95], ex = o.ex || hr * 0.42, ey = o.ey == null ? hr * 0.08 : o.ey, ez = o.ez || hr * 0.84, r = hr * (o.er || 0.18), st = o.eyeS || 'dot';
+    const nx = ex / hs[0], ny = ey / hs[1], nz = ez / hs[2], len = Math.hypot(nx, ny, nz), phiE = Math.atan2(nx, nz), thE = Math.acos(TT.clamp(ny / len, -1, 1));
+    const rw = r * (st === 'big' ? 1.25 : st === 'dot' ? 1.05 : 1.3), rh = r * (st === 'big' ? 1.5 : st === 'dot' ? 1.38 : 1.25);
+    const aw = rw / (hs[0] * Math.max(0.4, Math.sin(thE))), ah = rh / hs[1];
+    const phiM = Math.min(1.5, phiE + aw * 1.8), dT = Math.max(0.2, ah * 1.6), t0 = Math.max(0.12, thE - dT), t1 = Math.min(2.7, thE + dT);
+    const bg = css(o.eyeBg != null ? o.eyeBg : o.hc != null ? o.hc : o.c), col = css(o.eye != null ? o.eye : 0x1c1c22);
+    const X = a => (a + phiM) / (2 * phiM) * 128, px = aw / (2 * phiM) * 128, py = ah / (t1 - t0) * 128, cy = (thE - t0) / (t1 - t0) * 128;
+    const key = 'e' + [st, bg, col, ex, ey, ez, r, hs.join('x')].join('_').replace(/\.|#/g, '');
+    const geo = new THREE.SphereGeometry(1, 10, 5, Math.PI / 2 - phiM, phiM * 2, t0, t1 - t0), eg = grp(head, 0, 0, 0, 1), F = [];
+    for (let f = 0; f < 2; f++) {
+      const fg = grp(eg, 0, 0, 0, 1), m = P(fg, geo, WH, [0, 0, 0], [hs[0] * 1.014, hs[1] * 1.014, hs[2] * 1.014]);
+      m.userData.cell = TT.faceCell(key + '_' + f, x => { x.fillStyle = bg; x.fillRect(-2, -2, 132, 132); for (const s of [-1, 1]) drawEye(x, st, X(s * phiE), cy, px, py, col, f === 1); });
+      if (f) fg.scale.setScalar(0.001); F.push(fg);
+    }
+    eg.userData.F = F; return eg;
+  }
+  function mkEyesGeo(head, o, hr) {
     const ex = o.ex || hr * 0.42, ey = o.ey == null ? hr * 0.08 : o.ey, ez = o.ez || hr * 0.84, r = hr * (o.er || 0.18), st = o.eyeS || 'dot', col = o.eye || BK;
     const eg = grp(head, 0, ey, 0, 1);
     for (const s of [1, -1]) {
@@ -515,13 +556,12 @@
       P(body, 'box', 0x9a6a2a, [0, 0.46, -0.185], [0.2, 0.04, 0.05]); P(body, 'box', 0x9a6a2a, [0, 0.34, -0.215], [0.24, 0.04, 0.05]);
     } });
   const sprigFace = (h, f, hr) => {
-    P(f, 'sph', 0x56a85a, [0, hr * 0.1, hr * 0.5], [hr * 0.8, hr * 0.42, hr * 0.52]);
     P(f, 'sph', 0xf2a0b8, [0, -hr * 0.16, hr * 0.97], [0.026, 0.018, 0.014]);
     P(f, 'box', 0x3a6a3a, [0, -hr * 0.3, hr * 0.9], [0.05, 0.01, 0.01]);
   };
-  B.sprigatito = () => crit({ c: 0xb4e496, b: [0.19, 0.19, 0.29], by: 0.31, hy: 0.57, hz: 0.27, hr: 0.25, hs: [0.26, 0.225, 0.23], cheek: 1, legs: 4, legC: 0xb4e496, ear: 'cat', earIn: 0x56a85a, earX: 0.62, earY: 0.5, eyeS: 'big', eye: 0xe0569a, er: 0.2, ex: 0.1, ey: 0.03, ez: 0.218, eyeTurn: 0.3, tail: 'fluff', tailY: 1.1,
+  B.sprigatito = () => crit({ c: 0xb4e496, eyeBg: 0x56a85a, b: [0.19, 0.19, 0.29], by: 0.31, hy: 0.57, hz: 0.27, hr: 0.25, hs: [0.26, 0.225, 0.23], cheek: 1, legs: 4, legC: 0xb4e496, ear: 'cat', earIn: 0x56a85a, earX: 0.62, earY: 0.5, eyeS: 'big', eye: 0xe0569a, er: 0.2, ex: 0.1, ey: 0.03, ez: 0.218, eyeTurn: 0.3, tail: 'fluff', tailY: 1.1,
     x: (g, h, body, f) => { sprigFace(h, f, 0.25); for (const s of [1, -1]) { P(body, 'sph', 0x56a85a, [s * 0.15, 0.42, 0.2], [0.1, 0.085, 0.1]); P(body, 'cone', 0x56a85a, [s * 0.22, 0.4, 0.2], [0.05, 0.12, 0.04], [0, 0, -s * 1.9]); } P(body, 'sph', 0x56a85a, [0, 0.36, 0.29], [0.13, 0.09, 0.07]); } });
-  B.floragato = () => crit({ c: 0xb4e496, b: [0.17, 0.27, 0.15], by: 0.66, hy: 1.1, hz: 0.04, hr: 0.23, hs: [0.235, 0.21, 0.215], cheek: 1, legs: 2, legLen: 1, legX: 0.45, legC: 0x56a85a, foot: [0.07, 0.05, 0.13], arms: 1, ear: 'cat', earIn: 0x56a85a, earX: 0.62, earY: 0.5, eyeS: 'big', eye: 0xe0569a, er: 0.19, ex: 0.092, ey: 0.03, ez: 0.2, eyeTurn: 0.3, tail: 'thin', tailC: 0x56a85a, tailY: 0.75,
+  B.floragato = () => crit({ c: 0xb4e496, eyeBg: 0x56a85a, b: [0.17, 0.27, 0.15], by: 0.66, hy: 1.1, hz: 0.04, hr: 0.23, hs: [0.235, 0.21, 0.215], cheek: 1, legs: 2, legLen: 1, legX: 0.45, legC: 0x56a85a, foot: [0.07, 0.05, 0.13], arms: 1, ear: 'cat', earIn: 0x56a85a, earX: 0.62, earY: 0.5, eyeS: 'big', eye: 0xe0569a, er: 0.19, ex: 0.092, ey: 0.03, ez: 0.2, eyeTurn: 0.3, tail: 'thin', tailC: 0x56a85a, tailY: 0.75,
     x: (g, h, body, f) => { sprigFace(h, f, 0.23); P(body, 'sph', 0x56a85a, [0, 0.82, 0.02], [0.2, 0.13, 0.17]); P(body, 'sph', 0x56a85a, [0, 0.5, 0], [0.16, 0.12, 0.14]); P(body, 'sph', 0xf06a9a, [0.03, 0.78, 0.17], 0.065); P(body, 'sph', 0xffe060, [0.03, 0.78, 0.225], 0.028); for (const s of [1, -1]) { P(h, 'cone', 0x56a85a, [s * 0.2, -0.1, 0.02], [0.065, 0.22, 0.05], [0, 0, -s * 2.4]); P(h, 'cone', 0x56a85a, [s * 0.14, -0.16, -0.08], [0.06, 0.2, 0.05], [-0.4, 0, -s * 2.7]); } } });
   B.meowth = () => crit({ c: 0xf5e6b8, b: [0.19, 0.25, 0.165], by: 0.4, hy: 0.84, hz: 0.03, hr: 0.28, hs: [0.31, 0.25, 0.25], legs: 2, legLen: 1, legX: 0.45, legC: 0x9a6a3a, arms: 1, ear: 'cat', earC: BK, earIn: 0xf0a0b8, earX: 0.66, earY: 0.5, eyeS: 'slit', er: 0.2, ex: 0.12, ey: 0.02, ez: 0.228, eyeTurn: 0.35, tail: 'thin', tailTip: 0x9a6a3a, tailY: 0.6,
     x: (g, h, body, f) => {
@@ -768,8 +808,9 @@
   // gait / idle. mv 0..1
   TT.animCreature = (g, t, mv) => {
     const u = g.userData, p = u.ph || (u.ph = Math.random() * 6.28);
-    u.amp = (u.amp || 0) + ((mv || 0) - (u.amp || 0)) * 0.18;
-    const a = u.amp, i = 1 - a, ph = t * 11 + p, s = Math.sin(ph), Bd = u.body, L = u.legs;
+    const dtc = TT.clamp(t - (u.lt == null ? t : u.lt), 0, 0.1); u.lt = t;
+    u.amp = (u.amp || 0) + ((mv || 0) - (u.amp || 0)) * Math.min(1, dtc * 9);
+    const a = u.amp, i = Math.max(0, 1 - a), ph = t * 11 + p, s = Math.sin(ph), Bd = u.body, L = u.legs;
     let y = 0, rx = 0, rz = 0, sy = 1 + Math.sin(t * 2.2 + p) * 0.02 * i;
     if (u.kind === 'quad') { for (let k = 0; k < L.length; k++) L[k].rotation.x = Math.sin(ph + (k === 0 || k === 3 ? 0 : Math.PI)) * 0.8 * a; y = Math.abs(Math.sin(ph)) * 0.035 * a; rx = Math.sin(ph * 2) * 0.03 * a; }
     else if (u.kind === 'biped') { if (L[0]) { L[0].rotation.x = -s * 0.75 * a; L[1].rotation.x = s * 0.75 * a; } rz = s * 0.09 * a; y = Math.abs(s) * 0.035 * a; }
@@ -777,15 +818,23 @@
     else if (u.kind === 'float') { y = u.float + Math.sin(t * 2.4 + p) * 0.07; rx = 0.22 * a; }
     else if (u.kind === 'serpent') { const sg = u.segs, n = sg.length, w = u.wv; for (let k = 0; k < n; k++) { const q = u.path[k], ph2 = t * (2.2 + a * 3) + p - k * 0.55, kk = k / (n - 1); sg[k].position.set(q[0] + Math.sin(ph2) * w[0] * (0.2 + kk), q[1] + Math.sin(ph2 * 0.8 + 1) * w[1], q[2]); } y = u.float + (u.float ? Math.sin(t * 1.6 + p) * 0.1 : 0); }
     else if (u.kind === 'crawl') { const sg = u.segs; for (let k = 0; k < sg.length; k++) { const w = Math.max(0, Math.sin(ph * 0.7 - k * 0.9)); sg[k].position.y = w * 0.08 * (0.25 + a); sg[k].position.z = -0.19 * (k + 1) + w * 0.05 * a; } }
+    // standing around: every few seconds a little hop of joy (crouch, spring up, land), and now and then a curious tilt of the head
+    let joy = 0, tilt = 0;
+    if (u.kind === 'quad' || u.kind === 'biped') {
+      const hp = (t * 0.9 + p) % 5.4, q = hp < 0.62 ? hp / 0.62 : -1;
+      if (q >= 0 && i > 0.6) { joy = q < 0.25 ? -Math.sin(q / 0.25 * Math.PI) * 0.35 : Math.sin((q - 0.25) / 0.75 * Math.PI); y += Math.max(0, joy) * 0.13 * i; sy *= 1 + joy * 0.09 * i; }
+      for (const l of L) { if (l.userData.y0 == null) l.userData.y0 = l.position.y; l.position.y = l.userData.y0 + Math.max(0, joy) * 0.13 * i; }
+    }
+    { const tp = (t * 0.55 + p * 2) % 7.3; if (tp < 1.7) tilt = Math.sin(tp / 1.7 * Math.PI) * 0.26 * i * (p > 3.14 ? 1 : -1); }
     const sq = 1 / Math.sqrt(sy);
-    Bd.position.y = y; Bd.rotation.x = rx; Bd.rotation.z = rz; Bd.scale.set(sq, sy, sq);
-    const hd = u.head; hd.rotation.y = Math.sin(t * 0.7 + p) * 0.3 * i; hd.rotation.z = Math.sin(t * 1.1 + p) * 0.07; hd.rotation.x = -rx * 0.6 + Math.sin(t * 1.9 + p) * 0.04;
-    if (u.tail) { u.tail.rotation.y = Math.sin(t * (3 + a * 6) + p) * (0.28 + 0.2 * a); u.tail.rotation.x = Math.sin(t * 2.3 + p) * 0.1; }
+    Bd.position.y = y; Bd.rotation.x = rx + 0.1 * a * (u.kind === 'quad' ? 0 : 1); Bd.rotation.z = rz; Bd.scale.set(sq, sy, sq);
+    const hd = u.head; hd.rotation.y = Math.sin(t * 0.7 + p) * 0.3 * i; hd.rotation.z = Math.sin(t * 1.1 + p) * 0.07 + tilt; hd.rotation.x = -rx * 0.6 + Math.sin(t * 1.9 + p) * 0.04 - Math.max(0, joy) * 0.18;
+    if (u.tail) { u.tail.rotation.y = Math.sin(t * (3 + a * 6 + Math.max(0, joy) * 9) + p) * (0.28 + 0.2 * a + Math.max(0, joy) * 0.25); u.tail.rotation.x = Math.sin(t * 2.3 + p) * 0.1 + Math.max(0, joy) * 0.3; }
     for (const e of u.ears) { const tw = Math.pow(Math.max(0, Math.sin(t * 1.3 + p * 3 + e.userData.s)), 24); e.rotation.z = e.userData.rz + tw * 0.4 * e.userData.s; e.rotation.x = -0.25 * a - tw * 0.2; }
-    for (const m of u.arms) { if (m.userData.hold) continue; m.rotation.x = m.userData.s * s * 0.6 * a + Math.sin(t * 2 + p + m.userData.s) * 0.08; }
+    for (const m of u.arms) { if (m.userData.hold) continue; m.rotation.x = m.userData.s * s * 0.6 * a + Math.sin(t * 2 + p + m.userData.s) * 0.08 - Math.max(0, joy) * 1.4; }
     if (u.slowWings) for (const w of u.wings) w.rotation.z = w.userData.s * Math.sin(t * 3 + p) * 0.35;
     else if (u.wings) for (const w of u.wings) w.rotation[u.float ? 'y' : 'z'] = u.float ? w.userData.s * (0.5 * Math.sin(t * 15)) : w.userData.s * (0.05 + Math.max(0, Math.sin(t * 14)) * 0.9 * a);
-    if (u.eyes) u.eyes.scale.y = ((t + p) % 4.1) < 0.13 ? 0.1 : 1;
+    if (u.eyes) { const cl = ((t + p) % 4.1) < 0.13 || !!u.shut, F = u.eyes.userData.F; if (!F) u.eyes.scale.y = cl ? 0.1 : 1; else if (cl !== !!u.eyeCl) { u.eyeCl = cl; F[0].scale.setScalar(cl ? 0.001 : 1); F[1].scale.setScalar(cl ? 1 : 0.001); } }
     if (u.flame) { u.flame.scale.y = 1 + Math.sin(t * 15 + p) * 0.2; u.flame.rotation.y = t * 4; }
   };
 
