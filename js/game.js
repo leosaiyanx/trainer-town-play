@@ -115,7 +115,7 @@
   }
 
   function newSave(ch) { return { v: 1, ch, party: [TT.mon(STARTER[ch], 5)], box: [], balls: 3, stars: [], egg: { have: false, warm: 0 }, flags: {}, rocket: 0, caught: [] }; }
-  function save() { if (!S) return; S.ts = Date.now(); if (mode === 'play' && !TT.Battle.active) S.pos = [Math.round(player.x * 10) / 10, Math.round(player.z * 10) / 10]; try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { } cloudDirty = true; }
+  function save() { if (!S) return; S.ts = Date.now(); S.nm = pname; if (mode === 'play' && !TT.Battle.active) S.pos = [Math.round(player.x * 10) / 10, Math.round(player.z * 10) / 10]; try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { } cloudDirty = true; }
   // ---- online saves (only when js/config.js has a database address and a family code is set) ----
   const CLOUD = String(window.TT_CLOUD || '').replace(/\/$/, '');
   const cloudUrl = () => CLOUD && Net.room ? CLOUD + '/saves/' + Net.room + '/' + encodeURIComponent(slot) + '.json' : '';
@@ -145,6 +145,7 @@
     camY = W.gy(player.x, player.z); vel.x = vel.z = 0;
     setFollower(); follower.x = player.x + 1; follower.z = player.z + 0.8; applyFlags();
     $('title').classList.add('hide'); for (const id of ['hud', 'joy', 'act', 'bPause']) $(id).classList.remove('hide');
+    famLoad(); famT = 4;
     mode = 'play'; areaNow = ''; TT.music(TT.areaMusic()); setMini(miniOn); friendsDirty = true; nextRocket = S.caught.length ? 60 : 150; hud();
     if (fresh) intro();
     cloudLoad();
@@ -541,15 +542,64 @@
     for (const b of ballObjs) scene.remove(b.o); ballObjs = [];
     for (const d of (S && S.scat) || []) { const o = TT.starBall(d.n, 0.3); o.position.set(d.x, W.gy(d.x, d.z) + 0.6, d.z); scene.add(o); ballObjs.push({ o, d }); }
   }
+  // ---------- family progress: every player's game tells the others how far along it is ----------
+  // Dad's device remembers the last report from each child, so he can look any time, not only while they play.
+  const AKEYS = ['town', 'city', 'world', 'volcano'];
+  const REAL = { Liko: 'Llorianne (Liko)', Ash: 'LJ (Ash)' };      // this family's two original cards
+  let fam = {}, famT = 0, famIv = null;
+  const famKey = () => 'tt_fam_' + (Net.room || 'home');
+  const famLoad = () => { try { fam = JSON.parse(localStorage.getItem(famKey())) || {}; } catch (e) { fam = {}; } };
+  const famSave = () => { try { localStorage.setItem(famKey(), JSON.stringify(fam)); } catch (e) { } };
+  const withFlags = SV => { const f = SV.flags = SV.flags || {}; for (const n of SV.stars || []) f['s' + n] = 1; if (f.profDone) f.s2 = 1; if (f.gym) f.s4 = 1; if (f.goku) f.s5 = 1; if (f.hideout) f.s6 = 1; if (f.vegeta) f.s7 = 1; return SV; };
+  function summary(SV, name) {       // a small, safe description of one saved game
+    const pr = AKEYS.map(k => areaProgress(k, SV).pct), lead = SV.party && SV.party[0];
+    return { n: String(name || 'Trainer').slice(0, 14), ch: SV.ch, sp: lead ? lead.sp : '', lvl: lead ? lead.lvl : 0, stars: (SV.stars || []).length, wishes: SV.wishes || 0, kinds: (SV.caught || []).length,
+      pr, whole: Math.round(pr.reduce((a, b) => a + b, 0) / pr.length), goal: questOf(SV)[0].replace(/^[➜★]\s*/, '').slice(0, 90), ts: SV.ts || Date.now() };
+  }
+  function famSet(d, live) {
+    if (!d || typeof d.n !== 'string' || !Array.isArray(d.pr)) return;
+    const k = d.n.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14); if (!k) return;
+    const old = fam[k]; if (old && !live && old.ts >= (+d.ts || 0)) return;        // an online copy never replaces something newer
+    fam[k] = { n: d.n.replace(/[<>&]/g, '').slice(0, 14), ch: String(d.ch || '').slice(0, 8), sp: TT.DEX[d.sp] ? d.sp : '', lvl: Math.min(99, d.lvl | 0), stars: Math.min(7, d.stars | 0), wishes: Math.min(99, d.wishes | 0), kinds: Math.min(99, d.kinds | 0),
+      pr: d.pr.slice(0, 4).map(v => TT.clamp(v | 0, 0, 100)), whole: TT.clamp(d.whole | 0, 0, 100), goal: String(d.goal || '').replace(/[<>&]/g, '').slice(0, 90), ts: +d.ts || Date.now(), seen: live ? Date.now() : (old && old.seen) || 0 };
+    famSave();
+  }
+  const ago = t => { const m = (Date.now() - t) / 60000; return m < 1.5 ? 'just now' : m < 60 ? Math.round(m) + ' minutes ago' : m < 60 * 36 ? Math.round(m / 60) + ' hours ago' : Math.round(m / 1440) + ' days ago'; };
+  // online saves (only when a database address is set in js/config.js): read every saved game in the family room
+  function famCloud() {
+    if (!CLOUD || !Net.room) return Promise.resolve(false);
+    return fetch(CLOUD + '/saves/' + Net.room + '.json').then(r => r.json()).then(all => {
+      for (const slot in all || {}) { const SV = all[slot]; if (!SV || !SV.party || !SV.party.length || SV.ch === 'dad') continue; famSet(summary(withFlags(SV), SV.nm || NAMES[SV.ch] || slot.replace(/^tt1_(p_)?/, '')), false); }
+      return true;
+    }).catch(() => false);
+  }
+  function showFamily() {
+    famLoad();
+    const draw = () => {
+      const list = Object.keys(fam).map(k => fam[k]).filter(e => e.ch !== 'dad').sort((a, b) => a.n.localeCompare(b.n));
+      let h = '<h3>Kids\' progress <button id="pClose">✕</button></h3>';
+      if (!list.length) h += '<p style="font-weight:700">Nothing yet.</p><p>Open the game on a child\'s tablet while you are in Daddy mode. Their progress appears here within a few seconds, and this device remembers it for later.</p>';
+      for (const e of list) {
+        const live = Date.now() - e.seen < 25000;
+        h += '<div class="kid"><div class="kh">' + (e.sp ? '<img src="' + TT.monPortrait(e.sp) + '">' : '') + '<div><b>' + (!kidsList.length && REAL[e.n] || e.n) + '</b><span>' + (e.sp ? 'Lv ' + e.lvl + ' ' + TT.DEX[e.sp][0] + ' · ' : '') + e.stars + ' of 7 Dragon Balls · ' + e.kinds + ' kinds caught' + (e.wishes ? ' · ' + e.wishes + (e.wishes > 1 ? ' wishes' : ' wish') : '') + '</span></div><em class="' + (live ? 'on' : '') + '">' + (live ? '🟢 playing now' : 'seen ' + ago(e.seen || e.ts)) + '</em></div>' +
+          '<div class="kw"><b>Whole adventure</b>' + pbar(e.whole) + '</div><div class="kareas">' + AKEYS.map((k, i) => '<div><span>' + AREAS[k].name + '</span>' + pbar(e.pr[i] || 0) + '</div>').join('') + '</div>' +
+          (e.goal ? '<p class="kgoal">Next: ' + e.goal + '</p>' : '') + '</div>';
+      }
+      h += '<p style="font-size:13px;opacity:.7;margin:8px 0 0">' + (CLOUD ? 'Online saves are on: this also shows what each child last saved, even when they are not playing.' : 'Updates arrive while a child is playing in your family room. Between sessions this shows the last update this device received.') + '</p>';
+      const top = $('panelIn').scrollTop; openPanel(h); $('panelIn').scrollTop = top; $('panelIn').dataset.fam = '1';
+    };
+    draw(); famCloud().then(ok => { if (ok && $('panelIn').dataset.fam && panelOpen) draw(); });
+    clearInterval(famIv); famIv = setInterval(() => { if (!panelOpen || !$('panelIn').dataset.fam || !$('panelIn').querySelector('.kid,p')) { clearInterval(famIv); delete $('panelIn').dataset.fam; return; } draw(); }, 3000);
+  }
   // ---------- how much of each area is done (shown on the map) ----------
-  function areaProgress(key) {
-    const f = S.flags, items = [], kinds = [];
+  function areaProgress(key, SV) {
+    SV = SV || S; const f = SV.flags || {}, items = [], kinds = [];
     for (const z of W.zones) if (areaKey(z.x, z.z) === key) for (const sp of z.pool) if (kinds.indexOf(sp) < 0) kinds.push(sp);
-    const got = kinds.filter(sp => S.caught.indexOf(sp) >= 0).length, add = (t, done) => items.push({ t, done: !!done });
-    if (key === 'town') { add('Help Professor Oak', f.profDone); add('Hatch an egg', f.hatched); add('Beat Team Rocket', f.s1 || S.rocket > 0); add('Find the hidden Dragon Ball', f.s3); }
+    const got = kinds.filter(sp => SV.caught.indexOf(sp) >= 0).length, add = (t, done) => items.push({ t, done: !!done });
+    if (key === 'town') { add('Help Professor Oak', f.profDone); add('Hatch an egg', f.hatched); add('Beat Team Rocket', f.s1 || SV.rocket > 0); add('Find the hidden Dragon Ball', f.s3); }
     else if (key === 'city') { add('Win the City Gym', f.gym); add('Team up with Gohan', f.gohan); add('Meet Bulma the inventor', f.bulma); }
     else if (key === 'world') { add('Wake up Snorlax', f.snorlax); add('Battle Goku', f.goku); add("Stop Team Rocket's robot", f.hideout); add('Open the Volcano Tunnel', f.tunnel); }
-    else { add('Beat Vegeta', f.vegeta); add('Call the Dragon and make a wish', S.wishes > 0); add('Find all 7 Dragon Balls again', S.wishes > 1 || (S.wishes > 0 && S.stars.length >= 7)); }
+    else { add('Beat Vegeta', f.vegeta); add('Call the Dragon and make a wish', SV.wishes > 0); add('Find all 7 Dragon Balls again', SV.wishes > 1 || (SV.wishes > 0 && SV.stars.length >= 7)); }
     items.push({ t: 'Catch every kind of Pokémon here (' + got + ' of ' + kinds.length + ')', done: got >= kinds.length, part: kinds.length ? got / kinds.length : 1 });
     return { pct: Math.round(items.reduce((a, it) => a + (it.done ? 1 : it.part || 0), 0) / items.length * 100), items };
   }
@@ -626,15 +676,13 @@
   }
 
   // ---------- HUD / panels ----------
-  function hud() {
-    if (!S) return;
-    $('nBall').textContent = S.balls; $('nStar').textContent = S.stars.length;
-    $('chipEgg').classList.toggle('hide', !S.egg.have); { const wv = Math.round(Math.min(100, S.egg.warm)); if (wv !== eggShown) { eggShown = wv; $('eggBar').style.width = wv + '%'; } }
-    let q, g = null; const f = S.flags, at = (x, z, n) => ({ x, z, n });
+  // what a saved game should do next: [text, place to guide to]
+  function questOf(SV) {
+    let q, g = null; const f = SV.flags || {}, at = (x, z, n) => ({ x, z, n });
     if (!f.profMet) { q = '➜ Visit Professor Oak at the Lab (top of town)'; g = at(3.5, -21.5, "Professor Oak's Lab"); }
-    else if (!f.profDone) { if (S.caught.length >= 3) { q = '➜ Go show Professor Oak!'; g = at(3.5, -21.5, "Professor Oak's Lab"); } else { q = '➜ Catch 3 kinds of Pokémon in the tall grass (' + S.caught.length + '/3)'; g = at(-40, 30, 'the West Meadow grass'); } }
+    else if (!f.profDone) { if (SV.caught.length >= 3) { q = '➜ Go show Professor Oak!'; g = at(3.5, -21.5, "Professor Oak's Lab"); } else { q = '➜ Catch 3 kinds of Pokémon in the tall grass (' + SV.caught.length + '/3)'; g = at(-40, 30, 'the West Meadow grass'); } }
     else if (!f.city) { q = '➜ Talk to Officer Gus at the north gate to enter the City'; g = at(3.2, -50.5, 'the north gate'); }
-    else if (S.egg.have) { q = '➜ Warm the egg by the campfire'; g = at(W.FIRE.x, W.FIRE.z + 2, 'the campfire'); }
+    else if ((SV.egg && SV.egg.have)) { q = '➜ Warm the egg by the campfire'; g = at(W.FIRE.x, W.FIRE.z + 2, 'the campfire'); }
     else if (!f.gym) { q = '➜ Challenge the City Gym at the far end of the avenue'; g = at(0, -159.5, 'the City Gym'); }
     else if (!f.gohan) { q = '➜ Tell Gohan in the Clock Plaza!'; g = at(5, -117, 'Gohan'); }
     else if (!f.world) { q = "➜ Ask Officer Gail at the City's east gate about the Wide World"; g = at(49.5, -95.5, 'the east gate'); }
@@ -643,17 +691,24 @@
     else if (!f.hideout) { q = '➜ Stop Team Rocket at their hideout in the south'; g = at(204, -149.5, "Team Rocket's hideout"); }
     else if (!f.tunnel) { q = '➜ Find the Volcano Tunnel, north-east of the Whisper Forest'; g = at(W.TUNNEL.x - 3, W.TUNNEL.z, 'the Volcano Tunnel'); }
     else if (!f.vegeta) { q = '➜ Cross the Volcano and challenge Vegeta for the last Dragon Ball'; g = at(W.VEGETA.x - 2.2, W.VEGETA.z, 'Vegeta'); }
-    else if (S.stars.length >= 7) { q = "➜ Take all 7 Dragon Balls to the altar in the Dragon's Lair"; g = at(W.ALTAR.x - 4.2, W.ALTAR.z, "the Dragon's altar"); }
-    else if (!S.wishes && S.stars.indexOf(3) < 0) { q = '➜ Something shiny is hiding in the trees behind the town pond...'; g = at(W.STARSPOT.x - 2, W.STARSPOT.z, 'the hiding place'); }
-    else if (!S.wishes && S.stars.indexOf(1) < 0) q = '➜ Beat Team Rocket when they swoop in, and they might drop something!';
-    else if (S.wishes && !f.radar) { q = '➜ The Dragon Balls scattered! Ask Bulma in the City for her Dragon Radar'; g = at(14.5, -99.2, 'Bulma'); }
-    else if (S.wishes && S.scat && S.scat.length) { let b = S.scat[0], bd = 1e9; const here = areaKey(player.x, player.z); for (const c of S.scat) { const d = Math.hypot(c.x - player.x, c.z - player.z) + (areaKey(c.x, c.z) === here ? 0 : 500); if (d < bd) { bd = d; b = c; } } q = '➜ Find the Dragon Balls with the radar (' + S.stars.length + '/7)'; g = at(b.x, b.z, 'a Dragon Ball near ' + b.h); }
+    else if (SV.stars.length >= 7) { q = "➜ Take all 7 Dragon Balls to the altar in the Dragon's Lair"; g = at(W.ALTAR.x - 4.2, W.ALTAR.z, "the Dragon's altar"); }
+    else if (!SV.wishes && SV.stars.indexOf(3) < 0) { q = '➜ Something shiny is hiding in the trees behind the town pond...'; g = at(W.STARSPOT.x - 2, W.STARSPOT.z, 'the hiding place'); }
+    else if (!SV.wishes && SV.stars.indexOf(1) < 0) q = '➜ Beat Team Rocket when they swoop in, and they might drop something!';
+    else if (SV.wishes && !f.radar) { q = '➜ The Dragon Balls scattered! Ask Bulma in the City for her Dragon Radar'; g = at(14.5, -99.2, 'Bulma'); }
+    else if (SV.wishes && SV.scat && SV.scat.length) { let b = SV.scat[0], bd = 1e9; const here = areaKey(player.x, player.z); for (const c of SV.scat) { const d = Math.hypot(c.x - player.x, c.z - player.z) + (areaKey(c.x, c.z) === here ? 0 : 500); if (d < bd) { bd = d; b = c; } } q = '➜ Find the Dragon Balls with the radar (' + SV.stars.length + '/7)'; g = at(b.x, b.z, 'a Dragon Ball near ' + b.h); }
     else q = '★ Keep exploring!';
+    return [q, g];
+  }
+  function hud() {
+    if (!S) return;
+    $('nBall').textContent = S.balls; $('nStar').textContent = S.stars.length;
+    $('chipEgg').classList.toggle('hide', !S.egg.have); { const wv = Math.round(Math.min(100, S.egg.warm)); if (wv !== eggShown) { eggShown = wv; $('eggBar').style.width = wv + '%'; } }
+    const qg = questOf(S); let q = qg[0]; const g = qg[1];
     goal = g; if (g) q += '  📍';
     $('quest').textContent = q;
   }
   const hex = n => '#' + n.toString(16).padStart(6, '0');
-  function openPanel(html) { $('panelIn').innerHTML = html; $('panel').classList.remove('hide'); panelOpen = true; stopInput(); const c = $('pClose'); if (c) c.onclick = closePanel; }
+  function openPanel(html) { delete $('panelIn').dataset.fam; $('panelIn').innerHTML = html; $('panel').classList.remove('hide'); panelOpen = true; stopInput(); const c = $('pClose'); if (c) c.onclick = closePanel; }
   let panelDone = null;
   function closePanel() { $('panel').classList.add('hide'); panelOpen = false; if (panelDone) { const f = panelDone; panelDone = null; f(false); } }
   // friendly Pokémon in town: after saying hello, the player can choose to battle (and even catch) it
@@ -924,9 +979,12 @@
       else { b.textContent = '➜ Go to ' + nm; b.onclick = () => jumpTo(id, nm); }
       box.appendChild(b);
     }
-    if (S.ch === 'dad' && box.children.length) {
-      const c = document.createElement('button'); c.className = 'dadb'; c.textContent = '📣 Cheer'; c.onclick = cheer; box.appendChild(c);
-      const g = document.createElement('button'); g.className = 'dadb'; g.textContent = '🎁 Send Poké Balls'; g.onclick = gift; box.appendChild(g);
+    if (S.ch === 'dad') {
+      if (box.children.length) {
+        const c = document.createElement('button'); c.className = 'dadb'; c.textContent = '📣 Cheer'; c.onclick = cheer; box.appendChild(c);
+        const g = document.createElement('button'); g.className = 'dadb'; g.textContent = '🎁 Send Poké Balls'; g.onclick = gift; box.appendChild(g);
+      }
+      const k = document.createElement('button'); k.className = 'dadb'; k.textContent = "📊 Kids' progress"; k.onclick = () => { if (!busy) showFamily(); }; box.appendChild(k);
     }
   }
   function poof(x, z) { const ps = [], y0 = W.gy(x, z); for (let i = 0; i < 8; i++) ps.push(P(scene, 'sphS', TT.glow(i % 2 ? 0xffffff : 0xbfe8ff), [x, 1 + y0, z], 0.18)); TT.tween(0.45, k => ps.forEach((m, i) => { const a = i * 0.785; m.position.set(x + Math.cos(a) * k * 1.6, y0 + 1 + Math.sin(a * 2) * k, z + Math.sin(a) * k * 1.6); m.scale.setScalar(0.2 * (1 - k)); })).then(() => ps.forEach(m => scene.remove(m))); }
@@ -948,6 +1006,7 @@
   Net.onEvent = (id, d) => {
     if (d.e === 'b') return TT.Battle.onNet(id, d);
     if (!S) return;
+    if (d.e === 'prog') { famSet(d.d, true); return; }
     if (d.e === 'cheer') { TT.sfx.star(); TT.toast('📣 Dad: ' + String(d.x).slice(0, 40)); const p = Net.peers[id]; if (p && p.root) { const u = p.root.userData.model.userData; u.gesture = 'cheer'; setTimeout(() => { u.gesture = null; }, 1800); } }
     else if (d.e === 'gift' && S.ch !== 'dad') { S.balls += Math.min(5, d.n | 0); TT.sfx.caught(); TT.toast('🎁 Dad sent you 5 Poké Balls!'); hud(); save(); }
   };
@@ -1076,6 +1135,7 @@
       { const want = summoning ? 'summon' : ak === 'volcano' ? 'volcArea' : null; if (W.stageNow !== want) W.applyStage(want); }
       for (const b of ballObjs) { b.o.rotation.y = t * 1.6; b.o.position.y = W.gy(b.d.x, b.d.z) + 0.6 + Math.sin(t * 2.4 + b.d.n) * 0.12; }
     }
+    if ((famT += dt) > 6 && S.ch !== 'dad' && Net.on) { famT = 0; S.ts = S.ts || Date.now(); Net.send({ e: 'prog', d: Object.assign(summary(S, pname), { ts: Date.now() }) }); }
     if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp, b: TT.Battle.owning() ? 1 : 0, n: pname }); }
   }
 

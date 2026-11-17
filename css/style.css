@@ -262,3 +262,12 @@ small.pct{display:block;font-weight:800;font-size:13px;margin-top:2px}
 .todo{margin-top:10px;border:3px solid #23324a;border-radius:16px;padding:8px 12px;background:#f4f8ff;text-align:left}
 .todo b{display:block;font-size:17px}.todo span{display:block;font-weight:700;font-size:15px;margin-top:4px;opacity:.75}.todo span.ok{opacity:1;color:#1d7a3a}
 @media (max-height:480px){.whole{padding:5px 10px;margin-bottom:6px}.whole b{font-size:14px}.pbar{height:9px;margin-top:3px}small.pct{font-size:11px}}
+
+/* Daddy mode: kids' progress */
+.kid{border:3px solid #23324a;border-radius:16px;padding:10px 12px;margin-bottom:10px;background:#f4f8ff}
+.kh{display:flex;align-items:center;gap:10px}.kh img{width:54px;height:54px;flex:none}.kh b{font-size:22px;display:block;line-height:1.1}.kh span{font-size:13px;font-weight:700;opacity:.75}
+.kh em{margin-left:auto;font-style:normal;font-weight:800;font-size:12px;background:#e6e8ee;border-radius:999px;padding:3px 10px;white-space:nowrap}.kh em.on{background:#d6f5dc;color:#1d7a3a}
+.kw{margin-top:8px}.kw b{font-size:15px}
+.kareas{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}.kareas span{font-weight:800;font-size:13px}
+.kgoal{margin:8px 0 0;font-weight:800;font-size:15px;background:#fff8dc;border-radius:10px;padding:5px 10px}
+@media (max-width:560px){.kareas{grid-template-columns:repeat(2,1fr)}.kh b{font-size:19px}}
