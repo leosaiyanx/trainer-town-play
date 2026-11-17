@@ -15,6 +15,9 @@
   const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad', gary: 'Gary', leaf: 'Leaf' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander', gary: 'squirtle', leaf: 'bulbasaur' };
   let slot = '', pname = '', cloudDirty = false, kidsList = [];
   let viewX = 30, viewZ = 31, viewS = 11, flying = false, goal = null;
+  // Free-roam camera: it always faces north (so the stick stays simple), but its distance and tilt change with what is happening.
+  let camD = 13, camP = 0.6, camTy = 1, stillT = 0, talkTo = null; const CAMV = { d: [13, 12], p: [0.59, 0.5] };      // [slower devices, faster devices]: a lower view shows more ground, which the kids' tablets cannot afford (measured: +15–30% drawing), so only faster devices get it
+  const CAM_AREA = { town: [0, 0, 0], city: [0.6, 0.06, 0.03], world: [1.2, 0, 0], volcano: [1.2, -0.01, -0.07] };      // per area: [extra distance, extra tilt on faster devices, extra tilt on slower ones] — the Volcano is cheap to draw so everyone gets the low view there; the City looks down more so buildings don't hide the trainer
   let actKey = '', netShown = -1, eggShown = -1, inB = false;
   let comps = [], snorlaxNpc = null, areaNow = '', camY = 0, runT = 0, lean = 0; const vel = { x: 0, z: 0 };
   const areaKey = (x, z) => x > 300 ? 'volcano' : x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
@@ -100,6 +103,7 @@
       if (q.get('stars')) { S.stars = [1, 2, 3, 4, 5, 6, 7].slice(0, +q.get('stars')); hud(); }
       if (q.get('lvl')) S.party.forEach(m => { m.lvl = +q.get('lvl'); m.hp = TT.maxHp(m); });
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
+      if (q.get('far')) S.camFar = +q.get('far');
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       if (q.get('zoom')) setInterval(() => { if (!TT.Battle.active && !flying) TT.camZoom = +q.get('zoom'); }, 50);      // test: bring the camera close to check a model
       if (q.get('gest')) setInterval(() => { if (player.root) player.root.userData.model.userData.gesture = q.get('gest'); }, 100);
@@ -313,7 +317,7 @@
   function nearestWild() { let best = null, bd = 3.6; for (const w of wilds) { const d = Math.hypot(w.x - player.x, w.z - player.z); if (d < bd) { bd = d; best = w; } } return best; }
   function nearestNpc() { let best = null, bd = 2.9; for (const n of npcs) { if (n.hidden) continue; const d = dist(n, player) - (n.reach ? n.reach - 2.9 : 0); if (d < bd) { bd = d; best = n; } } return best; }
   async function talk(n) {
-    busy = true; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
+    busy = true; talkTo = n; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
     const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
     if (n.key === 'krillin') await krillin(); else if (n.key === 'bulma') await bulma(); else if (n.key === 'vegeta') await vegetaTalk(); else if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk(); else if (n.key === 'guard2') await gail(n); else if (n.key === 'ranger') await ranger(); else if (n.key === 'goku') await gokuTalk(); else if (n.key === 'hideout') await hideout(); else if (n.key === 'snorlax') await snorlaxTalk();
     else if (!n.human) {
@@ -806,14 +810,15 @@
 
   // ---------- menu, main-menu return ----------
   function showMenu() {
-    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = '🛟 Easy mode: ' + (S.easy ? 'On — stronger hits, gentler bosses, free healing' : 'Off'); };
-    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
+    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = '🛟 Easy mode: ' + (S.easy ? 'On — stronger hits, gentler bosses, free healing' : 'Off'); $('mCam').textContent = '🎥 Camera: ' + (S.camFar ? 'Far (see more)' : 'Close (bigger characters)'); };
+    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt" id="mCam"></button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
     lab();
     $('mResume').onclick = closePanel;
     $('mSound').onclick = () => { TT.setMuted(!TT.muted); lab(); };
     $('mVoice').onclick = () => { TT.setVoice(!TT.voiceOn); lab(); if (TT.voiceOn) TT.cry(S.party[0].sp); };
     $('mMini').onclick = () => { setMini(!miniOn); lab(); };
     $('mEasy').onclick = () => { S.easy = S.easy ? 0 : 1; if (S.easy) S.party.forEach(m => m.hp = TT.maxHp(m)); save(); lab(); TT.sfx.pick(); };
+    $('mCam').onclick = () => { S.camFar = S.camFar ? 0 : 1; save(); lab(); TT.sfx.blip(); };
     $('mTitle').onclick = toTitle;
   }
   function toTitle() {
@@ -1120,7 +1125,8 @@
     starObj.visible = S.stars.indexOf(3) < 0 && !S.wishes; starObj.rotation.y = t * 1.5; starObj.position.y = 0.7 + Math.sin(t * 2) * 0.12;
     placeEnt(player, true); player.root.visible = true;
     if (!busy || !TT.Battle.active) {
-      follow(follower, player.x, player.z, dt, 1.5);
+      if (talkTo) follow(follower, player.x + (player.x >= talkTo.x ? 1.5 : -1.5), player.z - 0.9, dt, 0.25);      // while talking, the partner steps to the far side so it never blocks the close-up
+      else follow(follower, player.x, player.z, dt, 1.5);
       if (flying || !(busy && follower.root.position.y > 0.05 + W.gy(follower.x, follower.z))) placeEnt(follower, false);
       let ld = follower; for (const c of comps) { follow(c, ld.x, ld.z, dt, 1.8); placeEnt(c, true); ld = c; }
     }
@@ -1133,10 +1139,26 @@
     { const lbl = fight ? '⚔ Battle' : nn ? 'Talk' : 'A', dim = !near && !TT.dialogOpen, key = lbl + (dim ? 1 : 0); if (key !== actKey) { actKey = key; act.textContent = lbl; act.classList.toggle('dim', dim); act.classList.toggle('fight', !!fight); } }   // touch the page only when something changed
 
     if (!TT.Battle.active) {
-      const zm = (camera.aspect < 1 ? 1.5 : 1) * TT.camZoom, k = Math.min(1, dt * 5), spd = Math.hypot(vel.x, vel.z), out = 1 + spd * 0.014;
-      cam.x += (player.x + vel.x * 0.3 - cam.x) * k; cam.z += (player.z + vel.z * 0.3 - cam.z) * k;
+      const port = camera.aspect < 1, k = Math.min(1, dt * 5), spd = Math.hypot(vel.x, vel.z);
+      stillT = spd > 0.3 ? 0 : stillT + dt;
+      if (!busy && !TT.dialogOpen) talkTo = null;
+      const tk = talkTo && !flying && TT.camZoom === 1 ? talkTo : null;
+      let D, Pt, ty = 1, tx = player.x + vel.x * 0.3, tz = player.z + vel.z * 0.3, zm = (port ? 1.5 : 1) * TT.camZoom;
+      if (tk) { D = 7.2; Pt = 0.47; tx = (player.x + tk.x) / 2; tz = (player.z + tk.z) / 2 + 0.8; ty = 1.05; if (port) zm = 1.75; }       // talking: move in and frame the two of them
+      else if (S && S.camFar) { D = 17.7 * (1 + spd * 0.014); Pt = 0.705; }                                                             // the old high view, for anyone who prefers it
+      else if (TT.dialogOpen && !flying && TT.camZoom === 1) { D = 10.5; Pt = 0.56; }                                                    // a story moment: lean in a little
+      else {
+        const m = CAM_AREA[areaNow] || CAM_AREA.town, run = TT.clamp((spd / 6.4 - 1) / 0.4, 0, 1), idle = TT.clamp((stillT - 2.5) / 2, 0, 1);
+        const fast = quality >= 2 ? 1 : 0; D = CAMV.d[fast] + m[0] + run * 2.5 - idle * 1.5; Pt = CAMV.p[fast] + m[fast ? 1 : 2] + run * 0.05 - idle * 0.02;                                           // closer when standing, further and higher when running
+        if (goal && goal.x != null) { const gx = goal.x - player.x, gz = goal.z - player.z, gd = Math.hypot(gx, gz); if (gd > 3 && gd < 26) { const w = Math.min(1, (gd - 3) / 5) * Math.min(1, (26 - gd) / 8) * 2.2; tx += gx / gd * w; tz += gz / gd * w; } }      // drift toward the goal when it is near
+      }
+      const ks = Math.min(1, dt * (tk ? 3.2 : 1.8));
+      cam.x += (tx - cam.x) * k; cam.z += (tz - cam.z) * k; camD += (D * zm - camD) * ks; camP += (Pt - camP) * ks; camTy += (ty - camTy) * ks;
       camY += (W.gy(player.x, player.z) - camY) * Math.min(1, dt * 4);
-      camera.position.set(cam.x, camY + 12.5 * zm * out, cam.z + 12.5 * zm * out); camera.lookAt(cam.x, camY + 1, cam.z - 1);
+      const ch = Math.sin(camP) * camD, cb = Math.cos(camP) * camD;
+      camera.position.set(cam.x, camY + camTy + ch, cam.z - 1 + cb); camera.lookAt(cam.x, camY + camTy, cam.z - 1);
+      // how much ground this view shows: only people and Pokémon inside it are drawn and animated
+      { const h = ch + camTy, lo = Math.max(0.12, camP - 0.349), far = Math.min(62, h / Math.tan(lo)); viewZ = far - cb + 8; viewS = cb - h / Math.tan(camP + 0.349) + 5; viewX = Math.min(72, h / Math.sin(lo)) * 0.42 * camera.aspect + 5; }
       // area music and a little title card when you arrive somewhere new
       const ak = areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World', volcano: '🌋 The Volcano' }[ak]); areaNow = ak; arrive(ak); }
       if (!busy && !TT.dialogOpen) { const m = TT.areaMusic(); if (TT.musicName() !== m) TT.music(m); }
@@ -1183,7 +1205,7 @@
   G.areaProgress = k => areaProgress(k);
   // test hooks
   G.toTitle = toTitle; G.setPause = setPause;
-  G.dbg = () => ({ S, player, camera, renderer, quality, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
+  G.dbg = () => ({ CAMV, view: () => [viewX, viewZ, viewS, camD, camP], S, player, camera, renderer, quality, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
 
   // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
   // and start the chosen character the moment the world is ready.
