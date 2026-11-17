@@ -199,6 +199,22 @@
     x.fillStyle = css(o.skin); x.fillRect(-2, -2, 132, 132); x.lineCap = 'round'; x.lineJoin = 'round';
       for (const s of [-1, 1]) {
         const ex = 64 + s * EX, ey = EY;
+        if (o.dbz && f !== 3) {
+          // Dragon Ball style: a sharp-cornered eye with a small black pupil and a heavy top lid. dbz 2 (Vegeta) slants it down toward the nose for a scowl.
+          const an = o.dbz === 2, e2 = ey + 3, T = [[-10.5, an ? -1.5 : -6.5], [-5, an ? -5.5 : -9.5], [9.5, an ? -10.5 : -9.5], [12.5, -2], [8.5, 6.5], [-7.5, 6]];
+          if (f === 1) { x.strokeStyle = ink; x.lineWidth = 3.4; x.beginPath(); x.moveTo(ex + s * T[0][0], e2 + 2); x.lineTo(ex + s * T[3][0], e2 + 1); x.stroke(); }
+          else {
+            x.beginPath(); T.forEach((q, n) => n ? x.lineTo(ex + s * q[0], e2 + q[1]) : x.moveTo(ex + s * q[0], e2 + q[1])); x.closePath(); x.fillStyle = '#fff'; x.fill();
+            x.save(); x.clip(); x.fillStyle = '#101014'; x.beginPath(); x.ellipse(ex - s * 1.2, e2 - (an ? 0.5 : 1), 4.3, 5.8, 0, 0, 7); x.fill(); x.fillStyle = '#fff'; x.beginPath(); x.arc(ex - s * 2.6, e2 - 3, 1.3, 0, 7); x.fill(); x.restore();
+            x.strokeStyle = ink; x.lineWidth = 3.6; x.beginPath(); x.moveTo(ex + s * T[0][0], e2 + T[0][1]); x.lineTo(ex + s * T[1][0], e2 + T[1][1]); x.lineTo(ex + s * T[2][0], e2 + T[2][1]); x.lineTo(ex + s * T[3][0], e2 + T[3][1]); x.stroke();
+            x.lineWidth = 1.6; x.beginPath(); x.moveTo(ex + s * T[3][0], e2 + T[3][1]); x.lineTo(ex + s * T[4][0], e2 + T[4][1]); x.lineTo(ex + s * 0, e2 + 6.6); x.stroke();
+          }
+          // a thick wedge of an eyebrow, low at the nose
+          x.fillStyle = ink; x.beginPath(); const b0 = e2 + (an ? -7 : -15), b1 = e2 + (an ? -19 : -19.5);
+          x.moveTo(ex - s * 13.5, b0 + 2.5); x.lineTo(ex - s * 12.5, b0 - 4); x.lineTo(ex + s * 14, b1 - 1.5); x.lineTo(ex + s * 14.5, b1 + 1.5); x.closePath(); x.fill();
+          if (an) { x.strokeStyle = 'rgba(90,50,40,.5)'; x.lineWidth = 1.4; x.beginPath(); x.moveTo(ex - s * 16, e2 + 11); x.lineTo(ex - s * 9, e2 + 13.5); x.stroke(); }
+          continue;
+        }
         if (f === 1) { x.strokeStyle = ink; x.lineWidth = 3.4; x.beginPath(); x.moveTo(ex - RX, ey + 3); x.quadraticCurveTo(ex, ey + 10, ex + RX, ey + 3); x.stroke(); }
         else if (f === 3) { x.strokeStyle = ink; x.lineWidth = 3.6; x.beginPath(); x.moveTo(ex - RX - 1, ey + 5); x.quadraticCurveTo(ex, ey - 9, ex + RX + 1, ey + 5); x.stroke(); }
         else {
@@ -227,7 +243,8 @@
         x.beginPath(); x.moveTo(47, 86); x.quadraticCurveTo(64, 90, 81, 86); x.quadraticCurveTo(79, 106, 64, 107); x.quadraticCurveTo(49, 106, 47, 86); x.closePath();
         x.fillStyle = '#6a2028'; x.fill(); x.save(); x.clip(); x.fillStyle = '#fff'; x.fillRect(44, 84, 40, 9.5); x.fillStyle = '#e8707a'; x.beginPath(); x.ellipse(64, 106, 9, 5, 0, 0, 7); x.fill(); x.restore();
         x.strokeStyle = ink; x.lineWidth = 1.8; x.stroke();
-      } else { x.strokeStyle = '#6a2a2a'; x.lineWidth = 2.4; x.beginPath(); if (o.grin) { x.moveTo(51, 89); x.quadraticCurveTo(64, 99, 77, 89); } else { x.moveTo(56, 91); x.quadraticCurveTo(64, 96.5, 72, 91); } x.stroke(); }
+      } else if (o.dbz === 2) { x.strokeStyle = '#5a2424'; x.lineWidth = 2.4; x.beginPath(); x.moveTo(54, 93.5); x.lineTo(66, 92.5); x.lineTo(74, 89.5); x.stroke(); }      // a tight smirk
+      else { x.strokeStyle = '#6a2a2a'; x.lineWidth = 2.4; x.beginPath(); if (o.grin) { x.moveTo(51, 89); x.quadraticCurveTo(64, 99, 77, 89); } else { x.moveTo(56, 91); x.quadraticCurveTo(64, 96.5, 72, 91); } x.stroke(); }
       if (o.glasses) { x.strokeStyle = '#333340'; x.lineWidth = 2.4; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(64 + s * EX, EY, RX + 4, RY + 3, 0, 0, 7); x.stroke(); } x.beginPath(); x.moveTo(58, EY - 2); x.lineTo(70, EY - 2); x.stroke(); }
   }
   // the four expression cells of one kind of character (made once, shared by every copy of that character)
@@ -311,6 +328,49 @@
     return g;
   }
   const lerp = (a, b, k) => a + (b - a) * k;
+  // What a trainer does while standing around. One is picked at random every few seconds and eased in and out, so nobody ever stands like a statue.
+  // Each entry is [seconds, pose at progress q (0 → 1) and time t]. lx/rx: arm forward (−) or back (+); lz/rz: arm out to the side; ly/ry: arm twist;
+  // le/re: elbow; hy/hx/hz: head turn, nod, tilt; tw: body twist; lean; hop; crouch; kl/kr: hip; nl/nr: knee; ft: foot tap; f: face (2 mouth open, 3 grin).
+  const S2 = q => Math.sin(q * 6.2832), UP = q => Math.sin(Math.min(1, q) * Math.PI);
+  const IDLES = [
+    [3.4, q => ({ hy: S2(q) * 0.85, tw: S2(q) * 0.24, hx: -0.05 })],                                                                                        // 0 look left, then right
+    [3.6, q => ({ lx: -2.95, rx: -2.95, lz: 0.32, rz: -0.32, le: -0.3, re: -0.3, lean: -0.2, hx: -0.32, hop: 0.03, f: 2 })],                                 // 1 a big stretch and a yawn
+    [4.4, (q, t) => ({ lx: 0.3, rx: 0.3, lz: 0.8, rz: -0.8, ly: -1.25, ry: 1.25, le: -2.0, re: -2.0, lean: -0.07, ft: Math.max(0, Math.sin(t * 7)) * 0.45, hy: 0.3 })],   // 2 arms folded, tapping a foot
+    [2.8, (q, t) => ({ rx: -2.75, rz: -0.6, re: -0.55 + Math.sin(t * 9) * 0.45, rh: Math.sin(t * 9) * 0.3, hz: -0.12, f: 3 })],                              // 3 wave hello
+    [3.0, (q, t) => ({ rx: -2.55, rz: -0.15, re: -2.25 + Math.sin(t * 11) * 0.12, hz: 0.2, hx: 0.14, hy: -0.2 })],                                           // 4 scratch the head
+    [4.2, (q, t) => ({ lx: 0.45, rx: 0.45, lz: 0.75, rz: -0.75, ly: -1.1, ry: 1.1, le: -1.25, re: -1.25, tw: Math.sin(t * 1.5) * 0.18, hy: Math.sin(t * 1.5) * 0.4, lean: -0.06 })],   // 5 hands on hips, looking about
+    [3.6, (q, t) => ({ lx: -0.95, le: -1.7, ly: -0.7, lz: 0.05, rx: -0.75, re: -1.75 + Math.sin(t * 8) * 0.12, ry: 0.75, hx: 0.42, hy: 0.12 })],               // 6 check the Pokédex
+    [2.2, q => { const h = Math.max(0, Math.sin(q * 12.566)); return { hop: h * 0.17, crouch: Math.max(0, -Math.sin(q * 12.566)) * 0.28, lx: -0.7 - h * 0.6, rx: -0.7 - h * 0.6, le: -1.6, re: -1.6, f: 3 }; }],   // 7 two happy bounces
+    [3.8, q => ({ rx: -2.0, rz: -0.3, ry: -0.5, re: -2.15, lean: 0.14, tw: S2(q) * 0.5, hy: S2(q) * 0.3, hx: -0.1 })],                                       // 8 shade the eyes and look far away
+    [3.2, q => ({ lx: 0.55, rx: 0.55, lz: -0.12, rz: 0.12, le: -0.75, re: -0.75, kr: -Math.max(0, Math.sin(q * 9.42)) * 0.6, nr: Math.max(0, Math.sin(q * 9.42 - 0.6)) * 0.55, hx: 0.25 })],   // 9 hands behind the back, scuffing a foot
+    [2.4, (q, t) => ({ rx: -2.3, rz: -0.2, ry: -0.3, re: -2.2 + Math.sin(t * 6) * 0.08, hx: 0.2, hz: -0.06 })],                                              // 10 straighten the cap or hair
+    [1.9, q => ({ lx: -0.3, rx: -0.3, lz: 0.55, rz: -0.55, ly: 1.3, ry: -1.3, le: -1.45, re: -1.45, hz: 0.14, hop: UP(q) * 0.015 })],                        // 11 a shrug
+    [2.0, q => { const pc = UP(Math.min(1, q * 1.6)); return { rx: -3.0 * pc - 0.4, re: -1.7 * (1 - pc) - 0.1, rz: -0.2, lx: 0.3, le: -1.4, hop: pc * 0.12, hx: -0.15, f: 3 }; }],   // 12 a fist pump
+    [4.2, (q, t) => ({ crouch: 0.8, lean: 0.3, rx: -1.15, re: -0.45, lx: -0.5, le: -1.2, hx: 0.22, hy: Math.sin(t * 1.3) * 0.2, rh: Math.sin(t * 5) * 0.35 })],   // 13 crouch down to pet the partner
+    [3.2, q => ({ lx: -0.25, rx: -0.25, lz: 0.6, rz: -0.6, le: -0.35, re: -0.35, tw: S2(q * 2) * 0.55, hy: S2(q * 2) * 0.15 })],                             // 14 warm-up twists
+    [3.0, (q, t) => ({ hx: -0.5, lean: -0.08, lx: 0.2, rx: 0.2, hy: Math.sin(t * 0.9) * 0.25 })],                                                            // 15 gaze up at the sky
+  ];
+  // The same idea while walking or running: [seconds, pose, running only?]
+  const WALKS = [
+    [2.2, q => ({ hy: S2(q) * 0.7 })],                                                                         // glance to each side
+    [2.0, () => ({ bob: 1.6, sw: 1.35 })],                                                                    // a skip in the step
+    [2.2, (q, t) => ({ rx: -2.7, rz: -0.5, re: -0.5 + Math.sin(t * 9) * 0.4, f: 3 })],                        // wave while walking
+    [2.6, () => ({ lx: -2.6, rx: -2.6, lz: 0.45, rz: -0.45, le: -2.3, re: -2.3, hx: -0.1 })],   // hands behind the head
+    [2.4, () => ({ lx: 0, rx: 0, lz: 1.35, rz: -1.35, le: -0.05, re: -0.05, f: 3, roll: 1 }), 1],             // arms out like an aeroplane
+    [2.2, () => ({ lx: 1.15, rx: 1.15, lz: 0.25, rz: -0.25, le: -0.1, re: -0.1, lean: 0.16 }), 1],            // arms swept back, head down, full speed
+    [1.8, () => ({ hx: -0.35 })],                                                                             // look up
+  ];
+  // run one of the lists above: pick, play, fade
+  function act(st, list, ok, t, dt, force, gap) {
+    if (force != null && force >= 0 && force < list.length) { if (st.k !== force || t > st.t0 + list[force][0]) { st.k = st.pk = force; st.t0 = t; } }
+    else if (st.k < 0) { if (ok && t > st.next) { let k, n = 0; do k = Math.floor(Math.random() * list.length); while ((k === st.last || !ok(k)) && n++ < 12); if (ok(k)) { st.k = st.pk = st.last = k; st.t0 = t; } } }
+    let on = 0;
+    if (st.k >= 0) { const d = list[st.k][0]; st.q = (t - st.t0) / d; on = 1; if (st.q > 1 - 0.38 / d) on = 0; if (st.q >= 1 || (!ok && force == null)) { st.k = -1; st.next = t + gap[0] + Math.random() * gap[1]; on = 0; } }
+    st.w += (on - st.w) * Math.min(1, dt * 7);
+    return st.w > 0.01 && st.pk >= 0 ? list[st.pk][1](Math.min(1, st.q), t) : null;
+  }
+  const newAct = t => ({ k: -1, pk: -1, last: -1, q: 0, w: 0, t0: 0, next: t + 0.5 + Math.random() * 3.5 });
+  TT.actLists = { IDLES, WALKS };
   function anim2(g, t, mv) {
     const u = g.userData, r = u.rig, p = u.ph || (u.ph = Math.random() * 6.28);
     const dt = TT.clamp(t - (u.lt == null ? t : u.lt), 0, 0.1); u.lt = t;
@@ -339,24 +399,39 @@
     if (W.cheer > 0.01) { const w = W.cheer, q = Math.sin(t * 7.2), up = Math.max(0, q), down = Math.max(0, -q); hop = up * 0.3 * w; crouch = down * 0.5 * w; lx = lerp(lx, -2.75 - up * 0.2 + down * 1.2, w); rx = lerp(rx, -2.75 - up * 0.2 + down * 1.2, w); lz = lerp(lz, 0.45, w); rz = lerp(rz, -0.45, w); le = lerp(le, -0.2 - down * 1.2, w); re = lerp(re, -0.2 - down * 1.2, w); hx -= 0.18 * up * w; hy = lerp(hy, 0, w); }
     if (W['throw'] > 0.01) { const w = W['throw'], q = u.gk || 0, wind = q < 0.4 ? q / 0.4 : 1, rel = q < 0.4 ? 0 : Math.min(1, (q - 0.4) / 0.2); rx = lerp(rx, 1.5 * wind - 3.9 * rel, w); re = lerp(re, -1.5 * wind + 1.3 * rel, w); lx = lerp(lx, -0.7 * wind + 0.9 * rel, w); P0.twist = lerp(P0.twist, -0.5 * wind + 0.9 * rel, w); P0.lean = lerp(P0.lean, -0.08 * wind + 0.25 * rel, w); hy = lerp(hy, 0, w); }
     if (W.point > 0.01) { const w = W.point; rx = lerp(rx, -1.5, w); re = lerp(re, -0.04, w); rz = lerp(rz, -0.05, w); lx = lerp(lx, 0.25, w); le = lerp(le, -1.5, w); lz = lerp(lz, 0.5, w); P0.twist = lerp(P0.twist, 0.22, w); hy = lerp(hy, 0, w); }
+    // --- something to do: a random idle action when standing, a random flourish when moving ---
+    let ly = 0, ry = 0, hz = 0, kl = 0, kr = 0, nl = 0, nr = 0, ft = 0, fI = 0, roll = 0;
+    const gmax = Math.max(W.talk, W.cheer, W['throw'], W.point), calm = gmax < 0.05 && !TT.dialogOpen;
+    const I = u.idl || (u.idl = newAct(t)), K = u.wlk || (u.wlk = newAct(t + 2));
+    const use = (o, w) => {
+      if (o.lx != null) lx = lerp(lx, o.lx, w); if (o.rx != null) rx = lerp(rx, o.rx, w); if (o.lz != null) lz = lerp(lz, o.lz, w); if (o.rz != null) rz = lerp(rz, o.rz, w); if (o.le != null) le = lerp(le, o.le, w); if (o.re != null) re = lerp(re, o.re, w);
+      ly += (o.ly || 0) * w; ry += (o.ry || 0) * w; if (o.hy != null) hy = lerp(hy, o.hy, w); hx += (o.hx || 0) * w; hz += (o.hz || 0) * w; P0.twist += (o.tw || 0) * w; P0.lean += (o.lean || 0) * w; hop += (o.hop || 0) * w; crouch += (o.crouch || 0) * w;
+      kl += (o.kl || 0) * w; kr += (o.kr || 0) * w; nl += (o.nl || 0) * w; nr += (o.nr || 0) * w; ft += (o.ft || 0) * w; lhx += (o.lh || 0) * w; rhx += (o.rh || 0) * w; if (o.f && w > 0.6) fI = o.f;
+      if (o.bob) bob *= 1 + (o.bob - 1) * w; if (o.roll) roll = w;
+    };
+    { const o = act(I, IDLES, i > 0.95 && calm ? () => true : null, t, dt, u.idleForce, [1.5, 4.5]); if (o) use(o, I.w * i * (1 - gmax)); }
+    { const o = act(K, WALKS, a > 0.75 && calm ? k => !WALKS[k][2] || run > 0.6 : null, t, dt, u.walkForce, [3, 5]); if (o) use(o, K.w * Math.min(1, a) * (1 - gmax)); }
+    // coming to a stop from a run: the knees soak it up
+    if (mv > 0.3) u.wasMv = u.amp; else if (u.wasMv) { u.settle = 0.32 * Math.min(1.2, u.wasMv); u.wasMv = 0; }
+    if (u.settle > 0.005) { crouch += u.settle; u.settle *= Math.max(0, 1 - dt * 7); }
     // --- write the pose ---
-    r.legL.hip.rotation.x = hipL - crouch; r.legR.hip.rotation.x = hipR - crouch;
-    r.legL.knee.rotation.x = kneeL + crouch * 2; r.legR.knee.rotation.x = kneeR + crouch * 2;
-    r.legL.foot.rotation.x = -s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15)) - crouch; r.legR.foot.rotation.x = s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15 + Math.PI)) - crouch;
+    r.legL.hip.rotation.x = hipL - crouch + kl; r.legR.hip.rotation.x = hipR - crouch + kr;
+    r.legL.knee.rotation.x = kneeL + crouch * 2 + nl; r.legR.knee.rotation.x = kneeR + crouch * 2 + nr;
+    r.legL.foot.rotation.x = -s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15)) - crouch; r.legR.foot.rotation.x = s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15 + Math.PI)) - crouch - ft;
     const sway = Math.sin(t * 0.33 + p) * i;            // standing: the weight drifts from one leg to the other
     r.legL.hip.rotation.z = (0.035 + sway * 0.05) * i; r.legR.hip.rotation.z = (-0.035 + sway * 0.05) * i;
     r.legL.knee.rotation.x += Math.max(0, -sway) * 0.16; r.legR.knee.rotation.x += Math.max(0, sway) * 0.16; r.legL.hip.rotation.x -= Math.max(0, -sway) * 0.08; r.legR.hip.rotation.x -= Math.max(0, sway) * 0.08;
-    r.armL.sh.rotation.set(lx, 0, lz); r.armR.sh.rotation.set(rx, 0, rz); r.armL.el.rotation.x = le; r.armR.el.rotation.x = re;
+    r.armL.sh.rotation.set(lx, ly, lz); r.armR.sh.rotation.set(rx, ry, rz); r.armL.el.rotation.x = le; r.armR.el.rotation.x = re;
     r.armL.hand.rotation.x = lhx - 0.1; r.armR.hand.rotation.x = rhx - 0.1;
     r.hips.position.y = HIP + bob + hop - (1 - Math.cos(crouch)) * 0.74;
     r.hips.position.x = sway * 0.022;
-    r.hips.rotation.y = -s * 0.12 * a; r.hips.rotation.z = -sway * 0.05 + c * 0.03 * a;
+    r.hips.rotation.y = -s * 0.12 * a; r.hips.rotation.z = -sway * 0.05 + c * 0.03 * a + roll * s * 0.16;
     r.spine.rotation.x = P0.lean + crouch * 0.35; r.spine.rotation.y = P0.twist; r.spine.rotation.z = -c * 0.03 * a + sway * 0.045;
     const bs = 1 + br * 0.012 * (i + 0.3); r.spine.scale.set(bs, 1, 1 + br * 0.03 * (i + 0.3)); r.spine.position.y = 0.06 + br * 0.004 * i;
-    r.head.rotation.y = hy - P0.twist * 0.7 + s * 0.1 * a; r.head.rotation.x = hx - crouch * 0.2;
+    r.head.rotation.y = hy - P0.twist * 0.7 + s * 0.1 * a; r.head.rotation.x = hx - crouch * 0.2; r.head.rotation.z = hz;
     // --- face: blink now and then, move the mouth when talking, grin when cheering ---
     let f = ((t + p) % 3.7) < 0.13 ? 1 : 0;
-    if (W.cheer > 0.5) f = 3; else if (W.talk > 0.5) f = Math.sin(t * 17) > 0.1 ? 2 : f;
+    if (W.cheer > 0.5) f = 3; else if (W.talk > 0.5) f = Math.sin(t * 17) > 0.1 ? 2 : f; else if (fI && !f) f = fI;
     if (u.face.f !== f) { u.faceF[u.face.f].scale.setScalar(0.001); u.faceF[f].scale.setScalar(1); u.face.f = f; }
   }
 
@@ -399,11 +474,11 @@
     gary: { skin: SK[0], hair: 0x8a5a2a, hairStyle: 'spiky', eye: 0x3a5a3a, top: 0x5a3a8a, collar: 0x3a2a5a, lower: 0x3a3a4a, shoes: 0x5a4030, pack: 0xd8c890, scale: 0.9 },
     leaf: { skin: SK[1], hair: 0x7a4a2a, hairStyle: 'long', hat: 'cap', hatColor: 0xf4f4f4, blush: 1, top: 0x6ac0e0, skirt: 0xe2382e, short: 1, sock: WH, shoes: 0xf4f4f4, pack: 0xffd23c, scale: 0.88 },
     misty: { skin: SK[1], hair: 0xf08030, hairStyle: 'ponytail', eye: 0x3a9a8a, top: 0xffd23c, short: 1, lower: 0x4a8ad0, shorts: 1, shoes: 0xe2382e, trim: 0xe2382e, scale: 0.95 },
-    gohan: { skin: SK[0], hair: BK, hairStyle: 'spiky', kid: 1, top: 0x6a3ab0, trim: 0xe2382e, short: 1, cuff: 0xe2382e, lower: 0x6a3ab0, shoes: 0x3a3a44, scale: 0.82 },
+    gohan: { skin: SK[0], hair: BK, hairStyle: 'spiky', kid: 1, dbz: 1, grin: 1, top: 0x6a3ab0, trim: 0xe2382e, short: 1, cuff: 0xe2382e, lower: 0x6a3ab0, shoes: 0x3a3a44, scale: 0.82 },
     clerk: { skin: SK[2], hair: 0x3a2a1a, hairStyle: 'short', top: 0x3a8ad8, apron: 1, short: 1, lower: 0x3a4a6a, shoes: 0x3a3a44 },
     lady: { skin: SK[1], hair: 0xe8c060, hairStyle: 'bun', blush: 1, eye: 0x4a8ad0, top: 0x2a9a8a, skirt: 0x2a6a6a, sock: WH, shoes: 0x8a4a3a },
     biz: { skin: SK[3], hair: BK, hairStyle: 'short', glasses: 1, top: 0x3a4a6a, inner: WH, collar: WH, lower: 0x3a4a6a, shoes: 0x22222a },
-    goku: { skin: SK[0], hair: BK, hairStyle: 'goku', eye: BK, top: 0xf08a24, collar: 0x2a4ab0, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070,
+    goku: { skin: SK[0], hair: BK, hairStyle: 'goku', eye: BK, dbz: 1, grin: 1, top: 0xf08a24, collar: 0x2a4ab0, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070,
       x: q => { P(q.spine, 'sph', WH, [0.1, 0.32, 0.135], [0.045, 0.045, 0.02]); P(q.spine, 'box', BK, [0.1, 0.32, 0.15], [0.03, 0.04, 0.01]); } },
     goku_ss: { skin: SK[0], hair: 0xffd23c, brow: 0xe8b820, hairStyle: 'goku_ss', eye: 0x2aa898, top: 0xf08a24, collar: 0x2a4ab0, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070,
       x: q => { P(q.spine, 'sph', WH, [0.1, 0.32, 0.135], [0.045, 0.045, 0.02]); P(q.spine, 'box', BK, [0.1, 0.32, 0.15], [0.03, 0.04, 0.01]); } },
@@ -421,10 +496,10 @@
     hiker: { skin: SK[0], hair: 0x7a4a2a, hairStyle: 'spiky', top: 0xc85a3a, short: 1, lower: 0x6a7a4a, shorts: 1, sock: 0xd8c890, shoes: 0x5a4030, pack: 0x3a6ac8 }
   };
   Object.assign(TT.PEOPLE, {
-    vegeta: { skin: SK[0], hair: BK, hairStyle: 'vegeta', eye: BK, brow: BK, top: 0xf2f2ee, sleeveC: 0x2a3a9a, inner: 0x2a3a9a, trim: 0xd8a020, glove: WH, lower: 0x2a3a9a, shoes: WH, sole: 0xd8a020, scale: 0.95,
+    vegeta: { skin: SK[0], hair: BK, hairStyle: 'vegeta', eye: BK, brow: BK, dbz: 2, top: 0xf2f2ee, sleeveC: 0x2a3a9a, inner: 0x2a3a9a, trim: 0xd8a020, glove: WH, lower: 0x2a3a9a, shoes: WH, sole: 0xd8a020, scale: 0.95,
       x: q => { for (const s of [1, -1]) P(q.spine, 'sph', 0xd8a020, [s * 0.2, 0.36, 0], [0.11, 0.06, 0.13]); P(q.spine, 'box', 0xd8a020, [0, 0.1, 0.094], [0.17, 0.09, 0.016]); } },
     bulma: { skin: SK[1], hair: 0x3ac4cc, hairStyle: 'ponytail', eye: 0x2a7ab0, blush: 1, top: 0xf06a8a, skirt: 0xf06a8a, short: 1, trim: WH, sock: WH, shoes: 0x7a4a9a, pack: 0xf2c230, scale: 0.94 },
-    krillin: { skin: SK[0], hairStyle: 'bald', hair: SK[0], eye: BK, top: 0xf08a24, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070, scale: 0.78,
+    krillin: { skin: SK[0], hairStyle: 'bald', hair: SK[0], eye: BK, dbz: 1, top: 0xf08a24, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070, scale: 0.78,
       x: q => { for (const s of [1, -1]) for (let i = 0; i < 3; i++) P(q.head, 'sph', 0x9a6a4a, [s * 0.035, 0.13 + i * 0.035, 0.185 - i * 0.012], 0.011); } }
   });
 
@@ -1074,6 +1149,26 @@
   TT.creature = sp => { const g = (B[sp] || B.rattata)(); g.userData.sp = sp; return g; };
 
   // gait / idle. mv 0..1
+  // What a Pokémon does while it waits: one of these at random every few seconds. y: lift; rx/rz: pitch and roll; spin/barrel: a full turn; sy: squash;
+  // hy/hx/hz: head turn, nod, tilt; shut: eyes closed; wag: faster tail; arm: arms; leg: a scratching limb.
+  const CIDLES = [
+    [2.6, q => ({ hy: S2(q) * 0.9 })],                                                                        // 0 look left and right
+    [3.0, (q, t) => ({ hx: 0.55, rx: 0.2, hy: Math.sin(t * 5) * 0.25 })],                                     // 1 sniff the ground
+    [1.4, (q, t) => ({ rz: Math.sin(t * 30) * 0.16, hz: Math.sin(t * 30 + 1) * 0.22 })],                      // 2 shake like a wet dog
+    [1.6, q => ({ spin: q, y: UP(q) * 0.12 })],                                                               // 3 spin round on the spot
+    [3.2, q => ({ rx: 0.32 * UP(q), sy: -0.08 * UP(q), hx: -0.4, wag: 2 })],                                  // 4 a long stretch, front low and tail up
+    [4.5, (q, t) => ({ shut: 1, hx: 0.3 + Math.sin(t * 1.5) * 0.06, sy: -0.06, hz: 0.12 })],                  // 5 doze off for a moment
+    [2.4, (q, t) => ({ leg: Math.sin(t * 22) * 0.5 - 0.9, hz: 0.35, hx: 0.1, rz: 0.06 })],                    // 6 scratch behind an ear
+    [2.0, q => { const h = Math.max(0, Math.sin(q * 18.85)); return { y: h * 0.16, sy: (h - 0.3) * 0.1, arm: -1.6, wag: 3 }; }],   // 7 three excited hops
+    [2.6, (q, t) => ({ hx: -0.55, hy: Math.sin(t * 1.2) * 0.2 })],                                            // 8 look up at the sky
+    [2.2, q => ({ rx: -0.25 * UP(q), y: UP(q) * 0.05, arm: -2.2, hx: -0.2 })],                                // 9 rear up and reach high
+    [2.8, (q, t) => ({ hz: Math.sin(t * 3) * 0.3, wag: 3 })],                                                 // 10 tilt the head from side to side, tail going
+    [2.6, (q, t) => ({ rx: 0.34, sy: -0.05, hx: -0.3, wag: 4, y: Math.max(0, Math.sin(t * 9)) * 0.03 })],     // 11 a play bow
+    [2.0, q => ({ barrel: q })],                                                                              // 12 a barrel roll (flyers)
+    [2.6, q => ({ y: -0.22 * UP(q) + 0.3 * UP(Math.max(0, q * 2 - 1)), rx: 0.25 * S2(q) })],                  // 13 dip down and swoop up (flyers)
+  ];
+  const CKIND = { quad: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11], biped: [0, 1, 2, 3, 5, 6, 7, 8, 9, 10], hop: [0, 2, 3, 5, 7, 8, 10], 'float': [0, 2, 3, 5, 8, 10, 12, 13], serpent: [0, 5, 8, 10], crawl: [0, 5, 8, 10] };
+  TT.actLists.CIDLES = CIDLES;
   TT.animCreature = (g, t, mv) => {
     const u = g.userData, p = u.ph || (u.ph = Math.random() * 6.28);
     const dtc = TT.clamp(t - (u.lt == null ? t : u.lt), 0, 0.1); u.lt = t;
@@ -1102,15 +1197,22 @@
       for (const l of L) { if (l.userData.y0 == null) l.userData.y0 = l.position.y; l.position.y = l.userData.y0 + Math.max(0, joy) * 0.13 * i; }
     }
     { const tp = (t * 0.55 + p * 2) % 7.3; if (tp < 1.7) tilt = Math.sin(tp / 1.7 * Math.PI) * 0.26 * i * (p > 3.14 ? 1 : -1); }
+    // something to do while waiting
+    const I = u.idl || (u.idl = newAct(t)), kinds = CKIND[u.kind] || CKIND.biped, A = act(I, CIDLES, i > 0.95 && !u.shut && !u.noIdle ? k => kinds.indexOf(k) >= 0 : null, t, dtc, u.idleForce, [2, 5]), aw = A ? I.w * i : 0;
+    if (A) { const sm = q => q * q * (3 - 2 * q), full = I.k >= 0 || I.q >= 1 ? 1 : I.w;
+      y += (A.y || 0) * aw; rx += (A.rx || 0) * aw; rz += (A.rz || 0) * aw; sy *= 1 + (A.sy || 0) * aw;
+      if (A.spin != null) ry += 6.2832 * sm(A.spin) * full; if (A.barrel != null) rz += 6.2832 * sm(A.barrel) * full;
+      if (A.y && (u.kind === 'quad' || u.kind === 'biped' || u.kind === 'hop')) for (const l of L) { if (l.userData.y0 == null) l.userData.y0 = l.position.y; l.position.y = l.userData.y0 + Math.max(0, joy) * 0.13 * i + Math.max(0, A.y) * aw; } }
     const sq = 1 / Math.sqrt(sy);
     Bd.position.y = y; Bd.rotation.x = rx + 0.1 * a * (u.kind === 'quad' ? 0 : 1); Bd.rotation.z = rz; Bd.rotation.y = ry; Bd.scale.set(sq, sy, sq);
-    const hd = u.head; hd.rotation.y = Math.sin(t * 0.7 + p) * 0.3 * i - ry * 0.8; hd.rotation.z = Math.sin(t * 1.1 + p) * 0.07 + tilt - rz * 0.7; hd.rotation.x = -rx * 0.6 + Math.sin(t * 1.9 + p) * 0.04 - Math.max(0, joy) * 0.18 + Math.sin(ph * 2 - 0.9) * 0.05 * a;
-    if (u.tail) { u.tgp = (u.tgp || p) + dtc * (3 + a * 6 + Math.max(0, joy) * 9); u.tail.rotation.y = Math.sin(u.tgp) * (0.28 + 0.2 * a + Math.max(0, joy) * 0.25); u.tail.rotation.x = Math.sin(t * 2.3 + p) * 0.1 + Math.max(0, joy) * 0.3 + (Math.sin(ph * 2 - 1.4) * 0.16 + 0.12) * a; }
+    const hd = u.head; hd.rotation.y = Math.sin(t * 0.7 + p) * 0.3 * i - (A && A.spin != null ? 0 : ry * 0.8) + (A ? (A.hy || 0) * aw : 0); hd.rotation.z = Math.sin(t * 1.1 + p) * 0.07 + tilt - rz * 0.7; hd.rotation.x = -rx * 0.6 + Math.sin(t * 1.9 + p) * 0.04 - Math.max(0, joy) * 0.18 + Math.sin(ph * 2 - 0.9) * 0.05 * a; if (A) { hd.rotation.x += (A.hx || 0) * aw; hd.rotation.z += (A.hz || 0) * aw; }
+    if (u.tail) { u.tgp = (u.tgp || p) + dtc * (3 + a * 6 + Math.max(0, joy) * 9 + (A ? (A.wag || 0) * 4 * aw : 0)); u.tail.rotation.y = Math.sin(u.tgp) * (0.28 + 0.2 * a + Math.max(0, joy) * 0.25); u.tail.rotation.x = Math.sin(t * 2.3 + p) * 0.1 + Math.max(0, joy) * 0.3 + (Math.sin(ph * 2 - 1.4) * 0.16 + 0.12) * a; }
     for (const e of u.ears) { const tw = Math.pow(Math.max(0, Math.sin(t * 1.3 + p * 3 + e.userData.s)), 24); e.rotation.z = e.userData.rz + tw * 0.4 * e.userData.s; e.rotation.x = -0.25 * a - tw * 0.2 + Math.sin(ph * 2 - 1.1) * 0.13 * a; }
-    for (const m of u.arms) { if (m.userData.hold) continue; m.rotation.x = m.userData.s * s * 0.6 * a + Math.sin(t * 2 + p + m.userData.s) * 0.08 - Math.max(0, joy) * 1.4; }
+    for (const m of u.arms) { if (m.userData.hold) continue; m.rotation.x = m.userData.s * s * 0.6 * a + Math.sin(t * 2 + p + m.userData.s) * 0.08 - Math.max(0, joy) * 1.4 + (A ? (A.arm || 0) * aw : 0); }
+    if (A && A.leg != null) { if (u.kind === 'quad' && L[3]) L[3].rotation.x = A.leg * aw; else { const m = u.arms.find(q => !q.userData.hold); if (m) m.rotation.x = (A.leg - 1.4) * aw; } }
     if (u.slowWings) for (const w of u.wings) { const f = Math.sin(wp); w.rotation.z = w.userData.s * (f * (0.38 + 0.2 * a) + 0.08); w.rotation.y = -w.userData.s * 0.25 * a; }
     else if (u.wings) for (const w of u.wings) w.rotation[u.float ? 'y' : 'z'] = u.float ? w.userData.s * (0.5 * Math.sin(t * 15)) : w.userData.s * (0.05 + Math.max(0, Math.sin(t * 14)) * 0.9 * a);
-    if (u.eyes) { const cl = ((t + p) % 4.1) < 0.13 || !!u.shut, F = u.eyes.userData.F; if (!F) u.eyes.scale.y = cl ? 0.1 : 1; else if (cl !== !!u.eyeCl) { u.eyeCl = cl; F[0].scale.setScalar(cl ? 0.001 : 1); F[1].scale.setScalar(cl ? 1 : 0.001); } }
+    if (u.eyes) { const cl = ((t + p) % 4.1) < 0.13 || !!u.shut || !!(A && A.shut && aw > 0.5), F = u.eyes.userData.F; if (!F) u.eyes.scale.y = cl ? 0.1 : 1; else if (cl !== !!u.eyeCl) { u.eyeCl = cl; F[0].scale.setScalar(cl ? 0.001 : 1); F[1].scale.setScalar(cl ? 1 : 0.001); } }
     if (u.flame) { u.flame.scale.y = 1 + Math.sin(t * 15 + p) * 0.2; u.flame.rotation.y = t * 4; }
   };
 

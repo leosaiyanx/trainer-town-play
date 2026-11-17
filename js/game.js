@@ -173,7 +173,7 @@
   // ---------- title screen: the heroes and their partners stand in the plaza, alive ----------
   const SHOW_Z = 15; let show = null, starting = false;
   // test hook: ?solo=ash&pose=walk|run|cheer|talk|point|throw&turn=0.6&dist=3.2 shows one character close up on the title screen
-  const TEST = (() => { const q = new URLSearchParams(location.search), p = q.get('pose') || ''; return { solo: q.get('solo'), pose: p, mv: p === 'walk' ? 1 : p === 'run' ? 1.4 : 0, gest: ['cheer', 'talk', 'point', 'throw'].indexOf(p) >= 0 ? p : null, turn: +(q.get('turn') || 0), dist: +(q.get('dist') || 3.4), mons: !!q.get('mons'), gap: +(q.get('gap') || 1.2) }; })();
+  const TEST = (() => { const q = new URLSearchParams(location.search), p = q.get('pose') || ''; return { idle: q.get('idle') ? q.get('idle').split(',').map(Number) : null, solo: q.get('solo'), pose: p, mv: p === 'walk' ? 1 : p === 'run' ? 1.4 : 0, gest: ['cheer', 'talk', 'point', 'throw'].indexOf(p) >= 0 ? p : null, turn: +(q.get('turn') || 0), dist: +(q.get('dist') || 3.4), mons: !!q.get('mons'), gap: +(q.get('gap') || 1.2) }; })();
   const readSave = k => { try { const j = JSON.parse(localStorage.getItem(k)); return j && j.v === 1 && j.party && j.party.length ? j : null; } catch (e) { return null; } };
   const kidKey = name => 'tt1_p_' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
   function buildShow() {
@@ -201,9 +201,9 @@
     show.list.forEach((e, i) => {
       const x = (i - (n - 1) / 2) * gap, side = i < (n - 1) / 2 ? -1 : 1;
       e.h.position.set(x, 0, 0); e.sh.position.set(x, 0.035, 0); e.p.position.set(x + side * po, 0, 0.9); e.p.rotation.y = -side * 0.3;
-      if ((e.wave -= dt) < 0) { e.h.userData.gesture = TT.pick(['cheer', 'talk', 'point']); e.gt = 1.4; e.wave = rand(3.5, 7); }
       if (e.gt > 0 && (e.gt -= dt) <= 0) e.h.userData.gesture = null;
       if (TEST.pose) { e.h.userData.gesture = TEST.gest; e.h.rotation.y = TEST.turn; e.p.visible = false; }
+      if (TEST.idle) { const k = TEST.idle[i % TEST.idle.length]; if (TEST.mv) e.h.userData.walkForce = k; else e.h.userData.idleForce = k; e.h.userData.actForce = k; }
       if (e.mon) { TT.animCreature(e.h, t, TEST.mv); return; }
       TT.animHuman(e.h, t, TEST.mv); TT.animCreature(e.p, t, 0);
     });
