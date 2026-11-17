@@ -349,6 +349,11 @@
     [4.2, (q, t) => ({ crouch: 0.8, lean: 0.3, rx: -1.15, re: -0.45, lx: -0.5, le: -1.2, hx: 0.22, hy: Math.sin(t * 1.3) * 0.2, rh: Math.sin(t * 5) * 0.35 })],   // 13 crouch down to pet the partner
     [3.2, q => ({ lx: -0.25, rx: -0.25, lz: 0.6, rz: -0.6, le: -0.35, re: -0.35, tw: S2(q * 2) * 0.55, hy: S2(q * 2) * 0.15 })],                             // 14 warm-up twists
     [3.0, (q, t) => ({ hx: -0.5, lean: -0.08, lx: 0.2, rx: 0.2, hy: Math.sin(t * 0.9) * 0.25 })],                                                            // 15 gaze up at the sky
+    // moments shared with the partner: never picked at random, the game asks for them (third entry = 1)
+    [600, () => ({ crouch: 0.32, lean: 0.24, rx: -1.05, re: -0.2, rz: -0.12, lx: 0.2, hx: 0.3, f: 3 }), 1],                                                  // 16 hold a hand down for a high five
+    [600, (q, t) => ({ sit: 1, lean: -0.04, lx: 0.5, rx: 0.5, lz: 0.22, rz: -0.22, le: -0.12, re: -0.12, hy: Math.sin(t * 0.5) * 0.35, hx: -0.04 }), 1],      // 17 sit on the ground, leaning back on both hands
+    [600, () => ({ hz: -0.14, f: 3, lx: -0.1, le: -0.5 }), 1],                                                                                                // 18 smile at the partner on the shoulder
+    [600, () => ({ f: 3, lx: 0.3, rx: 0.3, lz: 0.75, rz: -0.75, ly: -1.1, ry: 1.1, le: -1.25, re: -1.25 }), 1],                                               // 19 watch the partner race about
   ];
   // The same idea while walking or running: [seconds, pose, running only?]
   const WALKS = [
@@ -362,7 +367,8 @@
   ];
   // run one of the lists above: pick, play, fade
   function act(st, list, ok, t, dt, force, gap) {
-    if (force != null && force >= 0 && force < list.length) { if (st.k !== force || t > st.t0 + list[force][0]) { st.k = st.pk = force; st.t0 = t; } }
+    if (force != null && force >= 0 && force < list.length) { if (st.k !== force || t > st.t0 + list[force][0]) { st.k = st.pk = force; st.t0 = t; } st.forced = 1; }
+    else if (st.forced) { st.forced = 0; if (st.k >= 0) { st.k = -1; st.next = t + gap[0] + Math.random() * gap[1]; } }
     else if (st.k < 0) { if (ok && t > st.next) { let k, n = 0; do k = Math.floor(Math.random() * list.length); while ((k === st.last || !ok(k)) && n++ < 12); if (ok(k)) { st.k = st.pk = st.last = k; st.t0 = t; } } }
     let on = 0;
     if (st.k >= 0) { const d = list[st.k][0]; st.q = (t - st.t0) / d; on = 1; if (st.q > 1 - 0.38 / d) on = 0; if (st.q >= 1 || (!ok && force == null)) { st.k = -1; st.next = t + gap[0] + Math.random() * gap[1]; on = 0; } }
@@ -400,30 +406,31 @@
     if (W['throw'] > 0.01) { const w = W['throw'], q = u.gk || 0, wind = q < 0.4 ? q / 0.4 : 1, rel = q < 0.4 ? 0 : Math.min(1, (q - 0.4) / 0.2); rx = lerp(rx, 1.5 * wind - 3.9 * rel, w); re = lerp(re, -1.5 * wind + 1.3 * rel, w); lx = lerp(lx, -0.7 * wind + 0.9 * rel, w); P0.twist = lerp(P0.twist, -0.5 * wind + 0.9 * rel, w); P0.lean = lerp(P0.lean, -0.08 * wind + 0.25 * rel, w); hy = lerp(hy, 0, w); }
     if (W.point > 0.01) { const w = W.point; rx = lerp(rx, -1.5, w); re = lerp(re, -0.04, w); rz = lerp(rz, -0.05, w); lx = lerp(lx, 0.25, w); le = lerp(le, -1.5, w); lz = lerp(lz, 0.5, w); P0.twist = lerp(P0.twist, 0.22, w); hy = lerp(hy, 0, w); }
     // --- something to do: a random idle action when standing, a random flourish when moving ---
-    let ly = 0, ry = 0, hz = 0, kl = 0, kr = 0, nl = 0, nr = 0, ft = 0, fI = 0, roll = 0;
+    let ly = 0, ry = 0, hz = 0, kl = 0, kr = 0, nl = 0, nr = 0, ft = 0, fI = 0, roll = 0, sit = 0;
     const gmax = Math.max(W.talk, W.cheer, W['throw'], W.point), calm = gmax < 0.05 && !TT.dialogOpen;
     const I = u.idl || (u.idl = newAct(t)), K = u.wlk || (u.wlk = newAct(t + 2));
     const use = (o, w) => {
       if (o.lx != null) lx = lerp(lx, o.lx, w); if (o.rx != null) rx = lerp(rx, o.rx, w); if (o.lz != null) lz = lerp(lz, o.lz, w); if (o.rz != null) rz = lerp(rz, o.rz, w); if (o.le != null) le = lerp(le, o.le, w); if (o.re != null) re = lerp(re, o.re, w);
       ly += (o.ly || 0) * w; ry += (o.ry || 0) * w; if (o.hy != null) hy = lerp(hy, o.hy, w); hx += (o.hx || 0) * w; hz += (o.hz || 0) * w; P0.twist += (o.tw || 0) * w; P0.lean += (o.lean || 0) * w; hop += (o.hop || 0) * w; crouch += (o.crouch || 0) * w;
       kl += (o.kl || 0) * w; kr += (o.kr || 0) * w; nl += (o.nl || 0) * w; nr += (o.nr || 0) * w; ft += (o.ft || 0) * w; lhx += (o.lh || 0) * w; rhx += (o.rh || 0) * w; if (o.f && w > 0.6) fI = o.f;
-      if (o.bob) bob *= 1 + (o.bob - 1) * w; if (o.roll) roll = w;
+      if (o.bob) bob *= 1 + (o.bob - 1) * w; if (o.roll) roll = w; sit += (o.sit || 0) * w;
     };
-    { const o = act(I, IDLES, i > 0.95 && calm ? () => true : null, t, dt, u.idleForce, [1.5, 4.5]); if (o) use(o, I.w * i * (1 - gmax)); }
+    { const o = act(I, IDLES, i > 0.95 && calm ? k => !IDLES[k][2] : null, t, dt, u.idleForce, [1.5, 4.5]); if (o) use(o, I.w * i * (1 - gmax)); }
+    if (u.lookYaw != null) hy = lerp(hy, TT.clamp(u.lookYaw, -1.15, 1.15), i * (1 - gmax));           // the game can ask a trainer to look at something
     { const o = act(K, WALKS, a > 0.75 && calm ? k => !WALKS[k][2] || run > 0.6 : null, t, dt, u.walkForce, [3, 5]); if (o) use(o, K.w * Math.min(1, a) * (1 - gmax)); }
     // coming to a stop from a run: the knees soak it up
     if (mv > 0.3) u.wasMv = u.amp; else if (u.wasMv) { u.settle = 0.32 * Math.min(1.2, u.wasMv); u.wasMv = 0; }
     if (u.settle > 0.005) { crouch += u.settle; u.settle *= Math.max(0, 1 - dt * 7); }
     // --- write the pose ---
-    r.legL.hip.rotation.x = hipL - crouch + kl; r.legR.hip.rotation.x = hipR - crouch + kr;
-    r.legL.knee.rotation.x = kneeL + crouch * 2 + nl; r.legR.knee.rotation.x = kneeR + crouch * 2 + nr;
+    r.legL.hip.rotation.x = hipL - crouch + kl - sit * 1.45; r.legR.hip.rotation.x = hipR - crouch + kr - sit * 1.45;
+    r.legL.knee.rotation.x = kneeL + crouch * 2 + nl + sit * 0.22; r.legR.knee.rotation.x = kneeR + crouch * 2 + nr + sit * 0.12;
     r.legL.foot.rotation.x = -s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15)) - crouch; r.legR.foot.rotation.x = s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15 + Math.PI)) - crouch - ft;
     const sway = Math.sin(t * 0.33 + p) * i;            // standing: the weight drifts from one leg to the other
     r.legL.hip.rotation.z = (0.035 + sway * 0.05) * i; r.legR.hip.rotation.z = (-0.035 + sway * 0.05) * i;
     r.legL.knee.rotation.x += Math.max(0, -sway) * 0.16; r.legR.knee.rotation.x += Math.max(0, sway) * 0.16; r.legL.hip.rotation.x -= Math.max(0, -sway) * 0.08; r.legR.hip.rotation.x -= Math.max(0, sway) * 0.08;
     r.armL.sh.rotation.set(lx, ly, lz); r.armR.sh.rotation.set(rx, ry, rz); r.armL.el.rotation.x = le; r.armR.el.rotation.x = re;
     r.armL.hand.rotation.x = lhx - 0.1; r.armR.hand.rotation.x = rhx - 0.1;
-    r.hips.position.y = HIP + bob + hop - (1 - Math.cos(crouch)) * 0.74;
+    r.hips.position.y = HIP + bob + hop - (1 - Math.cos(crouch)) * 0.74 - sit * (HIP - 0.13);
     r.hips.position.x = sway * 0.022;
     r.hips.rotation.y = -s * 0.12 * a; r.hips.rotation.z = -sway * 0.05 + c * 0.03 * a + roll * s * 0.16;
     r.spine.rotation.x = P0.lean + crouch * 0.35; r.spine.rotation.y = P0.twist; r.spine.rotation.z = -c * 0.03 * a + sway * 0.045;
@@ -1166,6 +1173,10 @@
     [2.6, (q, t) => ({ rx: 0.34, sy: -0.05, hx: -0.3, wag: 4, y: Math.max(0, Math.sin(t * 9)) * 0.03 })],     // 11 a play bow
     [2.0, q => ({ barrel: q })],                                                                              // 12 a barrel roll (flyers)
     [2.6, q => ({ y: -0.22 * UP(q) + 0.3 * UP(Math.max(0, q * 2 - 1)), rx: 0.25 * S2(q) })],                  // 13 dip down and swoop up (flyers)
+    // moments shared with the trainer: the game asks for these
+    [600, () => ({ arm: -2.5, hx: -0.4, wag: 3 })],                                                           // 14 reach up for a high five
+    [600, (q, t) => ({ sy: -0.1, hy: Math.sin(t * 0.6) * 0.5, hx: 0.05, wag: 0.5 })],                         // 15 settle down beside the trainer
+    [600, (q, t) => ({ hy: Math.sin(t * 0.9) * 0.4, wag: 2, sy: -0.04 })],                                    // 16 ride on a shoulder
   ];
   const CKIND = { quad: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11], biped: [0, 1, 2, 3, 5, 6, 7, 8, 9, 10], hop: [0, 2, 3, 5, 7, 8, 10], 'float': [0, 2, 3, 5, 8, 10, 12, 13], serpent: [0, 5, 8, 10], crawl: [0, 5, 8, 10] };
   TT.actLists.CIDLES = CIDLES;

@@ -104,6 +104,7 @@
       if (q.get('lvl')) S.party.forEach(m => { m.lvl = +q.get('lvl'); m.hp = TT.maxHp(m); });
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('far')) S.camFar = +q.get('far');
+      if (q.get('duo')) { duoForce = q.get('duo'); duoWait = 1.2; }
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       if (q.get('zoom')) setInterval(() => { if (!TT.Battle.active && !flying) TT.camZoom = +q.get('zoom'); }, 50);      // test: bring the camera close to check a model
       if (q.get('gest')) setInterval(() => { if (player.root) player.root.userData.model.userData.gesture = q.get('gest'); }, 100);
@@ -202,6 +203,7 @@
       const x = (i - (n - 1) / 2) * gap, side = i < (n - 1) / 2 ? -1 : 1;
       e.h.position.set(x, 0, 0); e.sh.position.set(x, 0.035, 0); e.p.position.set(x + side * po, 0, 0.9); e.p.rotation.y = -side * 0.3;
       if (e.gt > 0 && (e.gt -= dt) <= 0) e.h.userData.gesture = null;
+      if (!TEST.solo && !e.mon) { if (e.jt == null) e.jt = rand(5, 14); if ((e.jt -= dt) < -2.2) { e.jt = rand(9, 18); e.h.userData.idleForce = e.p.userData.idleForce = null; } else if (e.jt < 0) { e.h.userData.idleForce = 7; e.p.userData.idleForce = 7; } }      // now and then a trainer and partner jump for joy together
       if (TEST.pose) { e.h.userData.gesture = TEST.gest; e.h.rotation.y = TEST.turn; e.p.visible = false; }
       if (TEST.idle) { const k = TEST.idle[i % TEST.idle.length]; if (TEST.mv) e.h.userData.walkForce = k; else e.h.userData.idleForce = k; e.h.userData.actForce = k; }
       if (e.mon) { TT.animCreature(e.h, t, TEST.mv); return; }
@@ -311,6 +313,61 @@
     if (d > 14) { f.x = tx; f.z = tz + 1; return; }
     if (d > gap) { const sp = Math.min(9, (d - gap) * 5 + 1.5); f.x += dx / d * sp * dt; f.z += dz / d * sp * dt; f.h = TT.angLerp(f.h, Math.atan2(dx, dz), Math.min(1, dt * 10)); f.mv = 1; }
     else f.mv = 0;
+  }
+
+  // ---------- little moments between the trainer and the partner while standing around ----------
+  // After a few seconds of standing still one of these starts: a high five, a ride on the shoulder, sitting down together, jumping for joy, or the partner racing in a circle.
+  let duo = null, duoIdle = 0, duoWait = 7, duoLast = '', duoForce = null; const _sv = new THREE.Vector3(), mix = (a, b, k) => a + (b - a) * k;
+  function duoEnd() {
+    if (!duo) return;
+    const pm = player.root && player.root.userData.model.userData, f = duo.f; if (pm) { pm.idleForce = null; pm.lookYaw = null; }
+    if (f && f.root) { const m = f.root.userData.model; m.userData.idleForce = null; f.lift = 0; if (duo.s0) { m.scale.setScalar(duo.s0); f.root.children[0].visible = quality < 2; } }
+    duo = null; duoIdle = 0; duoWait = 9 + Math.random() * 7;
+  }
+  function duoTick(dt) {
+    if (!follower || !player.root || mode !== 'play') return false;
+    const pm = player.root.userData.model.userData, fm = follower.root.userData.model.userData;
+    const calm = !busy && !TT.dialogOpen && !TT.Battle.active && !flying && !talkTo, still = calm && player.mv === 0;
+    if (duo && duo.f !== follower) duoEnd();
+    if (!duo) {
+      if (!still) { duoIdle = 0; return false; }
+      if ((duoIdle += dt) < duoWait) return false;
+      const ground = fm.kind === 'quad' || fm.kind === 'biped' || fm.kind === 'hop', small = ground && (fm.h || 2) <= 1.4;
+      const opts = ['joy', 'zoom']; if (ground) opts.push('five', 'sit'); if (small) opts.push('ride', 'ride');
+      let k = duoForce; if (!k) do k = TT.pick(opts); while (k === duoLast && opts.length > 1);
+      duoLast = k; duo = { k, t: 0, f: follower, x0: follower.x, z0: follower.z, a0: Math.atan2(follower.x - player.x, follower.z - player.z), r0: Math.hypot(follower.x - player.x, follower.z - player.z), hit: 0, side: follower.x >= player.x ? 1 : -1 };
+    }
+    const d = duo, f = follower, fx = Math.sin(player.h), fz = Math.cos(player.h), rx = -Math.cos(player.h), rz = Math.sin(player.h);      // forward of the trainer, and to the trainer's right
+    const face = h => { f.h = TT.angLerp(f.h, h == null ? Math.atan2(player.x - f.x, player.z - f.z) : h, Math.min(1, dt * 10)); };
+    const turn = h => { player.h = TT.angLerp(player.h, h, Math.min(1, dt * 7)); };          // the trainer turns so the camera can see the moment
+    d.t += dt;
+    if (!calm || (!still && d.k !== 'ride' && d.k !== 'down')) { duoEnd(); return false; }
+    if (d.k === 'five') {
+      const tx = player.x + fx * 0.6 + rx * 0.17, tz = player.z + fz * 0.6 + rz * 0.17;
+      turn(d.side * Math.PI / 2);
+      if (d.t < 1.1) follow(f, tx, tz, dt, 0.06);
+      else if (d.t < 2.3) { f.x = tx; f.z = tz; f.mv = 0; face(); pm.idleForce = 16; fm.idleForce = 14; const q = (d.t - 1.5) / 0.55; f.lift = q > 0 && q < 1 ? Math.sin(q * Math.PI) * 0.42 : 0; if (q > 0.5 && !d.hit) { d.hit = 1; TT.sfx.star(); poof(tx - fx * 0.2, tz - fz * 0.2); } }
+      else if (d.t < 4.2) { f.lift = 0; face(); pm.idleForce = 12; fm.idleForce = 7; }
+      else duoEnd();
+    } else if (d.k === 'joy') {
+      turn(d.side * Math.PI / 2 * 0.7); f.mv = 0; face(); pm.idleForce = 7; fm.idleForce = 7; if (!d.hit) { d.hit = 1; TT.cry(f.sp); } if (d.t > 2.2) duoEnd();
+    } else if (d.k === 'zoom') {
+      turn(0); const a = d.a0 + d.t * 3.3, r = mix(d.r0, 1.5, Math.min(1, d.t * 2)); f.x = player.x + Math.sin(a) * r; f.z = player.z + Math.cos(a) * r; f.h = a + Math.PI / 2; f.mv = 1.3;
+      let rel = a - player.h; rel = Math.atan2(Math.sin(rel), Math.cos(rel)); pm.lookYaw = Math.abs(rel) < 1.9 ? rel : 0; pm.idleForce = 19;
+      if (d.t > 4.2) duoEnd();
+    } else if (d.k === 'sit') {
+      const tx = player.x - rx * 0.75 + fx * 0.15, tz = player.z - rz * 0.75 + fz * 0.15; pm.idleForce = 17; turn(0.75);
+      if (Math.hypot(tx - f.x, tz - f.z) > 0.12 && d.t < 3) follow(f, tx, tz, dt, 0.06); else { f.mv = 0; face(player.h); fm.idleForce = d.t > 7 ? 5 : 15; }
+      if (d.t > 16) duoEnd();
+    } else if (d.k === 'ride' || d.k === 'down') {
+      const sh = pm.rig.armR.sh.getWorldPosition(_sv), gy = W.gy(player.x, player.z), sx = sh.x - fx * 0.03 + rx * 0.02, sz = sh.z - fz * 0.03 + rz * 0.02, sy = sh.y - gy + 0.03;
+      if (d.k === 'down') {            // hop back down beside the trainer
+        const q = Math.min(1, d.t / 0.45), e = q * q * (3 - 2 * q), gx = player.x + rx * 0.95, gz = player.z + rz * 0.95; if (d.s0) f.root.userData.model.scale.setScalar(d.s0 * mix(0.6, 1, e)); f.x = mix(sx, gx, e); f.z = mix(sz, gz, e); f.lift = sy * (1 - e) + Math.sin(q * Math.PI) * 0.3; f.mv = 0; fm.idleForce = null; pm.idleForce = null; pm.lookYaw = null; if (q >= 1) duoEnd();
+      } else if (d.t < 0.55) { const q = d.t / 0.55, e = q * q * (3 - 2 * q), m = f.root.userData.model; if (!d.s0) { d.s0 = m.scale.x; f.root.children[0].visible = false; } m.scale.setScalar(d.s0 * mix(1, 0.6, e)); f.x = mix(d.x0, sx, e); f.z = mix(d.z0, sz, e); f.lift = sy * e + Math.sin(q * Math.PI) * 0.45; f.mv = 0; face(player.h); }
+      else { if (still && d.t < 1.6) turn(0.35); f.x = sx; f.z = sz; f.lift = sy; f.h = player.h; f.mv = 0; fm.idleForce = 16; pm.lookYaw = still && d.t < 3.5 ? -0.85 : null; pm.idleForce = still && d.t < 3.5 ? 18 : null; if (!d.hit) { d.hit = 1; TT.cry(f.sp); }
+        if (d.t > 11 || player.mv > 1.1) { d.k = 'down'; d.t = 0; } }
+    }
+    return true;
   }
 
   // ---------- talking ----------
@@ -1125,8 +1182,8 @@
     starObj.visible = S.stars.indexOf(3) < 0 && !S.wishes; starObj.rotation.y = t * 1.5; starObj.position.y = 0.7 + Math.sin(t * 2) * 0.12;
     placeEnt(player, true); player.root.visible = true;
     if (!busy || !TT.Battle.active) {
-      if (talkTo) follow(follower, player.x + (player.x >= talkTo.x ? 1.5 : -1.5), player.z - 0.9, dt, 0.25);      // while talking, the partner steps to the far side so it never blocks the close-up
-      else follow(follower, player.x, player.z, dt, 1.5);
+      if (talkTo) { duoEnd(); follow(follower, player.x + (player.x >= talkTo.x ? 1.5 : -1.5), player.z - 0.9, dt, 0.25); }      // while talking, the partner steps to the far side so it never blocks the close-up
+      else if (!duoTick(dt)) follow(follower, player.x, player.z, dt, 1.5);
       if (flying || !(busy && follower.root.position.y > 0.05 + W.gy(follower.x, follower.z))) placeEnt(follower, false);
       let ld = follower; for (const c of comps) { follow(c, ld.x, ld.z, dt, 1.8); placeEnt(c, true); ld = c; }
     }
