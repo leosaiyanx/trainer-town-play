@@ -364,7 +364,7 @@
     }
     for (let i = 0; i < 60; i++) { const x = rand(-55, 55), z = rand(-55, 55); if (free(x, z, -0.8)) { if (i % 3) bush(x, z, rand(0.7, 1.2), i % 4 ? null : pick([0xe8402a, 0x6a8ae0])); else rock(x, z, rand(0.6, 1.3)); } }
     for (let i = 0; i < 90; i++) { const x = rand(-55, 55), z = rand(-55, 55); if (free(x, z, -1.6)) flowers(x, z, 5, 0.9); }
-    for (const z of W.zones) if (!z.ring) for (let i = 0; i < 150; i++) {
+    for (const z of W.zones) if (!z.ring && !z.noGrass) for (let i = 0; i < 150; i++) {
       const a = Math.random() * 7, r = Math.sqrt(Math.random()) * (z.r - 0.5), x = z.x + Math.cos(a) * r, zz = z.z + Math.sin(a) * r, g = grp(chunk(x, zz), x, W.h(x, zz), zz), c = pick([0x3f8a30, 0x4a9a3a, 0x358028]);
       for (let j = 0; j < 3; j++) P(g, 'pyr', c, [rand(-0.2, 0.2), 0.32, rand(-0.2, 0.2)], [0.13, rand(0.55, 0.85), 0.13], [rand(-0.25, 0.25), rand(0, 3), rand(-0.25, 0.25)]);
     }

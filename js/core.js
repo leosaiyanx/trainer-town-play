@@ -347,6 +347,11 @@
     goku: { bpm: 168, style: 6, lv: 0.07, bright: 7, wave: ['sawtooth', 'sawtooth'], ch: 'E E A B E C D B C#m A E B C#m A B E', lead:
       'E4 . G#4 B4 E5 - - . | D#5 . E5 . F#5 - E5 . | C#5 . E5 . A5 - G#5 F#5 | G#5 - F#5 . D#5 - - . | E5 . E5 F#5 G#5 . B5 . | G5 - E5 . C5 - - . | F#5 . A5 . D6 - C#6 B5 | B5 - - . F#5 G#5 A#5 B5 | ' +
       'G#5 . G#5 F#5 E5 . C#5 . | E5 . A5 . C#6 - B5 A5 | B5 - G#5 . E5 - - . | F#5 . G#5 . A5 . B5 . | C#6 - B5 . G#5 . E5 . | A5 . B5 . C#6 . E6 . | D#6 - - . B5 - - . | E6 - - - - - - .' },
+    volcano: { bpm: 112, style: 4, lv: 0.06, ch: 'Dm Dm Bb C Dm Dm Gm A', lead:
+      'D5 . F5 . A5 - G5 F5 | E5 . D5 . A4 - - . | D5 . F5 . Bb5 - A5 G5 | G5 - E5 . C5 - - . | F5 . A5 . D6 - C6 A5 | A5 - F5 . D5 - - . | Bb5 . A5 . G5 . D5 . | C#5 . E5 . A5 - - .' },
+    dragon: { bpm: 176, style: 5, lv: 0.07, bright: 7, wave: ['sawtooth', 'square'], ch: 'Em Em C D Em Em C B Am Am Em Em C D B B', lead:
+      'E5 . E5 . G5 . F#5 E5 | B5 - A5 . G5 . F#5 . | C5 . E5 . G5 . C6 . | D6 - C6 . B5 . A5 . | E6 . D6 . B5 . G5 . | A5 . B5 . E5 - - . | G5 . A5 . C6 . B5 . | D#5 . F#5 . B5 - - . | ' +
+      'A5 . C6 . E6 - D6 C6 | B5 . A5 . E5 - - . | G5 . B5 . E6 - D6 B5 | D6 - B5 . E5 . . . | C6 . B5 . A5 . G5 . | F#5 . G5 . A5 . D6 . | D#6 - - . B5 - - . | F#5 . A5 . B5 . D#6 .' },
     rocket: { bpm: 138, style: 2, lv: 0.055, ch: 'Dm Dm Bb A', lead: 'D5 . F5 . A5 . G#5 A5 | D6 . C6 . A5 . F5 . | Bb5 . D6 . F6 . D6 . | A5 . C#6 . E6 . A6 .' }
   };
   for (const k in TUNES) { const tn = TUNES[k], p = parse(tn.lead); tn.ev = p.ev; tn.len = p.len; tn.ch = tn.ch.split(' ').map(c => CH[c]); }

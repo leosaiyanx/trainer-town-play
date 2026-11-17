@@ -18,7 +18,7 @@
   const objOf = s => s[0] === 'a' && s !== 'ally' ? st.allyObjs[+s.slice(1)] : st.obj[s];
   const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad', gary: 'Gary', leaf: 'Leaf' };
   // where helpers stand: [pokemon x, z, trainer x, z]
-  const SLOTS = [[-3.6, -2.1, -6.3, -1.9], [-4.4, 0.7, -6.7, 0.9]], FRIEND = [-3.2, 2.1, -5.8, 1.9];
+  const SLOTS = [[-3.6, -2.1, -6.3, -1.9], [-4.4, 0.7, -6.7, 0.9], [-5.3, -3.8, -7.6, -3.5]], FRIEND = [-3.2, 2.1, -5.8, 1.9];
 
   function spot(side) { return [A().x + side * 2.4, A().z]; }
   function newMon(sp, x, z, ry) { const o = TT.creature(sp); o.userData.s0 = o.scale.x; o.userData.ry = ry; o.position.set(A().x + x, 0, A().z + z); o.rotation.y = ry; TT.scene.add(o); return o; }
@@ -90,7 +90,7 @@
       // a star marks the moves that work best against this foe
       const ft = TT.DEX[st.foe.sp][1];
       TT.moves(st.me).forEach(mv => { const e = TT.eff(mv[1], ft); add((e > 1 ? '★ ' : '') + mv[0] + '<small>' + mv[1] + (e > 1 ? ' · strong here!' : e < 1 ? ' · weak here' : '') + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }, false, e > 1 ? 'best' : e < 1 ? 'weak' : ''); });
-      if (st.wild) add('Poké Ball<small>× ' + TT.S.balls + '</small>', '#e8402a', { t: 'ball' });
+      if (st.wild && !st.noCatch) add('Poké Ball<small>× ' + TT.S.balls + '</small>', '#e8402a', { t: 'ball' });
       if (TT.S.party.filter(m => m.hp > 0).length > 1) add('Swap', '', { t: 'swap' }, true);
       add('Run', '', { t: 'run' }, true);
       setMsg('What will ' + TT.monName(st.me) + ' do?'); st.wake = res;
@@ -232,10 +232,13 @@
     const nm = TT.monName(m), sp = m.sp, bx = o.position.x, bz = o.position.z;
     document.body.classList.add('bossmode'); TT.music(music || 'boss');
     const card = $('bossCard'); card.innerHTML = '<small>⚠ BOSS BATTLE ⚠</small><b></b><span></span>'; card.querySelector('b').textContent = nm; card.querySelector('span').textContent = title || '';
-    const style = sp === 'rayquaza' ? 'descend' : sp === 'mecha' ? 'rise' : 'wake';
+    const style = sp === 'rayquaza' || sp === 'shenron' || sp === 'mewtwo' ? 'descend' : sp === 'mecha' ? 'rise' : 'wake';
+    if (sp === 'shenron') for (const d of [300, 900, 1500]) setTimeout(() => { if (st) { flash('#ffffff', 0.7); TT.sfx.zap(); } }, d);
     if (style === 'descend') o.position.y = 12; if (style === 'rise') o.position.y = -4.5;
     const ry = o.rotation.y; cam.ov = (c, t, k) => { const a = ry - 0.75 + k * 0.85, r = 9.5 - k * 2; c.position.set(bx + Math.sin(a) * r, 0.9 + k * 1.6, bz + Math.cos(a) * r); c.lookAt(bx, 1.7 + (1 - k) * 0.5, bz); };
     cam.ok = 0; o.userData.roared = 0;
+    // the camera swings right round the boss: everyone else steps out of the picture for a moment
+    const hid = (st.allyObjs || []).concat(st.humans || []).filter(q => q && q.visible); hid.forEach(q => { q.visible = false; });
     const ring = P(TT.scene, RING, glowT(0xff6a3a, 0.8), [bx, 0.08, bz], 0.5, [1.57, 0, 0]), dust = parts(12, [0xd8c8a8, 0xc8b898], bx, 0.2, bz, 0.12);
     TT.sfx.battle(); setTimeout(() => card.classList.add('on'), 350);
     await TT.tween(2.6, q => {
@@ -248,7 +251,7 @@
       dust.forEach((d, i) => { const a = i * 0.52, k = Math.max(0, q - 0.45) / 0.55; d.position.set(bx + Math.cos(a) * k * 4, 0.2 + Math.sin(k * 3.14) * 0.6, bz + Math.sin(a) * k * 4); d.scale.setScalar(0.14 * (1 - k)); });
     });
     TT.scene.remove(ring); kill(dust); o.position.y = 0; setS(o, 1);
-    card.classList.remove('on'); cam.ov = null; document.body.classList.remove('bossmode');
+    card.classList.remove('on'); cam.ov = null; document.body.classList.remove('bossmode'); hid.forEach(q => { q.visible = true; });
   }
   function addAura(o, col) {
     if (o.userData.aura) return;
@@ -392,7 +395,7 @@
     await TT.wait(0.14); flash('#ffffff', 0.55);
     await TT.wipeTo(1, 0.5, 0);
     TT.camZoom = 1; W.ARENA = W.STAGES[stage]; W.applyStage(stage);
-    st = { foes: opts.foes, fi: 0, wild: !!opts.wild, easy: !!opts.easy, obj: {}, extras: [], humans: [], assists: [], trainers: [], trainer: opts.trainer || '', people: opts.people || [], allies: (opts.allies || []).map(a => Object.assign({}, a)), stage, rageMul: 1, bt: 0, turn: 0, allyObjs: [] };
+    st = { noCatch: !!opts.noCatch, foes: opts.foes, fi: 0, wild: !!opts.wild, easy: !!opts.easy, obj: {}, extras: [], humans: [], assists: [], trainers: [], trainer: opts.trainer || '', people: opts.people || [], allies: (opts.allies || []).map(a => Object.assign({}, a)), stage, rageMul: 1, bt: 0, turn: 0, allyObjs: [] };
     st.foe = st.foes[0]; st.me = S.party.find(m => m.hp > 0);
     B.active = true; camK = 0; cam.f = cam.tf = 0; cam.z = cam.tz = 0;
     st.me_h = addHuman(S.ch, -4.7, -0.9, 1.25);
@@ -405,7 +408,7 @@
     if (st.foe.boss) { await TT.wait(0.4); await bossIntro(fo, st.foe, opts.bossTitle, opts.bossMusic); }
     else if (st.wild) TT.cry(st.foe.sp);
     await say(st.foe.boss ? TT.monName(st.foe) + ' wants to battle!' : st.wild ? 'A wild ' + TT.monName(st.foe) + ' appeared!' : opts.trainer + ' sent out ' + TT.monName(st.foe) + '!', 1.3);
-    if (st.allies.length) await say(st.allies.map(a => a.n).join(' and ') + (st.allies.length > 1 ? ' are' : ' is') + ' here to help!', 1);
+    if (st.allies.length) await say((st.allies.length > 2 ? st.allies.slice(0, -1).map(a => a.n).join(', ') + ' and ' + st.allies[st.allies.length - 1].n : st.allies.map(a => a.n).join(' and ')) + (st.allies.length > 1 ? ' are' : ' is') + ' here to help!', 1);
     setMsg('Go, ' + TT.monName(st.me) + '!'); gesture('point', 0.8); await place(-1, st.me, true); await TT.wait(0.35);
     let result = null;
     // a foe ran out of HP: faint, XP, next foe. Returns true when the battle is won.
@@ -447,7 +450,7 @@
         else await checkRage();
       }
       // allies take turns joining in: one helps every turn when there are two, every other turn when there is one
-      if (act.t !== 'assist' && st.allies.length && st.foe.hp > 0) { st.turn++; const a = st.allies.length > 1 ? st.allies[st.turn % 2] : st.turn % 2 ? st.allies[0] : null; if (a) st.assists.push(Object.assign({ lvl: st.me.lvl + 4 }, a)); }
+      if (act.t !== 'assist' && st.allies.length && st.foe.hp > 0) { st.turn++; const a = st.allies.length > 1 ? st.allies[st.turn % st.allies.length] : st.turn % 2 ? st.allies[0] : null; if (a) st.assists.push(Object.assign({ lvl: st.me.lvl + 4 }, a)); }
       if (foeTurn) {
         const mult = (st.easy ? 0.35 : 0.7) * st.rageMul;
         if (!(st.foe.boss && ++st.bt % 3 === 0 && await bossSig(st.foe, st.obj.foe, st.obj.me, st.me, mult)))

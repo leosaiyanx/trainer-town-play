@@ -253,3 +253,12 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
 #bmenu button.best{box-shadow:0 0 0 3px #ffd23c,0 4px 0 rgba(35,50,74,.45)}
 #bmenu button.weak{opacity:.72}
 #quest{pointer-events:auto;cursor:pointer}
+
+/* progress on the map */
+.pbar{display:block;height:12px;background:#d8dde6;border:2px solid #23324a;border-radius:7px;overflow:hidden;margin-top:6px}
+.pbar i{display:block;height:100%;background:linear-gradient(90deg,#ffd23c,#4cd964);border-radius:5px}
+small.pct{display:block;font-weight:800;font-size:13px;margin-top:2px}
+.whole{border:3px solid #23324a;border-radius:16px;padding:8px 12px;margin-bottom:10px;background:#fff8dc}.whole b{font-size:17px}
+.todo{margin-top:10px;border:3px solid #23324a;border-radius:16px;padding:8px 12px;background:#f4f8ff;text-align:left}
+.todo b{display:block;font-size:17px}.todo span{display:block;font-weight:700;font-size:15px;margin-top:4px;opacity:.75}.todo span.ok{opacity:1;color:#1d7a3a}
+@media (max-height:480px){.whole{padding:5px 10px;margin-bottom:6px}.whole b{font-size:14px}.pbar{height:9px;margin-top:3px}small.pct{font-size:11px}}

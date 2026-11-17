@@ -56,6 +56,10 @@
         [-0.18, 0.19, -0.15, 0.075, 0.34, -0.7 * up, 0.8 * up], [0, 0.18, -0.22, 0.085, 0.36, -1.2 * up, 0], [0.1, 0.04, -0.22, 0.065, 0.28, -1.6 * up, -0.5], [-0.1, 0.04, -0.22, 0.065, 0.28, -1.6 * up, 0.5]];
       for (const q of SPK) P(head, 'cone', h, [q[0], q[1], q[2]], [q[3], q[4], q[3]], [q[5], 0, q[6]]);
       for (const q of [[0.07, 0.1, 0.17, 0.4], [-0.06, 0.11, 0.17, -0.3], [0.0, 0.13, 0.18, 0.05]]) P(head, 'cone', h, [q[0], q[1], q[2]], [0.035, 0.13, 0.03], [2.5, 0, q[3]]);
+    } else if (st === 'vegeta') {      // one tall flame swept straight up, with a sharp peak on the forehead
+      for (const q of [[0, 0.36, -0.03, 0.115, 0.56, -0.1, 0], [0.09, 0.31, -0.03, 0.095, 0.46, -0.08, -0.2], [-0.09, 0.31, -0.03, 0.095, 0.46, -0.08, 0.2], [0.165, 0.22, -0.04, 0.08, 0.36, -0.06, -0.42], [-0.165, 0.22, -0.04, 0.08, 0.36, -0.06, 0.42],
+        [0, 0.3, -0.13, 0.1, 0.48, -0.42, 0], [0.1, 0.24, -0.14, 0.085, 0.4, -0.48, -0.28], [-0.1, 0.24, -0.14, 0.085, 0.4, -0.48, 0.28]]) P(head, 'cone', h, [q[0], q[1], q[2]], [q[3], q[4], q[3]], [q[5], 0, q[6]]);
+      P(head, 'cone', h, [0, 0.125, 0.185], [0.05, 0.11, 0.03], [2.85, 0, 0]);
     } else if (st === 'bald') {
       for (const s of [1, -1]) P(head, 'sph', h, [s * 0.17, 0.0, -0.06], [0.06, 0.1, 0.13]);
       P(head, 'sph', h, [0, -0.02, -0.15], [0.17, 0.1, 0.07]);
@@ -188,6 +192,13 @@
     guard: { skin: SK[5], hair: BK, hairStyle: 'short', hat: 'cap', hatColor: 0x2a3a8a, top: 0x3a5ac8, badge: 0xffd23c, trim: 0x22222a, lower: 0x2a2a4a, shoes: 0x22222a },
     hiker: { skin: SK[0], hair: 0x7a4a2a, hairStyle: 'spiky', top: 0xc85a3a, short: 1, lower: 0x6a7a4a, shorts: 1, sock: 0xd8c890, shoes: 0x5a4030, pack: 0x3a6ac8 }
   };
+  Object.assign(TT.PEOPLE, {
+    vegeta: { skin: SK[0], hair: BK, hairStyle: 'vegeta', eye: BK, brow: BK, top: 0xf2f2ee, sleeveC: 0x2a3a9a, inner: 0x2a3a9a, trim: 0xd8a020, glove: WH, lower: 0x2a3a9a, shoes: WH, sole: 0xd8a020, scale: 0.95,
+      x: q => { for (const s of [1, -1]) P(q.spine, 'sph', 0xd8a020, [s * 0.2, 0.36, 0], [0.11, 0.06, 0.13]); P(q.spine, 'box', 0xd8a020, [0, 0.08, 0.11], [0.2, 0.12, 0.02]); } },
+    bulma: { skin: SK[1], hair: 0x3ac4cc, hairStyle: 'ponytail', eye: 0x2a7ab0, blush: 1, top: 0xf06a8a, skirt: 0xf06a8a, short: 1, trim: WH, sock: WH, shoes: 0x7a4a9a, pack: 0xf2c230, scale: 0.94 },
+    krillin: { skin: SK[0], hairStyle: 'bald', hair: SK[0], eye: BK, top: 0xf08a24, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070, scale: 0.78,
+      x: q => { for (const s of [1, -1]) for (let i = 0; i < 3; i++) P(q.head, 'sph', 0x9a6a4a, [s * 0.035, 0.13 + i * 0.035, 0.185 - i * 0.012], 0.011); } }
+  });
 
   // ============ CREATURES ============
   // eye styles: dot | big | tiny | slit
@@ -411,8 +422,21 @@
     pidgeot: ['Pidgeot', 'flying', 83, 80, 75, [['Quick Attack', 'normal', 40, 1], ['Wing Attack', 'flying', 60, 1], ['Gust', 'flying', 40, 1], ['Air Slash', 'flying', 75, 1]]]
   });
   for (const [a, b, l] of [['charmander', 'charmeleon', 14], ['squirtle', 'wartortle', 14], ['bulbasaur', 'ivysaur', 14], ['machop', 'machoke', 16], ['pidgeotto', 'pidgeot', 18]]) D[a][6] = [b, l];
+  Object.assign(TT.TYPE_COL, { ice: 0x7ad0e8 });
+  SE.ice = ['grass', 'flying', 'dragon']; NV.ice = ['fire', 'water', 'ice', 'steel']; SE.fire.push('ice'); SE.rock.push('ice'); SE.fighting.push('ice');
+  Object.assign(D, {
+    vulpix: ['Vulpix', 'fire', 38, 58, 40, [['Ember', 'fire', 45, 1], ['Quick Attack', 'normal', 40, 1], ['Flame Wheel', 'fire', 65, 9], ['Flamethrower', 'fire', 85, 20]]],
+    onix: ['Onix', 'rock', 40, 55, 120, [['Rock Throw', 'rock', 50, 1], ['Tackle', 'normal', 40, 1], ['Rock Slide', 'rock', 70, 12]]],
+    mewtwo: ['Mewtwo', 'psychic', 106, 128, 90, [['Psychic', 'psychic', 85, 1], ['Shadow Ball', 'ghost', 75, 1]]],
+    articuno: ['Articuno', 'ice', 90, 92, 100, [['Ice Beam', 'ice', 80, 1], ['Gust', 'flying', 45, 1], ['Blizzard', 'ice', 95, 1]]],
+    zapdos: ['Zapdos', 'electric', 90, 106, 85, [['Thunderbolt', 'electric', 85, 1], ['Drill Peck', 'flying', 75, 1], ['Thunder', 'electric', 95, 1]]],
+    moltres: ['Moltres', 'fire', 90, 106, 90, [['Flamethrower', 'fire', 85, 1], ['Air Slash', 'flying', 75, 1], ['Fire Blast', 'fire', 95, 1]]],
+    shenron: ['Shenron', 'dragon', 122, 122, 100, [['Dragon Breath', 'dragon', 75, 1], ['Thunder', 'electric', 80, 1]]]
+  });
+  // the Dragon can teach a partner one super move of its own type (a wish)
+  TT.SUPER = { electric: 'Volt Tackle', grass: 'Frenzy Plant', fire: 'Blast Burn', water: 'Hydro Cannon', normal: 'Giga Impact', flying: 'Sky Attack', psychic: 'Psycho Boost', fighting: 'Close Combat', rock: 'Rock Wrecker', dragon: 'Draco Meteor', ghost: 'Shadow Force', dark: 'Night Daze', bug: 'Megahorn', steel: 'Meteor Mash', ice: 'Sheer Cold' };
   // boss attacks: [name, type, power, look]
-  TT.BOSS_SIG = { snorlax: ['Giga Body Slam', 'normal', 85, 'slam'], mecha: ['Mecha Laser', 'steel', 85, 'beam'], rayquaza: ['Dragon Ascent', 'dragon', 90, 'beam'] };
+  TT.BOSS_SIG = { snorlax: ['Giga Body Slam', 'normal', 85, 'slam'], mecha: ['Mecha Laser', 'steel', 85, 'beam'], rayquaza: ['Dragon Ascent', 'dragon', 90, 'beam'], mewtwo: ['Psystrike', 'psychic', 92, 'beam'], shenron: ['Dragon Wrath', 'dragon', 95, 'beam'] };
 
   B.poliwag = () => crit({ c: 0x4a6ad8, b: [0.27, 0.25, 0.25], by: 0.32, hy: 0.5, hz: 0.04, hr: 0.25, hs: [0.25, 0.2, 0.23], legs: 2, legX: 0.55, foot: [0.08, 0.04, 0.1], eyeS: 'big', eye: BK, er: 0.2, ex: 0.1, ey: 0.06, ez: 0.19, eyeTurn: 0.3,
     x: (g, h, body, f, ud) => { P(body, 'sph', 0xf4f6fa, [0, 0.3, 0.2], [0.2, 0.19, 0.08]); for (const [r, y] of [[0.14, 0.3], [0.09, 0.31], [0.04, 0.32]]) P(body, TT.G.thinTorus, BK, [0.005, y, 0.27], [r, r, 0.4]); P(f, 'sph', 0xf08aa0, [0, -0.1, 0.2], [0.07, 0.035, 0.03]); P(ud.tail, 'sph', 0xf0f4ff, [0, 0.12, -0.18], [0.02, 0.2, 0.26], [0.4, 0, 0]); } });
@@ -490,6 +514,23 @@
     seg: (sg, i, r) => { if (i % 2 === 1) P(sg, TT.G.torus, 0xf2c230, [0, 0, 0], [r * 0.95, r * 0.95, 0.6]); if (i === 3 || i === 9) for (const s of [1, -1]) P(sg, 'cone', 0x1e7a44, [s * r * 1.1, 0, 0], [0.06, 0.45, 0.025], [0, 0, -s * 1.2]); },
     x: (g, h, body, f) => { P(h, 'sph', 0xf2c230, [0, -0.1, 0.26], [0.13, 0.06, 0.12]); for (const s of [1, -1]) { P(h, 'cone', 0x2a9a58, [s * 0.12, 0.12, -0.32], [0.05, 0.55, 0.05], [-1.9, 0, s * 0.35]); P(h, 'cone', 0xf2c230, [s * 0.16, 0.16, -0.62], [0.035, 0.14, 0.035], [-1.9, 0, s * 0.35]); P(h, 'cone', 0x2a9a58, [s * 0.17, 0.02, -0.1], [0.04, 0.3, 0.02], [-1.2, 0, s * 1.2]); } } });
 
+  // ---------- the Volcano and the Dragon's Lair ----------
+  B.vulpix = () => crit({ c: 0xc8683a, belly: 0xf5e6b8, b: [0.18, 0.18, 0.27], by: 0.3, hy: 0.57, hz: 0.25, hr: 0.21, snout: 1, snoutC: 0xf5e6b8, legs: 4, legC: 0x9a4a2a, ear: 'long', earA: 0.45, earY: 0.58, tail: 'fluff', tailC: 0xe8a04a, eyeS: 'dot', er: 0.17,
+    x: (g, h, body) => { for (const q of [[-0.16, 0.42, -0.34], [0.16, 0.42, -0.34], [-0.09, 0.52, -0.38], [0.09, 0.52, -0.38]]) { P(body, 'sph', 0xe8a04a, q, [0.07, 0.07, 0.12]); P(body, 'sph', 0xf2c860, [q[0] * 1.15, q[1] + 0.05, q[2] - 0.08], 0.05); } for (const q of [-0.05, 0.02, 0.09]) P(h, 'sph', 0xe8a04a, [q, 0.2, 0.05], [0.05, 0.07, 0.07]); } });
+  B.onix = () => serpent({ c: 0x8a8a96, n: 10, r0: 0.36, taper: 0.5, hr: 0.38, hs: [0.36, 0.36, 0.42], hz: 0.2, hy: 0.05, top: 2.6, wave: [0.08, 0.03], path: k => [Math.sin(k * 4.5) * 0.35, 0.3 + 2.1 * Math.pow(1 - k, 1.5), 0.3 - k * 1.5], eyeS: 'slit', er: 0.15, ex: 0.17, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
+    seg: (sg, i, r) => { if (i % 2) P(sg, 'rock', 0x74747e, [r * 0.5, r * 0.4, 0], r * 0.5, [i, i * 2, 0]); },
+    x: (g, h) => { P(h, 'cone', 0x74747e, [0, 0.42, -0.05], [0.09, 0.4, 0.09], [-0.25, 0, 0]); P(h, 'sph', 0x9a9aa6, [0, -0.14, 0.2], [0.26, 0.1, 0.24]); } });
+  B.mewtwo = () => crit({ c: 0xe4dcec, belly: 0xa886c8, b: [0.2, 0.3, 0.17], by: 0.58, hy: 1.14, hz: 0.04, hr: 0.2, hs: [0.19, 0.2, 0.22], legs: 2, legLen: 1, legX: 0.5, arms: 1, tail: 'thin', tailC: 0xa886c8, tailTip: 0xa886c8, eyeS: 'slit', eye: 0x8a4ac8, er: 0.16, float: 0.25, kind: 'float', scale: 1.1,
+    x: (g, h, body) => { for (const s of [1, -1]) { P(h, 'cone', 0xe4dcec, [s * 0.1, 0.2, -0.02], [0.05, 0.14, 0.05], [0, 0, -s * 0.25]); P(body, 'sph', 0xa886c8, [s * 0.16, 0.5, 0], [0.09, 0.07, 0.09]); } P(body, 'cyl', 0xe4dcec, [0, 0.84, -0.14], [0.05, 0.3, 0.05], [0.5, 0, 0]); P(body, 'sph', 0xa886c8, [0, 0.2, -0.3], [0.12, 0.12, 0.2]); } });
+  B.articuno = () => { const g = bird(0x6ab8f0, 0xdff2ff, 2.0, 0x2a6ad8); return g; };
+  B.zapdos = () => bird(0xf2c230, 0xfff0a0, 2.0, 0x23232b);
+  B.moltres = () => bird(0xf08a24, 0xffe080, 2.0, 0xe8402a);
+  // the Eternal Dragon: a huge green serpent with antlers, whiskers and red eyes
+  B.shenron = () => serpent({ c: 0x3aa84a, belly: 0xf2e6a8, bellyUp: 1, n: 18, r0: 0.34, taper: 0.5, hr: 0.36, hs: [0.3, 0.27, 0.5], float: 0.45, top: 1.7, scale: 1.3, wave: [0.22, 0.1], path: k => [Math.sin(k * 8) * 0.6, 0.85 * Math.pow(1 - k, 1.2) + 0.42 * Math.sin(k * 5), 0.5 - k * 3.6], eyeS: 'slit', eye: 0xe01818, er: 0.17, ex: 0.16, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
+    seg: (sg, i, r) => { if (i > 0 && i < 16) P(sg, 'cone', 0x2a7a36, [0, r * 0.95, -r * 0.2], [r * 0.22, r * 0.6, r * 0.1], [-0.6, 0, 0]); if (i === 4 || i === 11) for (const s of [1, -1]) { P(sg, TT.capsule(0.05, 0.3), 0x3aa84a, [s * r * 1.3, -r * 0.3, 0], null, [0, 0, s * 1.2]); P(sg, 'sph', 0xf2e6a8, [s * (r * 1.3 + 0.24), -r * 0.5, 0], 0.07); } },
+    x: (g, h, body, f) => { P(h, 'sph', 0x3aa84a, [0, -0.02, 0.34], [0.2, 0.15, 0.24]); P(h, 'sph', 0xf2e6a8, [0, -0.16, 0.26], [0.2, 0.08, 0.26]);
+      for (const s of [1, -1]) { P(h, 'cone', 0x8a6a3a, [s * 0.13, 0.3, -0.16], [0.045, 0.5, 0.045], [-0.7, 0, -s * 0.35]); P(h, 'cone', 0x8a6a3a, [s * 0.22, 0.42, -0.3], [0.03, 0.22, 0.03], [-0.2, 0, -s * 0.9]); P(h, TT.capsule(0.014, 0.7), 0x3aa84a, [s * 0.3, -0.1, 0.5], null, [1.2, 0, s * 0.7]); P(h, 'cone', 0x2a7a36, [s * 0.26, 0.05, -0.2], [0.06, 0.3, 0.03], [-1.2, 0, s * 1.2]); P(f, 'cone', WH, [s * 0.1, -0.14, 0.5], [0.022, 0.09, 0.022], [Math.PI, 0, 0]); } } });
+
   TT.creature = sp => { const g = (B[sp] || B.rattata)(); g.userData.sp = sp; return g; };
 
   // gait / idle. mv 0..1
@@ -520,7 +561,7 @@
   TT.mon = (sp, lvl) => { const m = { sp, lvl, xp: 0, hp: 0 }; m.hp = TT.maxHp(m); return m; };
   TT.maxHp = m => Math.floor(D[m.sp][2] * (0.5 + m.lvl * 0.08)) + 8;
   TT.stat = (m, i) => D[m.sp][i] * (1 + m.lvl * 0.1);
-  TT.moves = m => D[m.sp][5].filter(v => v[3] <= m.lvl).slice(-4);
+  TT.moves = m => { const a = D[m.sp][5].filter(v => v[3] <= m.lvl).slice(m.sup ? -3 : -4); return m.sup ? a.concat([[m.sup[0], m.sup[1], m.sup[2], 1]]) : a; };
   TT.monName = m => D[m.sp][0];
   TT.xpNeed = m => 14 + m.lvl * 10;
 

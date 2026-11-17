@@ -17,8 +17,8 @@
   let viewX = 30, viewZ = 31, viewS = 11, flying = false, goal = null;
   let actKey = '', netShown = -1, eggShown = -1, inB = false;
   let comps = [], snorlaxNpc = null, areaNow = '', camY = 0, runT = 0, lean = 0; const vel = { x: 0, z: 0 };
-  const areaKey = (x, z) => x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
-  const allies = () => { const a = []; if (S.flags.gohan) a.push({ h: 'gohan', sp: 'lugia', n: 'Gohan', mv: ['Aeroblast', 'flying', 55] }); if (S.flags.goku) a.push({ h: 'goku', sp: 'rayquaza', n: 'Goku', mv: ['Dragon Pulse', 'dragon', 60] }); return a; };
+  const areaKey = (x, z) => x > 300 ? 'volcano' : x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
+  const allies = () => { const a = []; if (S.flags.gohan) a.push({ h: 'gohan', sp: 'lugia', n: 'Gohan', mv: ['Aeroblast', 'flying', 55] }); if (S.flags.goku) a.push({ h: 'goku', sp: 'rayquaza', n: 'Goku', mv: ['Dragon Pulse', 'dragon', 60] }); if (S.flags.vegeta) a.push({ h: 'vegeta', sp: 'mewtwo', n: 'Vegeta', mv: ['Psystrike', 'psychic', 60] }); return a; };
   const stageHere = () => W.stageAt(player.x, player.z);
 
   const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, depthWrite: false });
@@ -97,11 +97,12 @@
       if (q.get('skip')) setInterval(() => { if (TT.dialogOpen && !q.get('hold')) TT.dialogNext(); }, 120);
       if (q.get('x')) { player.x = cam.x = +q.get('x'); player.z = cam.z = +q.get('z'); follower.x = player.x + 1; follower.z = player.z + 0.6; }
       if (q.get('flags')) { for (const f of q.get('flags').split(',')) S.flags[f] = 1; applyFlags(); hud(); }
+      if (q.get('stars')) { S.stars = [1, 2, 3, 4, 5, 6, 7].slice(0, +q.get('stars')); hud(); }
       if (q.get('lvl')) S.party.forEach(m => { m.lvl = +q.get('lvl'); m.hp = TT.maxHp(m); });
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       const ev = q.get('evt');
-      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev && ev.startsWith('wipe:')) { const w = ev.split(':'); TT.wipeTo(+w[1], 0.01, +w[2], w[3] ? parseInt(w[3], 16) : null); } if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
+      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev === 'wish') { busy = true; wish().then(() => { busy = false; }); } if (ev && ev.startsWith('wipe:')) { const w = ev.split(':'); TT.wipeTo(+w[1], 0.01, +w[2], w[3] ? parseInt(w[3], 16) : null); } if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
     }
     requestAnimationFrame(frame);
     setInterval(() => { if (performance.now() - lastReal > 400) G.tick(performance.now()); }, 200);
@@ -138,7 +139,8 @@
     if (fresh) S = newSave(ch);
     ch = S.ch; TT.S = S;
     player.root = wrap(TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), 0.42); player.x = cam.x = ch === 'ash' ? 1.5 : -1.5; player.z = cam.z = 8; player.h = Math.PI;
-    applyFlags();
+    { const f = S.flags; for (const n of S.stars) f['s' + n] = 1; if (f.profDone) f.s2 = 1; if (f.gym) f.s4 = 1; if (f.goku) f.s5 = 1; if (f.hideout) f.s6 = 1; if (f.vegeta) f.s7 = 1; }
+    applyFlags(); placeBalls();
     if (S.pos && isFinite(S.pos[0]) && isFinite(S.pos[1])) { const q2 = W.collide(S.pos[0], S.pos[1], 0.4); player.x = cam.x = q2[0]; player.z = cam.z = q2[1]; }   // pick up where they left off
     camY = W.gy(player.x, player.z); vel.x = vel.z = 0;
     setFollower(); follower.x = player.x + 1; follower.z = player.z + 0.8; applyFlags();
@@ -225,19 +227,21 @@
   // world state that depends on this player's progress: gates, Snorlax, Team Rocket, who follows you
   function applyFlags() {
     const f = S.flags;
-    W.setGate(!!f.city); W.setGate2(!!f.world);
+    W.setGate(!!f.city); W.setGate2(!!f.world); W.setTunnel(!!f.tunnel);
+    { const vi = W.colliders.indexOf(vegCol); if (f.vegeta && vi >= 0) W.colliders.splice(vi, 1); if (!f.vegeta && vi < 0) W.colliders.push(vegCol); }
     const ci = W.colliders.indexOf(W.snorlaxCol); snorlaxNpc.hidden = !!f.snorlax;
     if (f.snorlax && ci >= 0) W.colliders.splice(ci, 1); if (!f.snorlax && ci < 0) W.colliders.push(W.snorlaxCol);
-    for (const n of npcs) { if (n.key === 'hideout') n.hidden = !!f.hideout; if (n.key === 'goku') n.hidden = !!f.goku; if (n.key === 'gohan') n.hidden = !!f.gohan; }
+    for (const n of npcs) { if (n.key === 'hideout') n.hidden = !!f.hideout; if (n.key === 'goku') n.hidden = !!f.goku; if (n.key === 'gohan') n.hidden = !!f.gohan; if (n.key === 'vegeta') n.hidden = !!f.vegeta; }
     for (const c of comps) { scene.remove(c.root); TT.dispose(c.root); } comps = [];
-    for (const [k, on] of [['gohan', f.gohan], ['goku', f.goku]]) if (on) comps.push({ key: k, x: player.x - 1 - comps.length, z: player.z + 1.5, h: 0, mv: 0, root: wrap(TT.human(TT.PEOPLE[k]), 0.42) });
+    for (const [k, on] of [['gohan', f.gohan], ['goku', f.goku], ['vegeta', f.vegeta]]) if (on) comps.push({ key: k, x: player.x - 1 - comps.length, z: player.z + 1.5, h: 0, mv: 0, root: wrap(TT.human(TT.PEOPLE[k]), 0.42) });
   }
   // However you got somewhere (walking, flying, jumping to a friend), being there unlocks it: gates open, Fly works,
   // and the goal line moves on to the next thing that is really left to do.
   function arrive(ak) {
     const f = S.flags; let ch = false;
     if (ak !== 'town' && !f.city) { f.city = 1; ch = true; }
-    if (ak === 'world' && !f.world) { f.world = 1; ch = true; }
+    if ((ak === 'world' || ak === 'volcano') && !f.world) { f.world = 1; ch = true; }
+    if (ak === 'volcano' && !f.tunnel) { f.tunnel = 1; ch = true; }
     if (ch) { f.profMet = f.profDone = 1; applyFlags(); hud(); save(); }
   }
   // ---- fair fights: bosses match the whole team, and ease off a little each time you lose to them ----
@@ -302,7 +306,7 @@
   async function talk(n) {
     busy = true; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
     const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
-    if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk(); else if (n.key === 'guard2') await gail(n); else if (n.key === 'ranger') await ranger(); else if (n.key === 'goku') await gokuTalk(); else if (n.key === 'hideout') await hideout(); else if (n.key === 'snorlax') await snorlaxTalk();
+    if (n.key === 'krillin') await krillin(); else if (n.key === 'bulma') await bulma(); else if (n.key === 'vegeta') await vegetaTalk(); else if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk(); else if (n.key === 'guard2') await gail(n); else if (n.key === 'ranger') await ranger(); else if (n.key === 'goku') await gokuTalk(); else if (n.key === 'hideout') await hideout(); else if (n.key === 'snorlax') await snorlaxTalk();
     else if (!n.human) {
       await TT.say([[n.name, n.lines[0]]]);
       if (S.party.some(m => m.hp > 0) && await petAsk(n)) {
@@ -421,7 +425,7 @@
   }
   async function giveStar(n) {
     if (S.stars.indexOf(n) >= 0) return;
-    S.stars.push(n); TT.sfx.star(); hud();
+    S.stars.push(n); S.flags['s' + n] = 1; TT.sfx.star(); hud();
     const lines = [['', 'You got the ' + n + '-Star Dragon Ball!  (' + S.stars.length + ' of 7)']];
     if (n <= 3 && [1, 2, 3].every(q => S.stars.indexOf(q) >= 0)) lines.push(['', "That's every Dragon Ball hidden in town! The others wait in the City and beyond..."]);
     await TT.say(lines); save();
@@ -433,6 +437,125 @@
     if (S.party.length < 6) S.party.push(m); else { S.box.push(m); TT.toast(TT.monName(m) + ' was sent to the Lab!'); }
   }
 
+  // ---------- the Volcano, Vegeta, the Dragon and the wish ----------
+  const vegCol = { x: 390.4, z: -100, r: 2.6 };
+  let tunnelCd = 0, altarCd = 0, ballObjs = [], summoning = false;
+  const ask = (title, opts) => new Promise(res => {       // a list of big buttons; resolves with the index picked (the first one if the panel is closed)
+    openPanel('<h3>' + title + '</h3>' + opts.map((o, i) => '<button class="opt" data-w="' + i + '">' + o + '</button>').join(''));
+    panelDone = () => res(0);
+    document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { panelDone = null; closePanel(); TT.sfx.pick(); res(+b.dataset.w); });
+  });
+  async function travel(x, z, h) {      // through a tunnel: the screen closes and you come out the other side
+    busy = true; stopInput(); TT.sfx.whoosh(); await TT.wipeTo(1, 0.4, 1);
+    player.x = cam.x = x; player.z = cam.z = z; player.h = h; camY = W.gy(x, z); vel.x = vel.z = 0;
+    follower.x = x - Math.sin(h) * 1.2; follower.z = z - Math.cos(h) * 1.2 + 0.6; comps.forEach((c, i) => { c.x = x - Math.sin(h) * (2.2 + i); c.z = z - Math.cos(h) * (2.2 + i) + 0.9; });
+    await TT.wait(0.25); TT.wipeTo(0, 0.45, 1); tunnelCd = 2.5; busy = false; save();
+  }
+  async function tunnelIn() {
+    const f = S.flags;
+    if (f.tunnel) return travel(W.VOL_IN.x, W.VOL_IN.z, Math.PI / 2);
+    busy = true; stopInput(); tunnelCd = 5;
+    if (!f.goku) { await TT.say([['', 'Huge boulders block the tunnel. Someone very strong could move them...']]); busy = false; return; }
+    await TT.say([['Goku', 'Boulders? Leave them to me. Stand back!'], ['Goku', 'Ka... me... ha... me... HA!']]);
+    TT.sfx.zap(); await TT.wipeTo(1, 0.22, 1, 0xffffff); f.tunnel = 1; applyFlags(); TT.sfx.hit(); await TT.wipeTo(0, 0.5, 1, 0xffffff);
+    TT.sfx.star(); await TT.say([['Krillin', 'Whoa! The tunnel is open! The Volcano is on the other side.'], ['', 'The way to the Volcano is open!']]);
+    busy = false; tunnelCd = 1.2; hud(); save();
+  }
+  async function krillin() {
+    const N = 'Krillin', f = S.flags;
+    if (f.tunnel) return TT.say([[N, TT.pick(['The last Dragon Ball is in the Volcano. Vegeta is guarding it!', 'Vegeta is tough, but he respects strong trainers.', 'Seven Dragon Balls call the Dragon. It grants one wish!'])]]);
+    if (f.goku) return TT.say([[N, "Goku is with you? Great! Walk up to the boulders and he'll blast them away."]]);
+    return TT.say([[N, "Hi, I'm Krillin! This tunnel leads to the Volcano, but boulders fell and blocked it."], [N, 'My friend Goku could blast them away. He trains on the peak!']]);
+  }
+  async function bulma() {
+    const N = 'Bulma', f = S.flags; f.bulma = 1;
+    if (!S.wishes) return TT.say([[N, "Hi! I'm Bulma, the smartest inventor in the City."], [N, "I'm building a Dragon Radar. It finds Dragon Balls wherever they are!"], [N, "Come back after you have met the Dragon. You'll need it then."]]);
+    if (!f.radar) {
+      await TT.say([[N, 'The Dragon Balls scattered? Perfect timing!'], [N, 'Here, take my Dragon Radar. The balls show up as orange dots on your map.']]);
+      f.radar = 1; TT.sfx.caught(); await TT.say([['', 'You got the Dragon Radar!']]); return;
+    }
+    const left = (S.scat || []).length;
+    return TT.say([[N, left ? 'The radar shows ' + left + (left > 1 ? ' Dragon Balls' : ' Dragon Ball') + ' still out there. Tap your goal line to follow it!' : 'You found them all! Take them to the altar in the Volcano.']]);
+  }
+  async function vegetaTalk() {
+    const N = 'Vegeta';
+    if (!S.party.some(m => m.hp > 0)) return TT.say([[N, 'Hmph. Your Pokémon can barely stand. Heal them first.']]);
+    await TT.say([[N, 'Hmph. So you are the trainer Goku keeps talking about.'], [N, 'I am Vegeta, the Saiyan prince. The last Dragon Ball is mine!'], [N, "If you want it, beat me and my partner Mewtwo. I won't go easy!"]]);
+    const L = bossL('vegeta', 16, 0);
+    const r = await TT.Battle.start({ foes: [TT.mon('gyarados', L), TT.mon('machoke', L), TT.Battle.bossMon('mewtwo', L + 2, bossHp('vegeta', 2.0))], trainer: 'Vegeta', people: ['vegeta'], easy: true, stage: 'volcano', allies: allies(), music: 'goku', bossMusic: 'goku', bossTitle: "Vegeta's legendary partner" });
+    S.party.forEach(m => m.hp = TT.maxHp(m)); if (follower.sp !== S.party[0].sp) setFollower();
+    if (r !== 'win') { lost('vegeta'); return TT.say([[N, 'Ha! Is that all? Train harder and come back.'], ['', 'Your Pokémon rested and feel better. Try again!']]); }
+    await TT.say([[N, 'Impossible... You actually beat me.'], [N, 'Hmph. A promise is a promise. Take the Dragon Ball.']]); await giveStar(7);
+    await TT.say([[N, "Don't get the wrong idea. I'm coming along because I want to see this Dragon myself."], ['', 'Vegeta and Mewtwo joined your team!']]);
+    S.flags.vegeta = 1; applyFlags(); TT.sfx.caught(); TT.cry('mewtwo'); save();
+  }
+  async function altar() {
+    busy = true; stopInput(); altarCd = 6;
+    if (S.stars.length < 7) { await TT.say([['', 'A stone altar with seven empty hollows. It is waiting for all 7 Dragon Balls.']]); busy = false; return; }
+    // --- the summoning ---
+    await TT.say([['', 'The seven Dragon Balls begin to glow...']]);
+    summoning = true; TT.music(null);
+    for (let i = 0; i < 7; i++) {
+      const b = W.pedBalls[i], to = W.PEDS[i], x0 = player.x, z0 = player.z; b.visible = true; TT.sfx.pick();
+      await TT.tween(0.28, q => { b.position.set(x0 + (to[0] - x0) * q, 1.2 + Math.sin(q * 3.14) * 2.2 + (to[1] - 1.2) * q, z0 + (to[2] - z0) * q); b.rotation.y += 0.4; });
+    }
+    TT.tween(1.6, q => { TT.camZoom = 1 + 0.3 * q; W.altarBeam.material.opacity = 0.75 * q; W.altarBeam.scale.x = W.altarBeam.scale.z = 1.6 + Math.sin(q * 40) * 0.3; for (const b of W.pedBalls) b.rotation.y += 0.3; });
+    for (let i = 0; i < 3; i++) { TT.sfx.zap(); TT.wipeTo(0.0, 0.01, 1); const fl = $('flash'); if (fl) { fl.style.transition = 'none'; fl.style.background = '#fff'; fl.style.opacity = 0.8; requestAnimationFrame(() => { fl.style.transition = 'opacity .35s'; fl.style.opacity = 0; }); } await TT.wait(0.5); }
+    await TT.say([['', 'The sky goes dark. Lightning cracks!'], ['Shenron', 'I am the Eternal Dragon. Who has gathered the seven Dragon Balls?'], ['Shenron', 'Show me your strength, and I will grant you one wish!']]);
+    const n = S.wishes || 0, L = bossL('dragon', 18, 4 + n * 3), foe = TT.Battle.bossMon('shenron', L, bossHp('dragon', 2.6 + n * 0.3));
+    const r = await TT.Battle.start({ foes: [foe], wild: true, noCatch: true, easy: true, stage: 'lair', allies: allies(), music: 'dragon', bossMusic: 'dragon', bossTitle: 'The Eternal Dragon' });
+    summoning = false; TT.camZoom = 1; W.altarBeam.material.opacity = 0; for (const b of W.pedBalls) b.visible = false;
+    S.party.forEach(m => m.hp = TT.maxHp(m)); if (follower.sp !== S.party[0].sp) setFollower();
+    if (r === 'win') await wish();
+    else if (r === 'run') await TT.say([['Shenron', 'Return when you are ready.']]);
+    else { lost('dragon'); await TT.say([['Shenron', 'You are not ready yet. Return when you are stronger.'], ['', 'Your Pokémon rested and feel better. Try again!']]); }
+    busy = false; altarCd = 6; hud(); save();
+  }
+  async function wish() {
+    await TT.say([['Shenron', 'You have proven yourself. Speak your wish!']]);
+    const lead = S.party[0], ty = TT.DEX[lead.sp][1], sup = TT.SUPER[ty] || 'Giga Impact', have = sp => S.party.concat(S.box).some(m => m.sp === sp);
+    const birds = ['articuno', 'zapdos', 'moltres'].filter(sp => !have(sp)), opts = [], acts = [];
+    if (birds.length) { opts.push('🦅 A legendary Pokémon joins my team'); acts.push('bird'); }
+    if (!lead.sup) { opts.push('💥 Teach ' + TT.monName(lead) + ' the super move ' + sup); acts.push('sup'); }
+    opts.push('⭐ Make my whole team 3 levels stronger'); acts.push('lvl');
+    opts.push('🎒 50 Poké Balls'); acts.push('balls');
+    const a = acts[await ask('🐉 Make a wish!', opts)];
+    if (a === 'bird') {
+      const names = { articuno: '❄ Articuno, the ice bird', zapdos: '⚡ Zapdos, the thunder bird', moltres: '🔥 Moltres, the fire bird' };
+      const sp = birds[await ask('Which legendary Pokémon?', birds.map(b => '<img src="' + TT.monPortrait(b) + '" style="width:52px;height:52px;vertical-align:middle"> ' + names[b]))];
+      const m = TT.mon(sp, Math.max(20, lead.lvl - 3)); addMon(m); TT.cry(sp); TT.sfx.caught(); await TT.say([['', TT.monName(m) + ' joined your team!']]);
+    } else if (a === 'sup') { lead.sup = [sup, ty, 100]; TT.sfx.level(); TT.toast(TT.monName(lead) + ' learned ' + sup + '!'); await TT.say([['', 'Your partner learned a super move!']]); }
+    else if (a === 'lvl') { S.party.forEach(m => { m.lvl = Math.min(99, m.lvl + 3); m.hp = TT.maxHp(m); }); TT.sfx.level(); await TT.say([['', 'Your whole team grew 3 levels!']]); }
+    else { S.balls += 50; TT.sfx.pick(); await TT.say([['', 'You got 50 Poké Balls!']]); }
+    await TT.say([['Shenron', 'Your wish is granted. Farewell!']]);
+    S.wishes = (S.wishes || 0) + 1; scatter(); TT.sfx.star();
+    await TT.say([['', 'The seven Dragon Balls shoot into the sky and scatter across the world!'], ['', S.flags.radar ? 'Use the Dragon Radar to find them again.' : 'Bulma in the City is building a Dragon Radar. Go and see her!']]);
+  }
+  // after a wish the balls land in seven new hiding places, different every time
+  function scatter() {
+    const idx = W.SCATTER.map((s, i) => i); for (let i = idx.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    S.scat = idx.slice(0, 7).map((si, i) => { const sp = W.SCATTER[si], q = W.collide(sp[0], sp[1], 0.6); return { n: i + 1, x: +q[0].toFixed(1), z: +q[1].toFixed(1), h: sp[2] }; });
+    S.stars = []; placeBalls(); hud();
+  }
+  function placeBalls() {
+    for (const b of ballObjs) scene.remove(b.o); ballObjs = [];
+    for (const d of (S && S.scat) || []) { const o = TT.starBall(d.n, 0.3); o.position.set(d.x, W.gy(d.x, d.z) + 0.6, d.z); scene.add(o); ballObjs.push({ o, d }); }
+  }
+  // ---------- how much of each area is done (shown on the map) ----------
+  function areaProgress(key) {
+    const f = S.flags, items = [], kinds = [];
+    for (const z of W.zones) if (areaKey(z.x, z.z) === key) for (const sp of z.pool) if (kinds.indexOf(sp) < 0) kinds.push(sp);
+    const got = kinds.filter(sp => S.caught.indexOf(sp) >= 0).length, add = (t, done) => items.push({ t, done: !!done });
+    if (key === 'town') { add('Help Professor Oak', f.profDone); add('Hatch an egg', f.hatched); add('Beat Team Rocket', f.s1 || S.rocket > 0); add('Find the hidden Dragon Ball', f.s3); }
+    else if (key === 'city') { add('Win the City Gym', f.gym); add('Team up with Gohan', f.gohan); add('Meet Bulma the inventor', f.bulma); }
+    else if (key === 'world') { add('Wake up Snorlax', f.snorlax); add('Battle Goku', f.goku); add("Stop Team Rocket's robot", f.hideout); add('Open the Volcano Tunnel', f.tunnel); }
+    else { add('Beat Vegeta', f.vegeta); add('Call the Dragon and make a wish', S.wishes > 0); add('Find all 7 Dragon Balls again', S.wishes > 1 || (S.wishes > 0 && S.stars.length >= 7)); }
+    items.push({ t: 'Catch every kind of Pokémon here (' + got + ' of ' + kinds.length + ')', done: got >= kinds.length, part: kinds.length ? got / kinds.length : 1 });
+    return { pct: Math.round(items.reduce((a, it) => a + (it.done ? 1 : it.part || 0), 0) / items.length * 100), items };
+  }
+  const pbar = pct => '<span class="pbar"><i style="width:' + pct + '%"></i></span><small class="pct">' + (pct >= 100 ? '⭐ All done!' : pct + '% done') + '</small>';
+  const todoList = key => { const p = areaProgress(key); return '<div class="todo"><b>' + AREAS[key].name + ': ' + (p.pct >= 100 ? '⭐ all done!' : p.pct + '% done') + '</b>' + pbar(p.pct).replace(/<small.*$/, '') + p.items.map(it => '<span class="' + (it.done ? 'ok' : '') + '">' + (it.done ? '✅ ' : '⬜ ') + it.t + '</span>').join('') + '</div>'; };
+
   // ---------- events ----------
   async function wildBattle(w) {
     if (!S.party.some(m => m.hp > 0)) { TT.toast('Your Pokémon are tired! Visit Nurse Joy.'); battleCd = 4; return; }
@@ -443,9 +566,10 @@
   }
   async function whiteOut() {
     const a = areaKey(player.x, player.z);
-    S.party.forEach(m => m.hp = TT.maxHp(m)); if (a === 'world') { player.x = W.RANGER.x + 1.5; player.z = W.RANGER.z + 2; } else if (a === 'city') { player.x = W.NURSE2.x + 1; player.z = W.NURSE2.z + 1.8; } else { player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; } follower.x = player.x + 1; follower.z = player.z + 1; cam.x = player.x; cam.z = player.z;
+    S.party.forEach(m => m.hp = TT.maxHp(m)); if (a === 'volcano') { player.x = W.VOL_IN.x + 1; player.z = W.VOL_IN.z; } else if (a === 'world') { player.x = W.RANGER.x + 1.5; player.z = W.RANGER.z + 2; } else if (a === 'city') { player.x = W.NURSE2.x + 1; player.z = W.NURSE2.z + 1.8; } else { player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; } follower.x = player.x + 1; follower.z = player.z + 1; cam.x = player.x; cam.z = player.z;
     TT.sfx.heal();
-    if (a === 'world') await TT.say([['Ranger Rita', 'Oh no, your Pokémon fainted! I brought you back to my cabin and healed them.'], ['Ranger Rita', 'Be careful out there!']]);
+    if (a === 'volcano') await TT.say([['', 'Your Pokémon fainted! Goku carried you back to the tunnel and they rested up.']]);
+    else if (a === 'world') await TT.say([['Ranger Rita', 'Oh no, your Pokémon fainted! I brought you back to my cabin and healed them.'], ['Ranger Rita', 'Be careful out there!']]);
     else await TT.say([['Nurse Joy', 'Oh dear, your Pokémon fainted! I carried you back and healed them all up.'], ['Nurse Joy', 'Be careful out there!']]);
   }
   async function hatch() {
@@ -460,7 +584,7 @@
     baby.position.set(ex, 0, ez); scene.add(baby);
     await TT.tween(0.5, k => { flash.scale.setScalar(1.6 * (1 - k) + 0.01); baby.scale.setScalar(0.2 + 0.8 * k); baby.position.y = Math.sin(k * 3.14) * 0.6; });
     scene.remove(flash);
-    const m = TT.mon(sp, 3); S.egg = { have: false, warm: 0 }; eggReadyAt = playT + 240;
+    const m = TT.mon(sp, 3); S.egg = { have: false, warm: 0 }; S.flags.hatched = 1; eggReadyAt = playT + 240;
     await TT.say([['', 'The egg hatched! It\'s a baby ' + TT.monName(m) + '!'], ['', TT.monName(m) + ' joined your team!']]);
     scene.remove(baby); addMon(m); hud(); save(); busy = false;
   }
@@ -497,7 +621,7 @@
     while (TT.dialogOpen) await TT.wait(0.1);
     follower.x = player.x + 1; follower.z = player.z + 0.5; if (follower.sp !== S.party[0].sp) setFollower();
     S.rocket++;
-    if (r === 'win') { if (S.stars.indexOf(1) < 0) { await TT.say([['', 'Team Rocket dropped something shiny...']]); await giveStar(1); } else { S.balls += 3; TT.sfx.pick(); await TT.say([['', 'Team Rocket dropped 3 Poké Balls!']]); } }
+    if (r === 'win') { if (S.stars.indexOf(1) < 0 && !S.wishes) { await TT.say([['', 'Team Rocket dropped something shiny...']]); await giveStar(1); } else { S.balls += 3; TT.sfx.pick(); await TT.say([['', 'Team Rocket dropped 3 Poké Balls!']]); } }
     nextRocket = playT + rand(240, 360); battleCd = 2; TT.music(TT.areaMusic()); hud(); save(); busy = false;
   }
 
@@ -517,9 +641,14 @@
     else if (!f.snorlax) { q = '➜ Cross the big bridge and wake up the sleeping Snorlax'; g = at(W.SNORLAX.x - 5, W.SNORLAX.z, 'the sleeping Snorlax'); }
     else if (!f.goku) { q = "➜ Climb to Goku's Peak and meet Goku"; g = at(W.PLATEAU.x - 2.5, W.PLATEAU.z, "Goku's Peak"); }
     else if (!f.hideout) { q = '➜ Stop Team Rocket at their hideout in the south'; g = at(204, -149.5, "Team Rocket's hideout"); }
-    else if (S.stars.indexOf(3) < 0) { q = '➜ Something shiny is hiding in the trees behind the town pond...'; g = at(W.STARSPOT.x - 2, W.STARSPOT.z, 'the hiding place'); }
-    else if (S.stars.indexOf(1) < 0) q = '➜ Beat Team Rocket when they swoop in, and they might drop something!';
-    else q = "★ 6 Dragon Balls! The Dragon's Lair opens soon.";
+    else if (!f.tunnel) { q = '➜ Find the Volcano Tunnel, north-east of the Whisper Forest'; g = at(W.TUNNEL.x - 3, W.TUNNEL.z, 'the Volcano Tunnel'); }
+    else if (!f.vegeta) { q = '➜ Cross the Volcano and challenge Vegeta for the last Dragon Ball'; g = at(W.VEGETA.x - 2.2, W.VEGETA.z, 'Vegeta'); }
+    else if (S.stars.length >= 7) { q = "➜ Take all 7 Dragon Balls to the altar in the Dragon's Lair"; g = at(W.ALTAR.x - 4.2, W.ALTAR.z, "the Dragon's altar"); }
+    else if (!S.wishes && S.stars.indexOf(3) < 0) { q = '➜ Something shiny is hiding in the trees behind the town pond...'; g = at(W.STARSPOT.x - 2, W.STARSPOT.z, 'the hiding place'); }
+    else if (!S.wishes && S.stars.indexOf(1) < 0) q = '➜ Beat Team Rocket when they swoop in, and they might drop something!';
+    else if (S.wishes && !f.radar) { q = '➜ The Dragon Balls scattered! Ask Bulma in the City for her Dragon Radar'; g = at(14.5, -99.2, 'Bulma'); }
+    else if (S.wishes && S.scat && S.scat.length) { let b = S.scat[0], bd = 1e9; const here = areaKey(player.x, player.z); for (const c of S.scat) { const d = Math.hypot(c.x - player.x, c.z - player.z) + (areaKey(c.x, c.z) === here ? 0 : 500); if (d < bd) { bd = d; b = c; } } q = '➜ Find the Dragon Balls with the radar (' + S.stars.length + '/7)'; g = at(b.x, b.z, 'a Dragon Ball near ' + b.h); }
+    else q = '★ Keep exploring!';
     goal = g; if (g) q += '  📍';
     $('quest').textContent = q;
   }
@@ -565,9 +694,10 @@
   }
   function showMap() {
     const here = areaKey(player.x, player.z), f = S.flags;
-    const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? '📍 You are here' : 'Tap Fly to jump there') + '</small><span class="prow">' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' : '') + '<button class="seemap">🗺 Map</button></span></div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
-    let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="mapgrid">' + card('town', '🏡', 'Trainer Town', true) + card('city', '🏙️', 'The City', f.city, 'Ask Officer Gus at the gate') +
-      card('world', '🌍', 'The Wide World', f.world, 'Beat the City Gym first') + '<div class="place lock">🐉 Dragon\'s Lair<small>Needs all 7 Dragon Balls · coming soon</small></div></div><div class="stars">';
+    const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? '📍 You are here' : 'Tap Fly to jump there') + '</small>' + pbar(areaProgress(key).pct) + '<span class="prow">' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' : '') + '<button class="seemap">🗺 Map</button></span></div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
+    const keys = ['town', 'city', 'world', 'volcano'], all = Math.round(keys.reduce((a, k) => a + areaProgress(k).pct, 0) / keys.length);
+    let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="whole"><b>My whole adventure</b>' + pbar(all) + '</div><div class="mapgrid">' + card('town', '🏡', 'Trainer Town', true) + card('city', '🏙️', 'The City', f.city, 'Ask Officer Gus at the gate') +
+      card('world', '🌍', 'The Wide World', f.world, 'Beat the City Gym first') + card('volcano', '🌋', 'The Volcano', f.tunnel, 'Find the tunnel in the Wide World') + '</div><div class="stars">';
     for (let i = 1; i <= 7; i++) h += '<i class="' + (S.stars.indexOf(i) >= 0 ? 'got' : '') + '">' + '★'.repeat(i > 4 ? 1 : i) + (i > 4 ? i : '') + '</i>';
     h += '</div><p style="text-align:center;font-weight:700;margin:4px 0 10px">Dragon Balls: ' + S.stars.length + ' / 7</p><p style="text-align:center;margin:0"><button id="pReset" style="background:none;text-decoration:underline;font-size:13px;opacity:.6">Start this character over</button></p>';
     openPanel(h);
@@ -575,7 +705,7 @@
     document.querySelectorAll('[data-fly]').forEach(bt => bt.onclick = e => { e.stopPropagation(); flyTo(bt.dataset.fly); });
     $('pReset').onclick = () => { if (confirm('Erase ' + pname + "'s saved game and start over?")) { localStorage.removeItem(slot); const u = cloudUrl(); if (u) fetch(u, { method: 'DELETE', keepalive: true }).catch(() => { }); setTimeout(() => location.reload(), 300); } };
   }
-  const SPAWN = { town: [0, 8], city: [0, -80], world: [80, -100] };
+  const SPAWN = { town: [0, 8], city: [0, -80], world: [80, -100], volcano: [333, -100] };
   // Fly: your trainer leaps into the sky, clouds close over the screen, and you drop in at the new place.
   async function flyTo(k) {
     if (busy || !SPAWN[k]) return; closePanel(); busy = flying = true; stopInput(); setDest(null);
@@ -626,6 +756,7 @@
   function toTitle() {
     save(); closePanel(); stopInput(); TT.hush(); setDest(null);
     scene.remove(player.root); TT.dispose(player.root); if (follower) { scene.remove(follower.root); TT.dispose(follower.root); } follower = null; eggObj.visible = false; player.root = null;
+    for (const b of ballObjs) scene.remove(b.o); ballObjs = [];
     S = null; TT.S = null; mode = 'title';
     for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn', 'bPause']) $(id).classList.add('hide');
     $('friends').innerHTML = ''; friendsDirty = true; cloudPush(); if (kidsList.length) buildProfiles(); buildShow();
@@ -635,7 +766,7 @@
 
   // ---------- maps ----------
   const css = n => '#' + n.toString(16).padStart(6, '0');
-  const AREAS = { town: { cx: 0, cz: 0, V: 62, span: 160, name: 'Trainer Town' }, city: { cx: 0, cz: -124, V: 60, span: 160, name: 'The City' }, world: { cx: 161, cz: -100, V: 92, span: 200, name: 'The Wide World' } };
+  const AREAS = { town: { cx: 0, cz: 0, V: 62, span: 160, name: 'Trainer Town' }, city: { cx: 0, cz: -124, V: 60, span: 160, name: 'The City' }, world: { cx: 161, cz: -100, V: 92, span: 200, name: 'The Wide World' }, volcano: { cx: 380, cz: -100, V: 60, span: 150, name: 'The Volcano' } };
   for (const k in AREAS) AREAS[k].ms = 512 / AREAS[k].span;
   const areaAt = (x, z) => AREAS[areaKey(x, z)];
   // one 512px picture per area, covering span x span units around the area's centre
@@ -648,7 +779,13 @@
       x.drawImage(W.groundCanvas, 0, 0, 512, 512);
       x.fillStyle = '#3fa6ea'; x.beginPath(); x.arc(X(W.POND.x), Z(W.POND.z), W.POND.r * MS, 0, 7); x.fill(); x.strokeStyle = '#cdeeff'; x.lineWidth = 2; x.stroke();
     } else if (a === AREAS.city) x.drawImage(W.cityCanvas, X(-56), Z(-180), 112 * MS, 112 * MS);
-    else {
+    else if (a === AREAS.volcano) {
+      x.fillStyle = '#4a3a36'; x.fillRect(0, 0, 512, 512); x.drawImage(W.volcCanvas, X(305), Z(-175), 150 * MS, 150 * MS);
+      x.strokeStyle = '#ff8a2a'; x.lineWidth = 7 * MS; x.beginPath(); for (let z = -175; z <= -25; z += 2) { const px = X(W.lavaX(z)), pz = Z(z); if (z === -175) x.moveTo(px, pz); else x.lineTo(px, pz); } x.stroke();
+      x.strokeStyle = '#ffd23c'; x.lineWidth = 2.5 * MS; x.beginPath(); for (let z = -175; z <= -25; z += 2) { const px = X(W.lavaX(z)), pz = Z(z); if (z === -175) x.moveTo(px, pz); else x.lineTo(px, pz); } x.stroke();
+      x.fillStyle = '#8a7a70'; x.fillRect(X(W.lavaX(-100) - 6.2), Z(-102.1), 12.4 * MS, 4.2 * MS);
+      x.fillStyle = '#8a82a0'; x.beginPath(); x.arc(X(W.ALTAR.x), Z(W.ALTAR.z), W.ALTAR.r * MS, 0, 7); x.fill(); x.fillStyle = '#f2c230'; x.beginPath(); x.arc(X(W.ALTAR.x), Z(W.ALTAR.z), 2 * MS, 0, 7); x.fill();
+    } else {
       const m = W.worldMap; x.drawImage(W.worldCanvas, X(m.x0), Z(m.z0), m.w * MS, m.d * MS);
       x.strokeStyle = '#3fa6ea'; x.lineWidth = 8.4 * MS; x.lineCap = 'butt'; x.beginPath(); for (let z = m.z0; z <= m.z0 + m.d; z += 2) { const px = X(W.riverX(z)), pz = Z(z); if (z === m.z0) x.moveTo(px, pz); else x.lineTo(px, pz); } x.stroke();
       for (const bz of W.BRIDGES) { x.fillStyle = '#a87646'; x.fillRect(X(W.riverX(bz) - 6.5), Z(bz - 2.2), 13 * MS, 4.4 * MS); }
@@ -664,7 +801,8 @@
     } else if (a === AREAS.city) {
       for (const b of W.buildings) roof(b[0], b[1], b[2], b[3], b[6].shop ? css(b[6].shop) : css(b[5]));
       roof(0, -171, 20, 10, '#f08030'); x.fillStyle = '#8a5a3a'; x.fillRect(X(-1.2), Z(-125.2), 2.4 * MS, 2.4 * MS);
-    } else {
+    } else if (a === AREAS.volcano) { x.strokeStyle = '#2a2026'; x.lineWidth = 2; x.strokeRect(X(326), Z(-154), 108 * MS, 108 * MS); }
+    else {
       roof(204, -170, 13, 11, '#9aa0ac'); x.fillStyle = '#e01818'; x.font = 'bold ' + (9 * MS) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('R', X(204), Z(-170));
       roof(86, -112, 8.8, 7, '#3a8a4a');
       x.strokeStyle = '#8a7a6a'; x.lineWidth = 3 * MS; x.beginPath(); x.arc(X(W.PLATEAU.x), Z(W.PLATEAU.z), W.PLATEAU.r * MS, Math.PI + 0.3, Math.PI + 6.283 - 0.3); x.stroke();
@@ -686,13 +824,14 @@
     for (const n of npcs) if (!n.hidden) dot(n.x, n.z, n.human ? '#ffd23c' : '#ffa0c0', 5);
     for (const w of wilds) if (w.spark) dot(w.x, w.z, '#fff27a', 6);
     for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 8); }
+    if (S.flags.radar && S.scat) for (const b of S.scat) { const bx = TT.clamp(X(b.x), 10, 254), bz = TT.clamp(Z(b.z), 10, 254), far = bx !== X(b.x) || bz !== Z(b.z); if (areaKey(b.x, b.z) !== areaKey(player.x, player.z)) continue; x.fillStyle = far ? 'rgba(255,154,31,.75)' : '#ff9a1f'; x.strokeStyle = '#23324a'; x.lineWidth = 2; x.beginPath(); x.arc(bx, bz, far ? 6 : 9, 0, 7); x.fill(); x.stroke(); }
     if (dest) { const dx = TT.clamp(X(dest.x), 14, 250), dz = TT.clamp(Z(dest.z), 14, 250); x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 3; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(132, 132); x.lineTo(dx, dz); x.stroke(); x.setLineDash([]); x.font = '26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('📍', dx, dz - 8); }
     x.save(); x.translate(132, 132); x.rotate(Math.PI - player.h); x.fillStyle = '#fff'; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -15); x.lineTo(11, 11); x.lineTo(0, 5); x.lineTo(-11, 11); x.closePath(); x.fill(); x.stroke(); x.restore();
   }
   function showAreaMap(key) {
-    const a = AREAS[key], places = key === 'city' ? W.CITY_PLACES : key === 'world' ? W.WORLD_PLACES : W.PLACES, V = a.V, MS = a.ms, hs = a.span / 2;
+    const a = AREAS[key], places = key === 'city' ? W.CITY_PLACES : key === 'world' ? W.WORLD_PLACES : key === 'volcano' ? W.VOLC_PLACES : W.PLACES, V = a.V, MS = a.ms, hs = a.span / 2;
     const size = Math.max(240, Math.min(window.innerWidth * 0.86, window.innerHeight * 0.58, 560)) | 0;
-    openPanel('<h3>' + a.name + ' <button id="pClose">✕</button></h3><canvas id="townMap" width="' + size * 2 + '" height="' + size * 2 + '" style="width:' + size + 'px;height:' + size + 'px"></canvas><div id="mapInfo">Tap a place to learn about it.</div><div class="row"><button id="mGo" disabled>📍 Guide me there</button><button id="mClear" class="alt">Stop guiding</button><button id="mBack" class="alt">World map</button></div>');
+    openPanel('<h3>' + a.name + ' <button id="pClose">✕</button></h3><canvas id="townMap" width="' + size * 2 + '" height="' + size * 2 + '" style="width:' + size + 'px;height:' + size + 'px"></canvas><div id="mapInfo">Tap a place to learn about it.</div><div class="row"><button id="mGo" disabled>📍 Guide me there</button><button id="mClear" class="alt">Stop guiding</button><button id="mBack" class="alt">World map</button></div>' + todoList(key));
     const c = $('townMap'), x = c.getContext('2d'), k = size * 2 / (V * 2), X = v => (v - a.cx + V) * k, Z = v => (v - a.cz + V) * k, here = areaAt(player.x, player.z) === a; let sel = null, tick = 0;
     const draw = () => {
       if (!c.isConnected || !S) return clearInterval(iv);
@@ -704,6 +843,7 @@
       }
       const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.arc(X(px), Z(pz), r, 0, 7); x.fill(); x.stroke(); };
       for (const n of npcs) if (n.human && !n.hidden) dot(n.x, n.z, '#ffd23c', 6);
+      if (S.flags.radar && S.scat) for (const b of S.scat) { dot(b.x, b.z, '#ff9a1f', 11); x.font = 26 * size / 500 + 'px sans-serif'; x.fillStyle = '#c22'; x.fillText('★', X(b.x), Z(b.z) + 1); }
       for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 10); }
       const d = sel || (dest && { x: dest.x, z: dest.z }); if (d) { x.font = 44 * size / 500 + 'px sans-serif'; x.fillText('📍', X(d.x), Z(d.z) - 16); }
       if (here) { const pulse = 10 + Math.sin(tick * 0.5) * 4; x.fillStyle = 'rgba(255,255,255,.4)'; x.beginPath(); x.arc(X(player.x), Z(player.z), pulse + 8, 0, 7); x.fill(); dot(player.x, player.z, '#e8402a', 9); }
@@ -893,15 +1033,24 @@
         if (S.egg.warm >= 100) hatch();
       }
       // hidden dragon ball
-      if (S.stars.indexOf(3) < 0 && dist(W.STARSPOT, player) < 1.5) { busy = true; giveStar(3).then(() => { busy = false; }); }
+      if (S.stars.indexOf(3) < 0 && !S.wishes && dist(W.STARSPOT, player) < 1.5) { busy = true; giveStar(3).then(() => { busy = false; }); }
       // wild encounters
       if (battleCd <= 0 && !busy) for (const w of wilds) if (Math.hypot(w.x - player.x, w.z - player.z) < 1.25) { wildBattle(w); break; }
       for (let i = respawns.length - 1; i >= 0; i--) if (respawns[i].at < playT) { spawnWild(respawns[i].z); respawns.splice(i, 1); }
+      // the Volcano: tunnel mouths, the Dragon's altar, and Dragon Balls lying around after a wish
+      tunnelCd -= dt; altarCd -= dt;
+      if (!busy && tunnelCd <= 0) {
+        if (Math.hypot(player.x - (W.TUNNEL.x + 0.4), player.z - W.TUNNEL.z) < (S.flags.tunnel ? 1.7 : 3.15)) tunnelIn();
+        else if (dist(W.VOL_EXIT, player) < 1.6) travel(W.TUNNEL.x - 2.6, W.TUNNEL.z, -Math.PI / 2);
+      }
+      if (!busy && altarCd <= 0 && dist(W.ALTAR, player) < 3.3) altar();
+      if (!busy) for (const b of ballObjs) if (Math.hypot(b.d.x - player.x, b.d.z - player.z) < 1.4) { busy = true; scene.remove(b.o); ballObjs.splice(ballObjs.indexOf(b), 1); S.scat.splice(S.scat.indexOf(b.d), 1); giveStar(b.d.n).then(async () => { if (!S.scat.length) await TT.say([['', "That's all seven! Take them back to the altar in the Dragon's Lair."]]); busy = false; hud(); save(); }); break; }
+      if (!S.wishes && S.flags.vegeta && S.stars.indexOf(1) < 0 && nextRocket > playT + 25) nextRocket = playT + 25;
       if (!busy && playT > nextRocket) rocketEvent();
       if ((saveT += dt) > 20) { saveT = 0; save(); cloudPush(); }
     } else { player.mv = 0; vel.x = vel.z = 0; }
 
-    starObj.visible = S.stars.indexOf(3) < 0; starObj.rotation.y = t * 1.5; starObj.position.y = 0.7 + Math.sin(t * 2) * 0.12;
+    starObj.visible = S.stars.indexOf(3) < 0 && !S.wishes; starObj.rotation.y = t * 1.5; starObj.position.y = 0.7 + Math.sin(t * 2) * 0.12;
     placeEnt(player, true); player.root.visible = true;
     if (!busy || !TT.Battle.active) {
       follow(follower, player.x, player.z, dt, 1.5);
@@ -922,8 +1071,10 @@
       camY += (W.gy(player.x, player.z) - camY) * Math.min(1, dt * 4);
       camera.position.set(cam.x, camY + 12.5 * zm * out, cam.z + 12.5 * zm * out); camera.lookAt(cam.x, camY + 1, cam.z - 1);
       // area music and a little title card when you arrive somewhere new
-      const ak = areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World' }[ak]); areaNow = ak; arrive(ak); }
+      const ak = areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World', volcano: '🌋 The Volcano' }[ak]); areaNow = ak; arrive(ak); }
       if (!busy && !TT.dialogOpen) { const m = TT.areaMusic(); if (TT.musicName() !== m) TT.music(m); }
+      { const want = summoning ? 'summon' : ak === 'volcano' ? 'volcArea' : null; if (W.stageNow !== want) W.applyStage(want); }
+      for (const b of ballObjs) { b.o.rotation.y = t * 1.6; b.o.position.y = W.gy(b.d.x, b.d.z) + 0.6 + Math.sin(t * 2.4 + b.d.n) * 0.12; }
     }
     if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp, b: TT.Battle.owning() ? 1 : 0, n: pname }); }
   }
@@ -961,6 +1112,7 @@
     renderer.render(scene, camera);
   };
   TT.areaMusic = () => { if (mode !== 'play') return 'title'; const a = areaKey(player.x, player.z); return a === 'world' && Math.hypot(player.x - W.PLATEAU.x, player.z - W.PLATEAU.z) < 24 ? 'goku' : a; };
+  G.areaProgress = k => areaProgress(k);
   // test hooks
   G.toTitle = toTitle; G.setPause = setPause;
   G.dbg = () => ({ S, player, camera, renderer, quality, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
