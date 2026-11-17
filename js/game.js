@@ -370,6 +370,47 @@
     return true;
   }
 
+  // ---------- the Dragon Radar and grown-up help ----------
+  // Bulma gives the real radar after the first wish. Dad always has one, and a grown-up can lend it to a child for a while (from Dad mode, or from the menu on the child's own device).
+  const radarOn = () => !!S && !!(S.flags.radar || S.ch === 'dad' || (S.radarUntil || 0) > Date.now());
+  const AREA_NAME = { town: 'Trainer Town', city: 'the City', world: 'the Wide World', volcano: 'the Volcano' };
+  function radarSpots() {            // every Dragon Ball this player does not have yet, and where it is
+    if (!S) return [];
+    if (S.wishes) return (S.scat || []).map(b => ({ n: b.n, x: b.x, z: b.z, t: 'lying near ' + (b.h || 'somewhere') + ' in ' + (AREA_NAME[areaKey(b.x, b.z)] || 'the world') }));
+    const where = [null, null, [3.5, -21.5, 'Professor Oak gives it to you at the Lab, after you catch 3 kinds of Pokémon'], [W.STARSPOT.x, W.STARSPOT.z, 'hidden inside the ring of trees just past the town pond (east side of Trainer Town)'], [0, -159.5, 'win it from Leader Misty at the City Gym'],
+      [W.PLATEAU.x - 2.5, W.PLATEAU.z, "Goku gives it to you on Goku's Peak in the Wide World"], [204, -149.5, "beat the robot at Team Rocket's hideout in the Wide World"], [W.VEGETA.x - 2.2, W.VEGETA.z, 'beat Vegeta at the lava bridge in the Volcano']];
+    const out = []; for (let n = 1; n <= 7; n++) { if (S.stars.indexOf(n) >= 0) continue; const q = where[n]; out.push(q ? { n, x: q[0], z: q[1], t: q[2] } : { n, t: 'Team Rocket drop it the first time you beat them. They swoop in by themselves, so keep exploring.' }); }
+    return out;
+  }
+  function showRadar() {
+    const on = radarOn(), sp = radarSpots(), left = (S.radarUntil || 0) - Date.now();
+    let h = '<h3>📡 Dragon Radar <button id="pClose">✕</button></h3><p style="margin:0 0 8px">You have <b>' + S.stars.length + ' of 7</b> Dragon Balls.</p>';
+    if (!on) h += '<p style="opacity:.75;margin:0">The radar is switched off. A grown-up can lend it to you from the menu (☰ → Grown-up help), or Bulma gives you one after your first wish.</p>';
+    else {
+      if (!S.flags.radar && S.ch !== 'dad' && left > 0) h += '<p style="opacity:.75;margin:0 0 8px">Borrowed for ' + Math.ceil(left / 60000) + ' more minute' + (left > 60000 ? 's' : '') + '.</p>';
+      if (!sp.length) h += '<p style="margin:0">You have all seven! Take them to the altar in the Volcano.</p>';
+      sp.forEach((b, i) => { h += '<button class="opt" data-i="' + i + '">⭐ <b>' + b.n + '-Star:</b> ' + b.t + (b.x != null ? ' <span style="color:#c2410c">➜ Show me</span>' : '') + '</button>'; });
+    }
+    openPanel(h);
+    sp.forEach((b, i) => { const el = $('panelIn').querySelector('[data-i="' + i + '"]'); if (el && b.x != null) el.onclick = () => { setDest({ x: b.x, z: b.z }); closePanel(); TT.sfx.pick(); TT.toast('📍 Follow the dotted line on the little map'); }; });
+  }
+  function lendRadar(min, who) { S.radarUntil = Date.now() + min * 60000; save(); hud(); TT.sfx.caught(); TT.toast('📡 ' + who + ' lent you the Dragon Radar for ' + min + ' minutes! Tap the Dragon Ball counter at the top.'); }
+  function healTeam(who) { S.party.forEach(m => m.hp = TT.maxHp(m)); save(); TT.sfx.heal(); TT.toast('💖 ' + who + ' healed your whole team!'); }
+  // Grown-up help on the child's own device, behind a sum a small child will not know
+  function showHelp() {
+    const a = 6 + Math.floor(Math.random() * 4), b = 6 + Math.floor(Math.random() * 4), ans = a * b, opts = [ans, ans + (Math.random() < 0.5 ? 6 : -6), ans + (Math.random() < 0.5 ? 9 : -8)].sort(() => Math.random() - 0.5);
+    openPanel('<h3>🧰 Grown-up help <button id="pClose">✕</button></h3><p style="margin:0 0 8px">For grown-ups: what is <b>' + a + ' × ' + b + '</b>?</p>' + opts.map((o, i) => '<button class="opt" data-a="' + o + '">' + o + '</button>').join(''));
+    $('panelIn').querySelectorAll('[data-a]').forEach(el => { el.onclick = () => { if (+el.dataset.a === ans) helpTools(); else { closePanel(); TT.toast('Not quite. Ask a grown-up!'); } }; });
+  }
+  function helpTools() {
+    openPanel('<h3>🧰 Grown-up help <button id="pClose">✕</button></h3><button class="opt" id="hRadar">📡 Lend the Dragon Radar for 15 minutes</button><button class="opt" id="hWay">🧭 Show the way to the next goal</button><button class="opt" id="hHeal">💖 Heal the whole team</button><button class="opt" id="hBalls">🎁 Add 10 Poké Balls</button><button class="opt" id="hUnstick">🏥 Stuck somewhere? Carry the trainer to the Poké Center</button><p style="font-size:13px;opacity:.7;margin:4px 0 0">The radar shows every missing Dragon Ball on the maps. Tap the Dragon Ball counter at the top to open it.</p>');
+    $('hRadar').onclick = () => { closePanel(); lendRadar(15, 'A grown-up'); showRadar(); };
+    $('hWay').onclick = () => { closePanel(); if (goal) { setDest(goal); TT.toast('📍 Follow the dotted line on the little map'); } else TT.toast($('quest').textContent); };
+    $('hHeal').onclick = () => { closePanel(); healTeam('A grown-up'); };
+    $('hBalls').onclick = () => { closePanel(); S.balls += 10; hud(); save(); TT.sfx.caught(); TT.toast('🎁 10 Poké Balls added!'); };
+    $('hUnstick').onclick = () => { closePanel(); if (busy || TT.Battle.active) return; const q = W.collide(W.CENTER.x + 1.5, W.CENTER.z + 4.5, 0.4); poof(player.x, player.z); player.x = cam.x = q[0]; player.z = cam.z = q[1]; camY = W.gy(q[0], q[1]); vel.x = vel.z = 0; if (follower) { follower.x = player.x + 0.9; follower.z = player.z + 0.7; } areaNow = 'town'; arrive('town'); poof(player.x, player.z); save(); TT.toast('🏥 Back at the Poké Center in Trainer Town'); };
+  }
+
   // ---------- talking ----------
   function nearestWild() { let best = null, bd = 3.6; for (const w of wilds) { const d = Math.hypot(w.x - player.x, w.z - player.z); if (d < bd) { bd = d; best = w; } } return best; }
   function nearestNpc() { let best = null, bd = 2.9; for (const n of npcs) { if (n.hidden) continue; const d = dist(n, player) - (n.reach ? n.reach - 2.9 : 0); if (d < bd) { bd = d; best = n; } } return best; }
@@ -770,7 +811,7 @@
   }
   function hud() {
     if (!S) return;
-    $('nBall').textContent = S.balls; $('nStar').textContent = S.stars.length;
+    $('nBall').textContent = S.balls; $('nStar').textContent = S.stars.length; $('chipStar').classList.toggle('radar', radarOn());
     $('chipEgg').classList.toggle('hide', !S.egg.have); { const wv = Math.round(Math.min(100, S.egg.warm)); if (wv !== eggShown) { eggShown = wv; $('eggBar').style.width = wv + '%'; } }
     const qg = questOf(S); let q = qg[0]; const g = qg[1];
     goal = g; if (g) q += '  📍';
@@ -868,7 +909,7 @@
   // ---------- menu, main-menu return ----------
   function showMenu() {
     const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = '🛟 Easy mode: ' + (S.easy ? 'On — stronger hits, gentler bosses, free healing' : 'Off'); $('mCam').textContent = '🎥 Camera: ' + (S.camFar ? 'Far (see more)' : 'Close (bigger characters)'); };
-    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt" id="mCam"></button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
+    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt" id="mCam"></button><button class="opt" id="mHelp">🧰 Grown-up help (radar, healing, unstick)</button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
     lab();
     $('mResume').onclick = closePanel;
     $('mSound').onclick = () => { TT.setMuted(!TT.muted); lab(); };
@@ -876,6 +917,7 @@
     $('mMini').onclick = () => { setMini(!miniOn); lab(); };
     $('mEasy').onclick = () => { S.easy = S.easy ? 0 : 1; if (S.easy) S.party.forEach(m => m.hp = TT.maxHp(m)); save(); lab(); TT.sfx.pick(); };
     $('mCam').onclick = () => { S.camFar = S.camFar ? 0 : 1; save(); lab(); TT.sfx.blip(); };
+    $('mHelp').onclick = showHelp;
     $('mTitle').onclick = toTitle;
   }
   function toTitle() {
@@ -949,7 +991,7 @@
     for (const n of npcs) if (!n.hidden) dot(n.x, n.z, n.human ? '#ffd23c' : '#ffa0c0', 5);
     for (const w of wilds) if (w.spark) dot(w.x, w.z, '#fff27a', 6);
     for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 8); }
-    if (S.flags.radar && S.scat) for (const b of S.scat) { const bx = TT.clamp(X(b.x), 10, 254), bz = TT.clamp(Z(b.z), 10, 254), far = bx !== X(b.x) || bz !== Z(b.z); if (areaKey(b.x, b.z) !== areaKey(player.x, player.z)) continue; x.fillStyle = far ? 'rgba(255,154,31,.75)' : '#ff9a1f'; x.strokeStyle = '#23324a'; x.lineWidth = 2; x.beginPath(); x.arc(bx, bz, far ? 6 : 9, 0, 7); x.fill(); x.stroke(); }
+    if (radarOn()) for (const b of radarSpots()) { if (b.x == null) continue; const bx = TT.clamp(X(b.x), 10, 254), bz = TT.clamp(Z(b.z), 10, 254), far = bx !== X(b.x) || bz !== Z(b.z); if (areaKey(b.x, b.z) !== areaKey(player.x, player.z)) continue; x.fillStyle = far ? 'rgba(255,154,31,.75)' : '#ff9a1f'; x.strokeStyle = '#23324a'; x.lineWidth = 2; x.beginPath(); x.arc(bx, bz, far ? 6 : 9, 0, 7); x.fill(); x.stroke(); }
     if (dest) { const dx = TT.clamp(X(dest.x), 14, 250), dz = TT.clamp(Z(dest.z), 14, 250); x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 3; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(132, 132); x.lineTo(dx, dz); x.stroke(); x.setLineDash([]); x.font = '26px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('📍', dx, dz - 8); }
     x.save(); x.translate(132, 132); x.rotate(Math.PI - player.h); x.fillStyle = '#fff'; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -15); x.lineTo(11, 11); x.lineTo(0, 5); x.lineTo(-11, 11); x.closePath(); x.fill(); x.stroke(); x.restore();
   }
@@ -968,7 +1010,7 @@
       }
       const dot = (px, pz, col, r) => { x.fillStyle = col; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.arc(X(px), Z(pz), r, 0, 7); x.fill(); x.stroke(); };
       for (const n of npcs) if (n.human && !n.hidden) dot(n.x, n.z, '#ffd23c', 6);
-      if (S.flags.radar && S.scat) for (const b of S.scat) { dot(b.x, b.z, '#ff9a1f', 11); x.font = 26 * size / 500 + 'px sans-serif'; x.fillStyle = '#c22'; x.fillText('★', X(b.x), Z(b.z) + 1); }
+      if (radarOn()) for (const b of radarSpots()) { if (b.x == null || areaKey(b.x, b.z) !== key) continue; dot(b.x, b.z, '#ff9a1f', 11); x.font = 26 * size / 500 + 'px sans-serif'; x.fillStyle = '#c22'; x.fillText('★', X(b.x), Z(b.z) + 1); }
       for (const id in Net.peers) { const p = Net.peers[id]; if (p.root) dot(p.x, p.z, '#3aa0e8', 10); }
       const d = sel || (dest && { x: dest.x, z: dest.z }); if (d) { x.font = 44 * size / 500 + 'px sans-serif'; x.fillText('📍', X(d.x), Z(d.z) - 16); }
       if (here) { const pulse = 10 + Math.sin(tick * 0.5) * 4; x.fillStyle = 'rgba(255,255,255,.4)'; x.beginPath(); x.arc(X(player.x), Z(player.z), pulse + 8, 0, 7); x.fill(); dot(player.x, player.z, '#e8402a', 9); }
@@ -1013,6 +1055,7 @@
     $('bTeam').onclick = () => { if (!busy && S) showTeam(); }; $('bMap').onclick = () => { if (!busy && S) showMap(); };
     $('bMenu').onclick = () => { TT.audioInit(); if (!busy && S) showMenu(); };
     // tap the goal line: a guide arrow on the mini-map leads to the next thing to do
+    $('chipStar').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); TT.audioInit(); if (!S || busy || mode !== 'play' || TT.Battle.active || panelOpen) return; TT.sfx.blip(); showRadar(); });      // the Dragon Ball counter opens the radar
     $('quest').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); TT.audioInit(); if (!S || busy || mode !== 'play') return; if (!goal) { TT.toast('Keep exploring!'); return; } setMini(true); setDest(goal); TT.sfx.pick(); TT.toast('📍 Follow the arrow to ' + goal.n + '!'); });
     $('bUpdate').onclick = doUpdate;
     $('bPause').onclick = () => setPause(true); $('bResume').onclick = () => setPause(false);
@@ -1053,7 +1096,10 @@
       if (box.children.length) {
         const c = document.createElement('button'); c.className = 'dadb'; c.textContent = '📣 Cheer'; c.onclick = cheer; box.appendChild(c);
         const g = document.createElement('button'); g.className = 'dadb'; g.textContent = '🎁 Send Poké Balls'; g.onclick = gift; box.appendChild(g);
+        const r = document.createElement('button'); r.className = 'dadb'; r.textContent = '📡 Lend Dragon Radar'; r.onclick = () => { Net.send({ e: 'gift', k: 'radar', m: 15 }); TT.sfx.pick(); TT.toast('📡 You lent the Dragon Radar to everyone for 15 minutes'); }; box.appendChild(r);
+        const hl = document.createElement('button'); hl.className = 'dadb'; hl.textContent = '💖 Heal their teams'; hl.onclick = () => { if (playT - healAt < 30) { TT.toast('The medicine bag refills in a moment…'); return; } healAt = playT; Net.send({ e: 'gift', k: 'heal' }); TT.sfx.heal(); TT.toast("💖 You healed everyone's team"); }; box.appendChild(hl);
       }
+      const mr = document.createElement('button'); mr.className = 'dadb'; mr.textContent = '📡 My Dragon Radar'; mr.onclick = () => { if (!busy) showRadar(); }; box.appendChild(mr);
       const k = document.createElement('button'); k.className = 'dadb'; k.textContent = "📊 Kids' progress"; k.onclick = () => { if (!busy) showFamily(); }; box.appendChild(k);
     }
   }
@@ -1072,13 +1118,17 @@
     battleCd = 2.5; hud(); save(); busy = false;
   }
   function cheer() { const m = TT.pick(['Great job!', 'You can do it!', 'Awesome!', "That's my trainer!", 'Go go go!']); Net.send({ e: 'cheer', x: m }); TT.sfx.star(); TT.toast('📣 You cheered: ' + m); const u = player.root.userData.model.userData; u.gesture = 'cheer'; setTimeout(() => { u.gesture = null; }, 1800); }
+  let healAt = -99;
   function gift() { if (playT - giftAt < 45) { TT.toast('The gift bag refills in a moment…'); return; } giftAt = playT; Net.send({ e: 'gift', n: 5 }); TT.sfx.pick(); TT.toast('🎁 You sent 5 Poké Balls to everyone!'); }
   Net.onEvent = (id, d) => {
     if (d.e === 'b') return TT.Battle.onNet(id, d);
     if (!S) return;
     if (d.e === 'prog') { famSet(d.d, true); return; }
     if (d.e === 'cheer') { TT.sfx.star(); TT.toast('📣 Dad: ' + String(d.x).slice(0, 40)); const p = Net.peers[id]; if (p && p.root) { const u = p.root.userData.model.userData; u.gesture = 'cheer'; setTimeout(() => { u.gesture = null; }, 1800); } }
-    else if (d.e === 'gift' && S.ch !== 'dad') { S.balls += Math.min(5, d.n | 0); TT.sfx.caught(); TT.toast('🎁 Dad sent you 5 Poké Balls!'); hud(); save(); }
+    else if (d.e === 'gift' && S.ch !== 'dad') {
+      if (d.k === 'radar') lendRadar(TT.clamp(d.m | 0, 5, 30), 'Dad'); else if (d.k === 'heal') healTeam('Dad');
+      else { S.balls += Math.min(5, d.n | 0); TT.sfx.caught(); TT.toast('🎁 Dad sent you 5 Poké Balls!'); hud(); save(); }
+    }
   };
 
   // ---------- multiplayer avatars ----------

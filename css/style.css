@@ -8,6 +8,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 #stats{position:absolute;left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));display:flex;gap:8px;flex-wrap:wrap;max-width:60%}
 .chip{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.92);border:3px solid #23324a;border-radius:999px;padding:4px 12px 4px 6px;font-weight:800;font-size:18px;box-shadow:0 3px 0 rgba(35,50,74,.35)}
 .chip i{width:24px;height:24px;border-radius:50%;display:inline-block;border:2px solid #23324a}
+#chipStar{pointer-events:auto;cursor:pointer}#chipStar.radar{box-shadow:0 0 0 3px #ff9a1f,0 3px 0 rgba(35,50,74,.35)}#chipStar.radar::after{content:'📡';font-size:15px;margin-left:2px}
 i.ball{background:linear-gradient(#e8402a 0 44%,#23324a 44% 56%,#fff 56%)}
 i.dball{background:radial-gradient(circle at 35% 30%,#ffe9a0,#ff9a1f 60%,#d86a00)}
 i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:50% 50% 50% 50%/60% 60% 40% 40%;height:28px}
