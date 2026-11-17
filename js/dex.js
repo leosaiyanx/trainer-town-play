@@ -565,6 +565,14 @@
   const SHELL = (parent, rings, c, w, mid, grow, seg, pos, rot) => P(parent, TT.tube(rings.map(r => [r[0], r[1] * grow, r[2] * grow, c, 0, r[5] || 0, r[6] || 0]), seg, [mid - w, mid + w]), WH, pos, null, rot);
   const CREAM = 0xffe9a0;
   const turnTip = (ry, rx) => { const e = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0, 'YXZ')), 'XYZ'); return [e.x, e.y, e.z]; };      // turn round the upright axis, then tip forward: for leaves set round a centre
+  // a curved band over part of a one-piece body (stripes, belts)
+  const BAND = (parent, y0, y1, r, c, w, mid, pos, rot) => P(parent, TT.tube([[y0, r[0], r[1], c, 0], [y1, r[0], r[1], c, 0]], 8, [mid - w, mid + w]), WH, pos, null, rot);
+  // the usual four-legged body lying along the back-to-front axis, with an optional pale underside
+  const QB = (body, c, y, k, belly) => { const R = RG(c, [[-0.29, 0.05, 0.055], [-0.22, 0.13, 0.135], [-0.08, 0.155, 0.162], [0.08, 0.16, 0.168], [0.2, 0.135, 0.14], [0.27, 0.085, 0.09]], k); TB(body, R, 10, [0, y, 0], [Math.PI / 2, 0, 0]); if (belly != null) SHELL(body, R, belly, 1.0, Math.PI / 2, 1.03, 8, [0, y, 0], [Math.PI / 2, 0, 0]); return R; };
+  // a leaf-shaped ear that twitches, with an optional inner colour
+  const tEar = (h, ud, s, x, y, rz, L, w, c, inC) => { const e = grp(h, s * x, y, -0.01); e.userData.s = s; e.userData.rz = -s * rz; e.rotation.z = e.userData.rz; ud.ears.push(e); TB(e, RG(c, [[0, w * 0.6, 0.035], [L * 0.3, w, 0.04], [L * 0.62, w * 0.8, 0.035], [L * 0.88, w * 0.4, 0.02], [L, 0.008, 0.008]]), 8); if (inC != null) P(e, 'cone', inC, [0, L * 0.47, 0.03], [w * 0.58, L * 0.78, 0.014]); return e; };
+  // a ruff of fur round the neck of a four-legged Pokémon
+  const ruff = (body, c, n, sz) => { P(body, 'sph', c, [0, 0.37, 0.2], [0.185 * sz, 0.15 * sz, 0.13 * sz]); for (let i = 0; i < n; i++) { const a = -1.6 + i * 3.2 / (n - 1); P(body, 'cone', c, [Math.sin(a) * 0.16, 0.39 - Math.abs(Math.sin(a)) * 0.03, 0.2 + Math.cos(a) * 0.1], [0.11 * sz, 0.2 * sz, 0.075 * sz], [1.9 + Math.cos(a) * 0.55, 0, -Math.sin(a) * 1.25]); } };
   // a tail that curls round on itself (Squirtle), or a big fluffy swirl (Wartortle)
   const curlTail = (tl, c, n, r0, s0, c2) => { P(tl, 'sph', c, [0, 0.03, -0.02], s0 * 0.9); for (let i = 0; i < n; i++) { const a = i * 0.8, R = r0 * (1 - i / (n + 2)); P(tl, 'sph', c2 != null && i % 2 ? c2 : c, [0, r0 + 0.02 - Math.cos(a) * R, -r0 - 0.03 - Math.sin(a) * R], s0 * (1 - i * 0.085)); } };
   // Pikachu: a chubby pear-shaped body in one piece, big cheeks, long black-tipped ears, the lightning-bolt tail.
@@ -610,12 +618,15 @@
       P(body, 'sph', DARK, [0, 0.86, 0.085], [0.085, 0.1, 0.04]); P(body, 'cone', DARK, [0, 0.7, 0.115], [0.06, 0.22, 0.03], [Math.PI, 0, 0]);                                                              // chest fur
       P(body, 'sph', 0xf06a9a, [0.07, 0.93, 0.15], 0.06); P(body, 'sph', 0xf8a8c0, [0.07, 0.95, 0.19], [0.035, 0.02, 0.02]); P(body, TT.capsule(0.008, 0.16), DARK, [0.02, 0.93, 0.13], null, [0, 0, 1.2]);     // the flower bud on its vine
     } }); };
-  B.meowth = () => crit({ c: 0xf5e6b8, b: [0.19, 0.25, 0.165], by: 0.4, hy: 0.84, hz: 0.03, hr: 0.28, hs: [0.31, 0.25, 0.25], legs: 2, legLen: 1, legX: 0.45, legC: 0x9a6a3a, arms: 1, ear: 'cat', earC: BK, earIn: 0xf0a0b8, earX: 0.66, earY: 0.5, eyeS: 'slit', er: 0.2, ex: 0.12, ey: 0.02, ez: 0.228, eyeTurn: 0.35, tail: 'thin', tailTip: 0x9a6a3a, tailY: 0.6,
-    x: (g, h, body, f) => {
+  // Meowth: a cream cat on two legs with a wide head, black ears, a gold coin on its forehead, and brown feet and tail tip.
+  B.meowth = () => { const CR = 0xf5e6b8, BRN = 0x9a6a3a; return crit({ c: CR, noBody: 1, b: [0.19, 0.25, 0.165], by: 0.4, hy: 0.84, hz: 0.03, hr: 0.28, hs: [0.31, 0.25, 0.25], legs: 2, legT: 0.05, legX: 0.5, legC: BRN, foot: [0.08, 0.045, 0.14], arms: 1, armT: [0.24, 0.042], ear: 'cat', earC: BK, earIn: 0xf0a0b8, earX: 0.66, earY: 0.5, eyeS: 'slit', er: 0.2, ex: 0.12, ey: 0.02, ez: 0.228, eyeTurn: 0.35, tailY: 0.6,
+    x: (g, h, body, f, ud) => {
+      TB(body, RG(CR, [[0.14, 0.09, 0.08], [0.22, 0.16, 0.14], [0.36, 0.178, 0.152], [0.5, 0.15, 0.13], [0.62, 0.1, 0.095]]), 10);
+      TB(ud.tail, [[0, 0.028, 0.028, CR], [0.15, 0.026, 0.026, CR, 0, 0, 0.02], [0.3, 0.024, 0.024, CR, 0, 0, 0.09], [0.4, 0.024, 0.024, CR, 0, 0, 0.2], [0.402, 0.03, 0.03, BRN, 0, 0, 0.2], [0.44, 0.04, 0.04, BRN, 0, 0, 0.27], [0.45, 0.02, 0.02, BRN, 0, 0, 0.33]], 7, null, [-1.0, 0, 0]);
       P(f, 'sph', 0xf2c230, [0, 0.17, 0.235], [0.05, 0.085, 0.025], [-0.45, 0, 0]);
-      for (const s of [1, -1]) { for (const a of [0.18, -0.18]) P(f, 'box', 0xf5e6b8, [s * 0.34, -0.06 + a * 0.2, 0.1], [0.2, 0.012, 0.012], [0, 0, s * a]); P(h, 'box', 0xf5e6b8, [s * 0.06, 0.3, 0.02], [0.012, 0.14, 0.012], [0, 0, -s * 0.2]); P(f, 'cone', WH, [s * 0.04, -0.15, 0.225], [0.013, 0.04, 0.013], [Math.PI, 0, 0]); }
+      for (const s of [1, -1]) { for (const a of [0.18, -0.18]) P(f, 'box', CR, [s * 0.34, -0.06 + a * 0.2, 0.1], [0.2, 0.012, 0.012], [0, 0, s * a]); P(h, 'box', CR, [s * 0.06, 0.3, 0.02], [0.012, 0.14, 0.012], [0, 0, -s * 0.2]); P(f, 'cone', WH, [s * 0.04, -0.15, 0.225], [0.013, 0.04, 0.013], [Math.PI, 0, 0]); }
       P(f, 'box', 0x7a3a3a, [0, -0.125, 0.232], [0.1, 0.014, 0.012]);
-    } });
+    } }); };
   const pumpkin = (body, f, y, r, col) => {
     P(body, 'sph', col, [0, y, 0], [r, r * 0.85, r]);
     for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283 + 0.52; P(body, 'sph', col, [Math.sin(a) * r * 0.5, y, Math.cos(a) * r * 0.5], [r * 0.6, r * 0.8, r * 0.6]); }
@@ -632,22 +643,56 @@
       for (const s of [1, -1]) { P(f, 'sph', TT.glow(0xffe060), [s * 0.12, 0.23, 0.16], 0.025); const pv = grp(body, s * 0.13, 0.32, 0); pv.userData.s = s; P(pv, TT.capsule(0.022, 0.3), 0x8fd0e8, [s * 0.03, -0.17, 0], null, [0, 0, s * 0.2]); P(pv, 'sph', 0xffb6d9, [s * 0.065, -0.36, 0], 0.045); ud.arms.push(pv); P(body, TT.capsule(0.02, 0.14), 0x8fd0e8, [s * 0.05, 0.2, 0.05]); }
       P(f, 'cone', 0xffe9a0, [0, -0.1, 0.19], [0.03, 0.05, 0.03], [1.6, 0, 0]);
     } });
-  const bird = (c, belly, sc, crest) => crit({ c, belly, b: [0.2, 0.22, 0.26], by: 0.36, hy: 0.68, hz: 0.12, hr: 0.18, legs: 2, legLen: 1, shinC: 0xf0a04a, legX: 0.4, legC: 0xf0a04a, foot: [0.06, 0.03, 0.1], scale: sc, er: 0.2,
+  // Pidgey, Pidgeotto and Pidgeot: a plump brown bird with a cream face and chest, folded wings that flap when it runs, a fan tail and a crest that grows with each evolution.
+  const bird = (o) => { const C = o.c, CR = 0xf5e6b8, LEG = 0xe8a890; return crit({ c: C, hc: CR, noBody: 1, b: [0.2, 0.22, 0.26], by: 0.36, hy: 0.7, hz: 0.12, hr: 0.18, hs: [0.185, 0.172, 0.18], legs: 2, legLen: 1, shinC: LEG, legX: 0.4, legC: LEG, foot: [0.05, 0.025, 0.07], scale: o.sc, er: 0.2, tailY: 0.8,
     x: (g, h, body, f, ud) => {
-      P(h, 'cone', 0xf0b8a0, [0, -0.04, 0.2], [0.04, 0.1, 0.035], [1.57, 0, 0]); P(h, 'sph', crest, [0, 0.14, -0.03], [0.07, 0.12, 0.14], [-0.5, 0, 0]);
-      for (const s of [1, -1]) { P(f, 'box', 0x3a2a1a, [s * 0.1, 0.03, 0.14], [0.09, 0.016, 0.012], [0, s * 0.7, s * 0.3]); const w = grp(body, s * 0.18, 0.46, -0.02); w.userData.s = s; P(w, 'sph', c, [s * 0.03, -0.1, -0.02], [0.05, 0.17, 0.23]); P(w, 'sph', crest, [s * 0.04, -0.16, -0.12], [0.04, 0.1, 0.16]); (ud.wings = ud.wings || []).push(w); }
-      P(body, 'box', crest, [0, 0.36, -0.32], [0.16, 0.03, 0.24], [0.4, 0, 0]);
-    } });
-  B.pidgey = () => bird(0xc89b5a, 0xf5e6b8, 0.9, 0x9a6a3a);
-  B.pidgeotto = () => bird(0xb8834f, 0xf5e6b8, 1.3, 0xe8603a);
-  B.rattata = () => crit({ c: 0xa070c0, belly: 0xf5e6b8, b: [0.18, 0.18, 0.28], by: 0.27, hy: 0.47, hz: 0.28, hr: 0.19, snout: 1, snoutC: 0xf5e6b8, legs: 4, legC: 0xf5e6b8, ear: 'round', earIn: 0xf5e6b8, earY: 0.6, eye: 0xc02a2a, er: 0.2, tail: 'curl',
-    x: (g, h, body, f) => { P(f, 'box', WH, [0, -0.115, 0.185], [0.055, 0.06, 0.02]); P(f, 'sph', 0x5a3a5a, [0, -0.03, 0.215], 0.018); for (const s of [1, -1]) for (const a of [0.2, -0.2]) P(f, 'box', 0xa070c0, [s * 0.2, -0.05, 0.14], [0.16, 0.008, 0.008], [0, 0, a]); } });
+      const R = [[0.13, 0.08, 0.09, C, 0, 0, -0.08], [0.2, 0.17, 0.19, C, 0, 0, -0.05], [0.33, 0.205, 0.235, C, 0, 0, -0.01], [0.47, 0.185, 0.2, C, 0, 0, 0.04], [0.58, 0.14, 0.15, C, 0, 0, 0.09], [0.66, 0.1, 0.11, C, 0, 0, 0.12]];
+      TB(body, R, 11); SHELL(body, R, CR, 1.05, Math.PI / 2, 1.025, 8);
+      TB(h, RG(C, [[0.035, 0.192, 0.186, 0, -0.012], [0.1, 0.16, 0.16, 0, -0.012], [0.16, 0.09, 0.1, 0, -0.012]]), 10);                         // brown cap
+      P(h, 'sph', C, [0, 0.0, -0.045], [0.191, 0.177, 0.16]);                                                                             // and the back of the head
+      P(h, 'cone', 0xf0b8a0, [0, -0.04, 0.2], [0.04, 0.1, 0.035], [1.57, 0, 0]);
+      for (const s of [1, -1]) {
+        P(f, 'box', 0x3a2a1a, [s * 0.1, 0.03, 0.14], [0.09, 0.016, 0.012], [0, s * 0.7, s * 0.3]);
+        const w = grp(body, s * 0.19, 0.5, 0.0); w.userData.s = s; (ud.wings = ud.wings || []).push(w);
+        P(w, 'sph', C, [s * 0.025, -0.11, -0.03], [0.045, 0.19, 0.22], [0.35, 0, 0]);
+        for (let i = 0; i < 3; i++) P(w, 'cone', o.wing, [s * 0.035, -0.2 - i * 0.03, -0.12 - i * 0.055], [0.03, 0.2, 0.06], [-2.35, 0, 0]);         // flight feathers
+        for (const dx of [-0.035, 0, 0.035]) P(ud.legs[s > 0 ? 0 : 1], 'cone', LEG, [dx, -0.235, 0.09], [0.014, 0.07, 0.014], [1.57, 0, 0]);       // toes
+      }
+      for (let i = 0; i < 5; i++) P(ud.tail, 'cone', i % 2 ? o.tail2 : o.tail, [(i - 2) * 0.045, 0.0, -0.13], [0.05, 0.3, 0.018], [-1.95, 0, (i - 2) * 0.16]);
+      o.x(h);
+    } }); };
+  B.pidgey = () => bird({ c: 0xc89b5a, sc: 0.9, wing: 0x9a6a3a, tail: 0x9a6a3a, tail2: 0xc89b5a, x: h => { for (const a of [-0.35, 0, 0.35]) P(h, 'cone', 0xc89b5a, [a * 0.1, 0.17, -0.04], [0.035, 0.13, 0.03], [-0.5, 0, -a]); } });
+  B.pidgeotto = () => bird({ c: 0xb8834f, sc: 1.3, wing: 0x8a5a30, tail: 0xe8603a, tail2: 0xf2c860, x: h => { for (const a of [-0.3, 0, 0.3]) TB(h, RG(0xe8705a, [[0, 0.03, 0.02], [0.1, 0.05, 0.022], [0.28, 0.035, 0.018], [0.38, 0.006, 0.006]]), 6, [a * 0.12, 0.15, -0.02], [-1.25, 0, -a * 0.5]); } });
+  // Rattata: a purple rat with a cream underside and muzzle, big round ears, buck teeth, whiskers and a thin tail that curls at the end.
+  B.rattata = () => { const PU = 0xa070c0, CR = 0xf5e6b8; return crit({ c: PU, noBody: 1, b: [0.18, 0.18, 0.28], by: 0.27, hy: 0.47, hz: 0.27, hr: 0.19, hs: [0.2, 0.18, 0.2], snout: 1, snoutC: CR, legs: 4, legT: 0.04, legC: CR, ear: 'round', earIn: CR, earY: 0.6, eye: 0xc02a2a, er: 0.2, tailY: 1.05,
+    x: (g, h, body, f, ud) => {
+      QB(body, PU, 0.27, 0.92, CR);
+      TB(ud.tail, RG(PU, [[0, 0.03], [0.14, 0.024, 0.024, 0, 0.02], [0.28, 0.02, 0.02, 0, 0.08], [0.38, 0.017, 0.017, 0, 0.17], [0.43, 0.015, 0.015, 0, 0.27]]), 6, null, [-1.1, 0, 0]); P(ud.tail, 'sph', PU, [0, 0.45, -0.235], 0.032);
+      P(f, 'box', WH, [0, -0.115, 0.185], [0.055, 0.06, 0.02]); P(f, 'sph', 0x5a3a5a, [0, -0.03, 0.215], 0.018);
+      for (const s of [1, -1]) for (const a of [0.2, -0.2]) P(f, 'box', PU, [s * 0.2, -0.05, 0.14], [0.16, 0.008, 0.008], [0, 0, a]);
+    } }); };
   B.caterpie = () => crit({ c: 0x6ac85a, b: [0.13, 0.13, 0.13], by: 0.15, hy: 0.3, hz: 0.26, hr: 0.19, eyeS: 'big', eye: BK, er: 0.26, kind: 'crawl',
     x: (g, h, body, f, ud) => { ud.segs = []; for (let i = 1; i < 5; i++) { const sg = grp(body, 0, 0, -0.19 * i); P(sg, 'sph', 0x6ac85a, [0, 0.15 - i * 0.008, 0], 0.15 - i * 0.014); P(sg, 'sph', 0xf2e060, [0, 0.045, 0], [0.1, 0.035, 0.08]); for (const s of [1, -1]) P(sg, 'sph', 0xf2e060, [s * 0.1, 0.16, 0], 0.03); if (i === 4) P(sg, 'cone', 0xf2e060, [0, 0.2, -0.08], [0.03, 0.12, 0.03], [-0.5, 0, 0]); ud.segs.push(sg); } for (const s of [1, -1]) P(h, 'cone', 0xe8402a, [s * 0.05, 0.22, 0], [0.03, 0.18, 0.03], [0, 0, -s * 0.4]); } });
-  B.butterfree = () => crit({ c: 0x6a5ab0, b: [0.14, 0.2, 0.13], by: 0.5, hy: 0.78, hz: 0.04, hr: 0.19, eyeS: 'dot', eye: 0xe8402a, er: 0.3, float: 0.5,
-    x: (g, h, body, f, ud) => { ud.wings = []; for (const s of [1, -1]) { const w = grp(body, s * 0.08, 0.6, -0.1); w.userData.s = s; P(w, 'sph', 0xf8f8ff, [s * 0.3, 0.16, 0], [0.3, 0.32, 0.02]); P(w, 'sph', 0xf8f8ff, [s * 0.22, -0.2, 0], [0.2, 0.2, 0.02]); P(w, 'sph', 0x3a3a5a, [s * 0.3, 0.16, 0.012], [0.2, 0.012, 0.012], [0, 0, s * 0.5]); ud.wings.push(w); P(h, TT.capsule(0.01, 0.16), BK, [s * 0.06, 0.25, 0], null, [0, 0, -s * 0.3]); P(body, 'sph', 0x8adcf0, [s * 0.08, 0.34, 0.05], 0.05); P(body, 'sph', 0x8adcf0, [s * 0.1, 0.56, 0.08], [0.035, 0.07, 0.035]); } P(f, 'sph', 0x8adcf0, [0, -0.08, 0.17], [0.05, 0.035, 0.03]); } });
-  B.oddish = () => crit({ c: 0x5a78c8, b: [0.05, 0.05, 0.05], by: 0.3, hy: 0.34, hz: 0, hr: 0.27, legs: 2, legX: 2.6, eye: 0xc02a2a, er: 0.17, kind: 'hop', foot: [0.085, 0.05, 0.12],
-    x: (g, h, body, f, ud) => { const lv = grp(h, 0, 0.2, -0.02); ud.tail = lv; for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.5; P(lv, 'sph', i % 2 ? 0x4aa84a : 0x5ab84a, [Math.sin(a) * 0.2, 0.12 + Math.cos(a) * 0.16, 0], [0.075, 0.27, 0.03], [0, 0, -a]); } P(f, 'box', 0x2a3a6a, [0, -0.1, 0.25], [0.07, 0.014, 0.012]); } });
+  // Butterfree: a small purple body carried by big white wings with dark veins; red eyes, pale blue hands and feet.
+  B.butterfree = () => { const PU = 0x6a5ab0, LB = 0x8adcf0, WG = 0xf8f8ff, VN = 0x3a3a5a; return crit({ c: PU, noBody: 1, b: [0.14, 0.2, 0.13], by: 0.5, hy: 0.78, hz: 0.04, hr: 0.19, hs: [0.2, 0.186, 0.19], eyeS: 'dot', eye: 0xe8402a, er: 0.3, float: 0.5,
+    x: (g, h, body, f, ud) => {
+      TB(body, RG(PU, [[0.28, 0.05], [0.36, 0.125, 0.115], [0.48, 0.145, 0.13], [0.6, 0.115, 0.105], [0.67, 0.07]]), 9);
+      ud.wings = [];
+      for (const s of [1, -1]) {
+        const w = grp(body, s * 0.08, 0.6, -0.1); w.userData.s = s; ud.wings.push(w);
+        P(w, 'sph', WG, [s * 0.33, 0.19, 0], [0.33, 0.35, 0.02], [0, 0, -s * 0.25]); P(w, 'sph', WG, [s * 0.25, -0.2, 0], [0.22, 0.23, 0.02], [0, 0, s * 0.3]);
+        for (const q of [[0.3, 0.3, 0.9, 0.5], [0.36, 0.17, 0.35, 0.56], [0.3, 0.04, -0.2, 0.5], [0.24, -0.2, -0.75, 0.36]]) P(w, 'box', VN, [s * q[0], q[1], 0.014], [q[3], 0.014, 0.01], [0, 0, s * q[2]]);         // veins
+        P(w, 'sph', VN, [s * 0.52, 0.42, 0.008], [0.09, 0.07, 0.016]);
+        P(h, TT.capsule(0.01, 0.16), BK, [s * 0.06, 0.25, 0], null, [0, 0, -s * 0.3]); P(h, 'sph', BK, [s * 0.11, 0.34, 0], 0.022);
+        P(body, 'sph', LB, [s * 0.07, 0.3, 0.05], [0.045, 0.06, 0.06]); P(body, 'sph', LB, [s * 0.12, 0.55, 0.1], [0.035, 0.07, 0.035]);
+      }
+      P(f, 'sph', LB, [0, -0.08, 0.17], [0.05, 0.035, 0.03]); for (const s of [1, -1]) P(f, 'cone', WH, [s * 0.025, -0.11, 0.185], [0.01, 0.025, 0.01], [Math.PI, 0, 0]);
+    } }); };
+  // Oddish: a round blue body with little feet and five long leaves that sway.
+  B.oddish = () => crit({ c: 0x5a78c8, b: [0.05, 0.05, 0.05], by: 0.3, hy: 0.34, hz: 0, hr: 0.27, hs: [0.278, 0.255, 0.265], legs: 2, legX: 2.6, eye: 0xc02a2a, er: 0.17, kind: 'hop', foot: [0.085, 0.05, 0.12],
+    x: (g, h, body, f, ud) => { const lv = grp(h, 0, 0.2, -0.02); ud.tail = lv;
+      for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.55; TB(lv, RG(i % 2 ? 0x4aa84a : 0x5ab84a, [[0, 0.03, 0.014], [0.14, 0.085, 0.024, Math.sign(a) * 0.01], [0.3, 0.078, 0.02, Math.sign(a) * 0.04], [0.43, 0.04, 0.012, Math.sign(a) * 0.09], [0.5, 0.006, 0.006, Math.sign(a) * 0.14]]), 7, [Math.sin(a) * 0.07, 0, i % 2 ? -0.025 : 0.02], [0, 0, -a]); }
+      P(f, 'box', 0x2a3a6a, [0, -0.1, 0.25], [0.07, 0.014, 0.012]); } });
   // Psyduck: a plump yellow duck holding its aching head, with a wide flat bill and three hairs.
   B.psyduck = () => { const Y = 0xffd84d, BILL = 0xf5e6b8; return crit({ c: Y, noBody: 1, b: [0.24, 0.28, 0.22], by: 0.36, hy: 0.82, hz: 0.03, hr: 0.27, hs: [0.275, 0.25, 0.262], legs: 2, legC: BILL, legX: 0.5, foot: [0.115, 0.03, 0.17], eyeS: 'tiny', er: 0.2, ex: 0.115, ey: 0.07, eyeTurn: 0.35, tailY: 0.6,
     x: (g, h, body, f, ud) => {
@@ -717,16 +762,44 @@
   }
   B.bulbasaur = () => bulb({ c: 0x7ad4b4, k: 1, spot: 0x4aa890, mouth: 0x2a6a5a,
     x: (h, f, body) => { TB(body, RG(0x58b858, [[0, 0.1], [0.06, 0.19], [0.16, 0.205], [0.26, 0.15], [0.34, 0.06], [0.39, 0.012]]), 8, [0, 0.43, -0.07], [-0.12, 0, 0]); } });
-  B.growlithe = () => crit({ c: 0xf08a3a, belly: 0xf5e6b8, b: [0.19, 0.19, 0.28], by: 0.31, hy: 0.58, hz: 0.25, hr: 0.21, snout: 1, snoutC: 0xf5e6b8, legs: 4, ear: 'round', earY: 0.6, tail: 'fluff', tailC: 0xf5e6b8, eyeS: 'dot', er: 0.17,
-    x: (g, h, body, f) => { P(h, 'sph', 0xf5e6b8, [0, 0.19, 0.02], [0.13, 0.12, 0.13]); for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; P(body, 'sph', 0xf5e6b8, [Math.sin(a) * 0.11, 0.4 + Math.cos(a) * 0.05, 0.19], 0.09); } for (const z of [0.05, -0.1]) P(body, 'box', 0x3a2a22, [0, 0.48, z], [0.3, 0.03, 0.05]); P(f, 'sph', 0x3a2a22, [0, -0.04, 0.21], 0.02); } });
+  // Growlithe: an orange puppy with black stripes over its back, a cream ruff, a tuft on its head and a big cream tail.
+  B.growlithe = () => { const OR = 0xf08a3a, CR = 0xf5e6b8, DK = 0x3a2a22; return crit({ c: OR, noBody: 1, b: [0.19, 0.19, 0.28], by: 0.31, hy: 0.58, hz: 0.25, hr: 0.21, hs: [0.222, 0.2, 0.21], snout: 1, snoutC: CR, legs: 4, legT: 0.055, eyeS: 'dot', er: 0.17, tailY: 1.1,
+    x: (g, h, body, f, ud) => {
+      QB(body, OR, 0.31, 1, CR);
+      for (const y of [-0.13, -0.01, 0.1]) BAND(body, y - 0.024, y + 0.024, [0.165, 0.174], DK, 0.8, 4.712, [0, 0.31, 0], [Math.PI / 2, 0, 0]);
+      ruff(body, CR, 8, 0.95);
+      P(h, 'sph', CR, [0, 0.17, 0.03], [0.12, 0.1, 0.13]); for (const a of [-0.5, 0, 0.5]) P(h, 'cone', CR, [a * 0.1, 0.26, 0.03], [0.05, 0.13, 0.05], [0.2, 0, -a]);
+      TB(ud.tail, RG(CR, [[0, 0.06], [0.1, 0.135, 0.125, 0, 0.01], [0.22, 0.16, 0.145, 0, 0.04], [0.34, 0.115, 0.105, 0, 0.09], [0.43, 0.035, 0.035, 0, 0.14]]), 9, null, [-0.55, 0, 0]);
+      for (const s of [1, -1]) tEar(h, ud, s, 0.15, 0.11, 0.85, 0.17, 0.075, OR, CR);
+      P(f, 'sph', DK, [0, -0.04, 0.21], 0.02);
+    } }); };
   B.jigglypuff = () => crit({ c: 0xf9b8d0, b: [0.05, 0.05, 0.05], by: 0.3, hy: 0.36, hz: 0, hr: 0.3, legs: 2, legX: 2.8, ear: 'cat', earIn: 0x5a3a4a, earY: 0.6, eyeS: 'big', eye: 0x2a9ab8, er: 0.2, kind: 'hop', foot: [0.08, 0.05, 0.12],
     x: (g, h, body, f) => { P(h, 'sph', 0xf9b8d0, [0, 0.2, 0.2], [0.1, 0.1, 0.09]); P(h, 'sph', 0xf9b8d0, [0.05, 0.12, 0.26], 0.07); P(f, 'box', 0x8a3a5a, [0, -0.13, 0.275], [0.06, 0.014, 0.012]); for (const s of [1, -1]) P(body, 'sph', 0xf9b8d0, [s * 0.29, 0.3, 0.04], [0.06, 0.08, 0.06]); } });
-  B.machop = () => crit({ c: 0x9ab4c8, b: [0.2, 0.25, 0.17], by: 0.42, hy: 0.84, hz: 0.03, hr: 0.22, legs: 2, legLen: 1, legX: 0.5, arms: 1, tail: 'curl', eyeS: 'dot', eye: 0xc02a2a, er: 0.16,
-    x: (g, h, body, f) => { for (const q of [-0.07, 0, 0.07]) P(h, 'sph', 0xe8d8b0, [q, 0.2, -0.02], [0.025, 0.07, 0.13]); P(f, 'box', 0x5a6a7a, [0, -0.1, 0.2], [0.09, 0.012, 0.012]); for (const s of [1, -1]) P(body, 'sph', 0x9ab4c8, [s * 0.23, 0.52, 0.05], [0.09, 0.1, 0.09]); } });
+  // Machop and Machoke: a strong upright fighter with a broad chest, thick arms and three ridges on its head.
+  function fighter(o) {
+    const C = o.c, K = o.k, LO = o.trunk != null ? o.trunk : C;
+    return crit({ c: C, noBody: 1, b: [0.2 * K, 0.25 * K, 0.17 * K], by: 0.42 * K, hy: 0.86 * K, hz: 0.03, hr: 0.22, hs: [0.215, 0.21, 0.21], legs: 2, legT: 0.07 * K, legX: 0.55, foot: [0.085, 0.05, 0.14], arms: 1, armT: [o.arm[0], o.arm[1]], eyeS: 'dot', eye: 0xc02a2a, er: 0.16, tailY: 0.6,
+      x: (g, h, body, f, ud) => {
+        TB(body, [[0.2, 0.13, 0.11, LO], [0.29, 0.19, 0.15, LO], [0.38, 0.195, 0.152, LO], [0.382, 0.195, 0.152, C], [0.46, 0.2, 0.155, C], [0.58, 0.24, 0.172, C], [0.68, 0.2, 0.15, C], [0.75, 0.1, 0.09, C]].map(r => [r[0] * K, r[1] * K, r[2] * K, r[3]]), 12);
+        for (const pv of ud.arms) { const s = pv.userData.s; pv.position.set(s * 0.245 * K, 0.63 * K, 0.02); P(body, 'sph', C, [s * 0.24 * K, 0.64 * K, 0.02], 0.095 * K); P(pv, 'sph', C, [s * (0.05 + o.arm[0] * 0.33), -o.arm[0] * 0.84, o.arm[0] * 0.46], o.arm[1] * 1.15); }       // round shoulders and fists
+        for (const q of [-0.07, 0, 0.07]) P(h, 'sph', o.ridge, [q, 0.2, -0.02], [0.025, 0.075, 0.13]);
+        P(f, 'box', o.mouth, [0, -0.1, 0.2], [0.09, 0.012, 0.012]);
+        o.x(h, f, body, ud);
+      } });
+  }
+  B.machop = () => fighter({ c: 0x9ab4c8, k: 1, arm: [0.27, 0.06], ridge: 0xe8d8b0, mouth: 0x5a6a7a,
+    x: (h, f, body, ud) => { P(ud.tail, 'cone', 0x9ab4c8, [0, 0.03, -0.05], [0.06, 0.16, 0.055], [-1.9, 0, 0]); for (const s of [1, -1]) for (const y of [0.5, 0.45, 0.4]) P(body, 'box', 0x6a8498, [s * 0.1, y, 0.152], [0.06, 0.01, 0.012], [0, s * 0.35, s * 0.25]); } });
   B.magnemite = () => crit({ c: 0xb8c0cc, b: [0.05, 0.05, 0.05], by: 0.4, hy: 0.42, hz: 0, hr: 0.23, eyeS: 'none', float: 0.45,
     x: (g, h, body, f, ud) => { P(f, 'sph', WH, [0, 0, 0.19], [0.13, 0.13, 0.06]); P(f, 'sph', BK, [0, 0, 0.245], 0.04); for (const s of [1, -1]) { const pv = grp(body, s * 0.2, 0.42, 0); pv.userData.s = s; P(pv, 'box', 0x8a929e, [s * 0.1, 0, 0], [0.16, 0.06, 0.06]); for (const q of [1, -1]) { P(pv, 'box', 0x8a929e, [s * 0.2, q * 0.08, 0], [0.07, 0.1, 0.07]); P(pv, 'box', q > 0 ? 0xe2382e : 0x3a6ad8, [s * 0.2, q * 0.15, 0], [0.07, 0.06, 0.07]); } ud.arms.push(pv); } P(h, 'cyl', 0x8a929e, [0, 0.25, 0], [0.03, 0.1, 0.03]); P(h, 'cyl', 0x8a929e, [0, 0.3, 0], [0.06, 0.02, 0.06]); for (const s of [1, -1]) P(h, 'cyl', 0x8a929e, [s * 0.1, -0.19, 0.1], [0.025, 0.06, 0.025], [0.5, 0, 0]); } });
-  B.fuecoco = () => crit({ c: 0xe8503a, belly: 0xf5e6b8, b: [0.22, 0.26, 0.2], by: 0.36, hy: 0.78, hz: 0.06, hr: 0.25, hs: [0.25, 0.21, 0.24], snout: 1, legs: 2, legX: 0.55, arms: 1, tail: 'curl', eyeS: 'big', eye: 0x2a2a2a, er: 0.15, ex: 0.1, ey: 0.09, ez: 0.19, eyeTurn: 0.4,
-    x: (g, h, body, f) => { P(h, 'sph', 0xe8503a, [0, -0.07, 0.2], [0.2, 0.1, 0.2]); P(h, 'cone', 0xffd23c, [0, 0.27, -0.02], [0.07, 0.2, 0.06], [-0.3, 0, 0]); P(h, 'cone', 0xff9a1f, [0.06, 0.24, -0.02], [0.04, 0.12, 0.04], [-0.3, 0, -0.4]); P(f, 'box', WH, [0, -0.12, 0.37], [0.2, 0.025, 0.02]); for (const s of [1, -1]) P(f, 'sph', 0x8a2a1a, [s * 0.05, -0.02, 0.385], 0.012); } });
+  // Fuecoco: a round red croc with a cream tummy, a wide toothy snout and a little flame on its head.
+  B.fuecoco = () => { const RD = 0xe8503a, CR = 0xf5e6b8; return crit({ c: RD, noBody: 1, b: [0.22, 0.26, 0.2], by: 0.36, hy: 0.79, hz: 0.06, hr: 0.25, hs: [0.25, 0.21, 0.24], snout: 1, legs: 2, legT: 0.075, legX: 0.58, arms: 1, armT: [0.15, 0.05], eyeS: 'big', eye: 0x2a2a2a, er: 0.15, ex: 0.1, ey: 0.09, ez: 0.19, eyeTurn: 0.4, tailY: 0.5,
+    x: (g, h, body, f, ud) => {
+      const R = RG(RD, [[0.08, 0.11, 0.1], [0.16, 0.21, 0.19], [0.28, 0.242, 0.218], [0.4, 0.222, 0.198], [0.52, 0.17, 0.155], [0.63, 0.12, 0.115]]);
+      TB(body, R, 12); SHELL(body, R.slice(0, 5), CR, 0.7, Math.PI / 2, 1.025, 8);
+      P(ud.tail, 'cone', RD, [0, 0.03, -0.07], [0.085, 0.22, 0.075], [-1.85, 0, 0]);
+      P(h, 'sph', RD, [0, -0.07, 0.2], [0.2, 0.1, 0.2]); P(h, 'cone', 0xffd23c, [0, 0.27, -0.02], [0.07, 0.2, 0.06], [-0.3, 0, 0]); P(h, 'cone', 0xff9a1f, [0.06, 0.24, -0.02], [0.04, 0.12, 0.04], [-0.3, 0, -0.4]);
+      P(f, 'box', WH, [0, -0.12, 0.37], [0.2, 0.025, 0.02]); for (const s of [1, -1]) P(f, 'sph', 0x8a2a1a, [s * 0.05, -0.02, 0.385], 0.012);
+    } }); };
   // Quaxly: a tidy white duckling with a swept-up blue cap, a yellow bill and yellow feet.
   B.quaxly = () => { const W2 = 0xf4f6fa, BL = 0x3a86d8, LB = 0x7fd4f0, YL = 0xf2b830; return crit({ c: W2, noBody: 1, b: [0.2, 0.25, 0.19], by: 0.36, hy: 0.78, hz: 0.04, hr: 0.22, hs: [0.228, 0.212, 0.218], legs: 2, legC: YL, legX: 0.5, foot: [0.1, 0.028, 0.15], arms: 1, armT: [0.2, 0.05], eyeS: 'big', eye: 0x2a6ad0, er: 0.18, tailY: 0.75,
     x: (g, h, body, f, ud) => {
@@ -835,8 +908,17 @@
     x: (g, h, body, f, ud) => { for (const q of [[0.15, 0.15, 0.1], [-0.18, 0.08, 0.12], [0.05, -0.18, 0.14], [-0.1, 0.2, -0.1], [0.2, -0.05, -0.1]]) P(h, 'rock', 0x8a847a, q, 0.07);
       for (const s of [1, -1]) { P(f, 'box', 0x3a3430, [s * 0.12, 0.13, 0.25], [0.12, 0.025, 0.02], [0, 0, s * 0.35]); const a = grp(body, s * 0.3, 0.55, 0.05); a.userData.s = s; P(a, 'sph', 0x9a9488, [s * 0.12, 0, 0.02], [0.15, 0.08, 0.08]); P(a, 'sph', 0x9a9488, [s * 0.22, 0.08, 0.1], [0.12, 0.12, 0.11]); ud.arms.push(a); }
       P(f, 'box', 0x3a3430, [0, -0.1, 0.27], [0.12, 0.015, 0.01]); } });
-  B.ponyta = () => crit({ c: 0xf8ecc8, b: [0.17, 0.19, 0.34], by: 0.66, hy: 1.12, hz: 0.42, hr: 0.16, hs: [0.15, 0.16, 0.2], snout: 1, snoutC: 0xf8ecc8, legs: 4, legC: 0xd8c8a0, ear: 'cat', earY: 0.7, eyeS: 'big', eye: 0x8a2a5a, er: 0.2, ex: 0.08, ey: 0.03, ez: 0.15, eyeTurn: 0.6, tail: 'flame', tailY: 1.05,
-    x: (g, h, body) => { P(body, TT.capsule(0.08, 0.32), 0xf8ecc8, [0, 0.95, 0.32], null, [0.55, 0, 0]); for (let i = 0; i < 5; i++) P(body, 'cone', TT.glow(i % 2 ? 0xffd040 : 0xff7a1a), [0, 1.0 + i * 0.03, 0.27 - i * 0.07], [0.07, 0.28, 0.06], [-0.6, 0, 0]); P(h, 'cone', TT.glow(0xffb020), [0, 0.2, 0.03], [0.05, 0.2, 0.05], [-0.3, 0, 0]); } });
+  // Ponyta: a slender cream horse with grey hooves, and flames for its mane and tail.
+  B.ponyta = () => { const C = 0xf8ecc8, HOOF = 0x8a8a94; return crit({ c: C, noBody: 1, b: [0.19, 0.2, 0.34], by: 0.58, hy: 0.99, hz: 0.5, hr: 0.16, hs: [0.15, 0.16, 0.2], snout: 1, snoutC: C, legs: 4, legT: 0.05, legC: HOOF, ear: 'cat', earY: 0.7, eyeS: 'big', eye: 0x8a2a5a, er: 0.2, ex: 0.08, ey: 0.03, ez: 0.15, eyeTurn: 0.6, tailY: 1.08,
+    x: (g, h, body, f, ud) => {
+      TB(body, RG(C, [[-0.37, 0.07, 0.08], [-0.29, 0.175, 0.18], [-0.1, 0.205, 0.215], [0.1, 0.205, 0.215], [0.27, 0.18, 0.195], [0.36, 0.11, 0.12]]), 10, [0, 0.58, 0], [Math.PI / 2, 0, 0]);
+      TB(body, RG(C, [[-0.08, 0.14, 0.16], [0.08, 0.115, 0.13], [0.24, 0.095, 0.105], [0.36, 0.085, 0.095]]), 8, [0, 0.66, 0.26], [0.75, 0, 0]);                 // the neck
+      for (let i = 0; i < 6; i++) P(body, 'cone', TT.glow(i % 2 ? 0xffd040 : 0xff7a1a), [0, 1.0 - i * 0.045, 0.36 - i * 0.075], [0.085, 0.3 + (i % 2) * 0.06, 0.07], [-0.75, 0, 0]);       // a mane of flames
+      P(h, 'cone', TT.glow(0xffb020), [0, 0.2, 0.0], [0.06, 0.24, 0.06], [-0.4, 0, 0]);
+      const fl = ud.flame = grp(ud.tail, 0, 0, -0.04); fl.rotation.x = -2.0;
+      P(fl, 'cone', TT.glow(0xff7a1a), [0, 0.24, 0], [0.13, 0.52, 0.13]); P(fl, 'cone', TT.glow(0xffd040), [0, 0.16, 0], [0.075, 0.32, 0.075]);
+      for (const s of [1, -1]) P(fl, 'cone', TT.glow(0xff9a2a), [s * 0.07, 0.14, 0], [0.07, 0.3, 0.07], [0, 0, -s * 0.5]);
+    } }); };
   B.abra = () => crit({ c: 0xf2c230, b: [0.2, 0.24, 0.18], by: 0.4, hy: 0.82, hz: 0.04, hr: 0.21, hs: [0.2, 0.19, 0.2], snout: 1, legs: 2, legLen: 1, legX: 0.5, arms: 1, ear: 'long', earA: 0.35, earY: 0.6, eyeS: 'none', tail: 'thin', tailC: 0xf2c230, tailTip: 0x8a5a2a, float: 0.18, kind: 'float',
     x: (g, h, body, f) => { P(body, 'sph', 0x8a5a2a, [0, 0.5, 0.02], [0.21, 0.13, 0.18]); for (const s of [1, -1]) { P(body, 'sph', 0x8a5a2a, [s * 0.17, 0.56, 0], [0.09, 0.06, 0.09]); P(f, 'box', 0x3a2a1a, [s * 0.08, 0.03, 0.19], [0.08, 0.014, 0.01], [0, s * 0.4, s * 0.15]); } } });
   B.snorlax = () => crit({ c: 0x2a5a6a, belly: 0xf2e2c0, b: [0.72, 0.78, 0.6], by: 0.82, hy: 1.72, hz: 0.1, hr: 0.46, hs: [0.48, 0.4, 0.42], legs: 2, legX: 0.55, foot: [0.24, 0.12, 0.3], legC: 0xf2e2c0, arms: 1, ear: 'cat', earX: 0.62, earY: 0.6, eyeS: 'none', kind: 'biped',
@@ -862,11 +944,9 @@
       TB(body, RG(0xf06a9a, [[0, 0.09], [0.07, 0.165], [0.18, 0.175], [0.28, 0.11], [0.35, 0.02]]), 8, [0, 0.58, -0.08]);                                                           // the pink bud
       for (const s of [1, -1]) P(f, 'cone', WH, [s * 0.07, -0.135, 0.225], [0.012, 0.03, 0.012], [Math.PI, 0, 0]);
     } });
-  B.machoke = () => crit({ c: 0x8a8ab0, b: [0.24, 0.3, 0.19], by: 0.55, hy: 1.08, hz: 0.04, hr: 0.22, legs: 2, legLen: 1, legX: 0.5, arms: 1, eyeS: 'dot', eye: 0xc02a2a, er: 0.16,
-    x: (g, h, body, f, ud) => { for (const q of [-0.07, 0, 0.07]) P(h, 'sph', 0x6a6a90, [q, 0.2, -0.02], [0.025, 0.08, 0.13]); P(body, 'cyl', 0x2a2a30, [0, 0.38, 0], [0.25, 0.07, 0.2]); P(body, 'box', 0xf2c230, [0, 0.38, 0.2], [0.1, 0.07, 0.02]);
-      for (const a of ud.arms) a.scale.setScalar(1.6); for (const s of [1, -1]) P(body, 'sph', 0x8a8ab0, [s * 0.27, 0.72, 0.05], [0.11, 0.12, 0.11]); P(f, 'box', 0x5a5a7a, [0, -0.1, 0.2], [0.09, 0.012, 0.012]); } });
-  B.pidgeot = () => bird(0xc8a060, 0xf5e6b8, 1.75, 0xe84a2a);
-
+  B.machoke = () => fighter({ c: 0x8a8ab0, k: 1.28, trunk: 0x2a2a30, arm: [0.4, 0.085], ridge: 0x6a6a90, mouth: 0x5a5a7a,
+    x: (h, f, body) => { P(body, 'box', 0xf2c230, [0, 0.47, 0.2], [0.11, 0.06, 0.03]); BAND(body, 0.445, 0.5, [0.262, 0.204], 0xf2c230, 3.1, Math.PI / 2); P(h, 'sph', 0x8a8ab0, [0, -0.06, 0.15], [0.1, 0.07, 0.09]); } });
+  B.pidgeot = () => bird({ c: 0xc8a060, sc: 1.75, wing: 0x8a6030, tail: 0xe84a2a, tail2: 0xe84a2a, x: h => { for (const a of [-0.3, 0, 0.3]) TB(h, RG(a ? 0xe84a2a : 0xf2c040, [[0, 0.03, 0.02], [0.12, 0.055, 0.024], [0.4, 0.04, 0.02], [0.62, 0.006, 0.006]]), 6, [a * 0.13, 0.15, -0.02], [-1.3 - Math.abs(a) * 0.4, 0, -a * 0.45]); } });
   // serpents: a chain of segments laid along path(k), k = 0 (head) .. 1 (tail); they ripple when animated
   function serpent(o) {
     const g = new THREE.Group(), ud = g.userData = { legs: [], ears: [], arms: [], kind: 'serpent', float: o.float || 0, segs: [], path: [], wv: o.wave || [0.15, 0.06] };
@@ -903,8 +983,15 @@
     x: (g, h, body, f) => { P(h, 'sph', 0xf2c230, [0, -0.1, 0.26], [0.13, 0.06, 0.12]); for (const s of [1, -1]) { P(h, 'cone', 0x2a9a58, [s * 0.12, 0.12, -0.32], [0.05, 0.55, 0.05], [-1.9, 0, s * 0.35]); P(h, 'cone', 0xf2c230, [s * 0.16, 0.16, -0.62], [0.035, 0.14, 0.035], [-1.9, 0, s * 0.35]); P(h, 'cone', 0x2a9a58, [s * 0.17, 0.02, -0.1], [0.04, 0.3, 0.02], [-1.2, 0, s * 1.2]); } } });
 
   // ---------- the Volcano and the Dragon's Lair ----------
-  B.vulpix = () => crit({ c: 0xc8683a, belly: 0xf5e6b8, b: [0.18, 0.18, 0.27], by: 0.3, hy: 0.57, hz: 0.25, hr: 0.21, snout: 1, snoutC: 0xf5e6b8, legs: 4, legC: 0x9a4a2a, ear: 'long', earA: 0.45, earY: 0.58, tail: 'fluff', tailC: 0xe8a04a, eyeS: 'dot', er: 0.17,
-    x: (g, h, body) => { for (const q of [[-0.16, 0.42, -0.34], [0.16, 0.42, -0.34], [-0.09, 0.52, -0.38], [0.09, 0.52, -0.38]]) { P(body, 'sph', 0xe8a04a, q, [0.07, 0.07, 0.12]); P(body, 'sph', 0xf2c860, [q[0] * 1.15, q[1] + 0.05, q[2] - 0.08], 0.05); } for (const q of [-0.05, 0.02, 0.09]) P(h, 'sph', 0xe8a04a, [q, 0.2, 0.05], [0.05, 0.07, 0.07]); } });
+  // Vulpix: a red-brown fox with a cream underside, curls of orange hair on its head and six curled orange tails.
+  B.vulpix = () => { const RB = 0xc8683a, CR = 0xf5e6b8, TL = 0xe8a04a, TIP = 0xf2c860, DK = 0x8a4020; return crit({ c: RB, noBody: 1, b: [0.18, 0.18, 0.27], by: 0.3, hy: 0.57, hz: 0.25, hr: 0.21, hs: [0.225, 0.195, 0.205], snout: 1, legs: 4, legT: 0.045, legC: DK, eyeS: 'big', eye: 0x7a4a20, er: 0.18, ex: 0.09, ey: 0.03, ez: 0.18, eyeTurn: 0.3, tailY: 1.05,
+    x: (g, h, body, f, ud) => {
+      QB(body, RB, 0.3, 0.95, CR);
+      for (let i = 0; i < 6; i++) { const a = (i - 2.5) * 0.38; TB(ud.tail, [[0, 0.035, 0.035, TL], [0.12, 0.062, 0.058, TL, 0, 0, 0.005], [0.25, 0.072, 0.066, TL, 0, 0, 0.02], [0.33, 0.06, 0.056, TL, 0, 0, 0.05], [0.332, 0.06, 0.056, TIP, 0, 0, 0.05], [0.39, 0.04, 0.04, TIP, 0, 0, 0.1], [0.41, 0.015, 0.015, TIP, 0, 0, 0.15]], 7, [a * 0.08, i % 2 ? 0.02 : -0.02, 0], [-0.75 - Math.abs(a) * 0.12, 0, -a]); }
+      for (const q of [-0.06, 0.01, 0.08]) { P(h, 'sph', TL, [q, 0.19, 0.06], [0.055, 0.075, 0.075]); P(h, 'sph', TIP, [q, 0.21, 0.12], 0.035); }
+      for (const s of [1, -1]) tEar(h, ud, s, 0.13, 0.11, 0.45, 0.26, 0.08, RB, DK);
+      P(f, 'sph', 0x3a2a22, [0, -0.045, 0.21], 0.017);
+    } }); };
   B.onix = () => serpent({ c: 0x8a8a96, n: 10, r0: 0.36, taper: 0.5, hr: 0.38, hs: [0.36, 0.36, 0.42], hz: 0.2, hy: 0.05, top: 2.6, wave: [0.08, 0.03], path: k => [Math.sin(k * 4.5) * 0.35, 0.3 + 2.1 * Math.pow(1 - k, 1.5), 0.3 - k * 1.5], eyeS: 'slit', er: 0.15, ex: 0.17, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
     seg: (sg, i, r) => { if (i % 2) P(sg, 'rock', 0x74747e, [r * 0.5, r * 0.4, 0], r * 0.5, [i, i * 2, 0]); },
     x: (g, h) => { P(h, 'cone', 0x74747e, [0, 0.42, -0.05], [0.09, 0.4, 0.09], [-0.25, 0, 0]); P(h, 'sph', 0x9a9aa6, [0, -0.14, 0.2], [0.26, 0.1, 0.24]); } });
