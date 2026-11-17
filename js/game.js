@@ -204,7 +204,7 @@
       TT.animHuman(e.h, t, TEST.mv); TT.animCreature(e.p, t, 0);
     });
     const hw = (n - 1) / 2 * gap + po + 0.9, d = TEST.solo ? TEST.dist : Math.max(6.4, hw / (0.364 * asp)), short = window.innerHeight < 500 && asp > 1;
-    if (TEST.solo) { camera.position.set(0, d < 2.4 ? 1.55 : 1.2, SHOW_Z + d); camera.lookAt(0, d < 2.4 ? 1.48 : 0.9, SHOW_Z); return; }
+    if (TEST.solo) { const cy = +(new URLSearchParams(location.search).get('cy') || (TEST.mons ? 0.5 : d < 2.4 ? 1.48 : 0.9)); camera.position.set(0, cy + 0.3, SHOW_Z + d); camera.lookAt(0, cy, SHOW_Z); return; }
     camera.position.set(Math.sin(t * 0.3) * 0.7, 1.75 + d * 0.05, SHOW_Z + d); camera.lookAt(0, 0.95 - (short ? 0.2 : tight ? 0.03 : 0.06) * 0.728 * d, SHOW_Z);
   }
   const duoPic = ch => TT.portrait('t_' + ch, () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[ch]), c = TT.creature(STARTER[ch]); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; }, true);

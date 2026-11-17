@@ -574,9 +574,10 @@
     const a = A(), s = B.shake;
     if (aspect < 0.95) {
       // Upright phone: there is no room side by side, so look over your Pokémon's shoulder — yours near and low, the foe far and high.
-      const th = 0.86, d = TT.clamp(6.3 / aspect, 9, 14.5) * (1 - cam.z * 0.22), sw = Math.sin(t * 0.35) * 0.04;
+      const mh = st && st.obj && st.obj.me ? st.obj.me.userData.h || 1 : 1, tk = Math.max(0, mh - 1.6), tall = 1 + tk * 0.3;      // a tall or flying partner needs the camera further back, or it hides behind the health card
+      const th = 0.86, d = TT.clamp(6.3 / aspect, 9, 14.5) * (1 - cam.z * 0.22) * tall, sw = Math.sin(t * 0.35) * 0.04;
       c.position.set(a.x - Math.sin(th + sw) * d + cam.f * 0.5 + rand(-s, s) * 0.35, 4.3 + (1 - camK) * 1.4 + rand(-s, s) * 0.35, a.z + Math.cos(th + sw) * d + (1 - camK) * 2.5);
-      c.lookAt(a.x + cam.f * 1.0 - 0.1, B.lookY != null ? B.lookY : -1.5, a.z - 0.3);
+      c.lookAt(a.x + cam.f * 1.0 - 0.1, (B.lookY != null ? B.lookY : -1.5) + tk * 0.5, a.z - 0.3);
       return;
     }
     const d = 7.4 * (1 - cam.z * 0.3), up = B.lift || 0;      // lift: short, wide phone screens keep the fighters above the buttons
