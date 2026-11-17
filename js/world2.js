@@ -140,7 +140,7 @@
     const geo = new THREE.PlaneGeometry(MX1 - MX0, MZ1 - MZ0, 113, 117), pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) { const px = pos.getX(i), py = pos.getY(i), x = (MX0 + MX1) / 2 + px, z = (MZ0 + MZ1) / 2 - py; pos.setXYZ(i, x, W.h(x, z), z); }
     geo.computeVertexNormals();
-    const land = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: worldTexture() })); land.receiveShadow = true; scene.add(land);
+    const land = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: worldTexture() })); land.receiveShadow = true; scene.add(land); W.wwLand = land;
     yield 'Filling the river';
     // river water (flowing)
     { const segs = 117, wv = [], uv = [], idx = [];
@@ -207,8 +207,8 @@
       for (const [x, z, ry] of [[220, -92, 0.4], [232, -108, -0.6]]) { const g = grp(chunk(x, z), x, W.h(x, z), z); g.rotation.y = ry; P(g, 'cyl', 0x9a6a3a, [0, 0.3, 0], [0.3, 2.2, 0.3], [0, 0, 1.57]); W.colliders.push({ x, z, r: 0.9 }); }
       sign(scene, 199, -95.6, "Goku's Peak");
       // Rayquaza circles high above the peak — you can spot it from far away
-      const ray = TT.creature('rayquaza'); ray.scale.setScalar(2.2); scene.add(ray); W.skyRay = ray;
-      W.anim.push(t => { const a = t * 0.18; ray.position.set(p.x + Math.cos(a) * 24, 20 + Math.sin(t * 0.7) * 2.5, p.z + Math.sin(a) * 24); ray.rotation.y = -a; TT.animCreature(ray, t, 1); });
+      const ray = TT.creature('rayquaza'); ray.scale.setScalar(2.2); ray.userData.live = true; scene.add(ray); W.skyRay = ray;
+      W.anim.push(t => { const nearby = W.px === undefined || (W.px != null && Math.hypot(W.px - p.x, W.pz - p.z) < 95); ray.visible = ray.matrixWorldAutoUpdate = nearby; if (!nearby) return; const a = t * 0.18; ray.position.set(p.x + Math.cos(a) * 24, 20 + Math.sin(t * 0.7) * 2.5, p.z + Math.sin(a) * 24); ray.rotation.y = -a; TT.animCreature(ray, t, 1); });
     }
     yield 'Sneaking into the hideout';
     // Team Rocket's hideout

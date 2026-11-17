@@ -130,7 +130,7 @@
     }
     hair(head, o);
     if (o.x) o.x({ g, hips, spine, head, face });
-    ud.ols = []; TT.bakeNode(g, true, ud.ols); ud.h = 1.9; ud.human = true;
+    ud.ols = []; TT.bakeRig(g, ud.ols); ud.h = 1.9; ud.human = true;
     if (o.scale) g.scale.setScalar(o.scale);
     return g;
   };
@@ -256,7 +256,7 @@
       P(tl, 'sph', tc, [0, 0.03, -0.08], 0.085); P(tl, 'sph', tc, [0, 0.13, -0.15], 0.07); P(tl, 'sph', tc, [0, 0.22, -0.1], 0.05);
     }
     if (o.x) o.x(g, head, body, face, ud);
-    ud.ols = []; TT.bakeNode(g, true, ud.ols);
+    ud.ols = []; TT.bakeRig(g, ud.ols);
     if (o.scale) g.scale.setScalar(o.scale);
     ud.h = (o.hy + hr + 0.28) * (o.scale || 1) + (o.float || 0);
     return g;
@@ -471,7 +471,7 @@
     if (o.eyeS !== 'none') ud.eyes = mkEyes(head, o, hr);
     const face = grp(head, 0, 0, 0, 1);
     if (o.x) o.x(g, head, body, face, ud);
-    ud.ols = []; TT.bakeNode(g, true, ud.ols);
+    ud.ols = []; TT.bakeRig(g, ud.ols);
     if (o.scale) g.scale.setScalar(o.scale);
     ud.h = (o.top || 1) * (o.scale || 1) + (o.float || 0);
     return g;

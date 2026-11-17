@@ -7,7 +7,33 @@
   const grp = (parent, x, y, z) => { const g = new THREE.Group(); g.position.set(x || 0, y || 0, z || 0); parent.add(g); return g; };
   function prune(n) { for (const c of n.children.slice()) { if (c.isMesh || c.isSprite) continue; prune(c); if (!c.children.length) n.remove(c); } }
   const chunks = {};
-  const chunk = (x, z) => { const k = Math.floor((x + 320) / 32) + '_' + Math.floor((z + 320) / 32); return chunks[k] || (chunks[k] = new THREE.Group()); };
+  // Scenery is baked in 18-unit tiles; tiles belong to an area so a whole area can be switched off when nobody is there.
+  const areaOf = (x, z) => z > 300 ? 'stage' : x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
+  W.areas = {};
+  const chunk = (x, z) => { const k = Math.floor((x + 1600) / 18) + '_' + Math.floor((z + 1600) / 18); if (!chunks[k]) { chunks[k] = new THREE.Group(); chunks[k].userData.area = areaOf(x, z); } return chunks[k]; };
+  W.showAreas = (x, z, battle, title) => {
+    const A = W.areas, on = title ? { town: 1, city: 1 } : battle ? { stage: 1 } : { town: z > -112 && x < 104, city: z < -22 && x < 104, world: x > 12 };
+    for (const k in A) { const v = !!on[k]; if (A[k].visible !== v) A[k].visible = v; }
+    if (W.wwLand) W.wwLand.visible = title || !!on.world;
+  };
+  // After building: anything the world's own animations never move gets its matrices worked out once and is then skipped every frame.
+  W.freezeStatic = (scene, keep) => {
+    const rec = o => [o.position.x, o.position.y, o.position.z, o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w, o.scale.x, o.scale.y, o.scale.z];
+    const snap = new Map(), moved = new Set(), busy = new Set(), fake = { position: new THREE.Vector3() };
+    scene.traverse(o => snap.set(o, rec(o)));
+    try {
+      for (const [t, x, z] of [[3.71, 9, -4], [17.3, -31, 22], [40.9, 120, -90], [0, 0, 0]]) {
+        fake.position.set(x, 12, z + 12); W.update(t, fake, null, 0);
+        scene.traverse(o => { const a = snap.get(o), b = rec(o); let ch = !a; if (a) for (let i = 0; i < 10; i++) if (Math.abs(a[i] - b[i]) > 1e-9) { ch = true; break; } if (ch) { moved.add(o); for (let q = o.parent; q; q = q.parent) busy.add(q); } });
+      }
+    } catch (e) { console.warn('freezeStatic', e); return 0; }
+    let n = 0;
+    scene.updateMatrixWorld(true);
+    // a container that stays put but holds moving things keeps its own matrix fixed (so it stops forcing its still children to update)
+    const walk = o => { if (moved.has(o) || o.userData.live) return; if (!busy.has(o)) { TT.freeze(o); n++; return; } o.matrixAutoUpdate = false; for (const c of o.children) walk(c); };
+    for (const c of scene.children) if (!keep.has(c)) walk(c);
+    return n;
+  };
 
   W.h = () => 0; W.gy = () => 0;      // ground height; the Wide World (world2.js) replaces this with hills
   W.POND = { x: 32, z: 24, r: 9 };
@@ -362,7 +388,7 @@
       else for (let j = 0; j < 3; j++) P(g, 'pyr', c, [rand(-0.15, 0.15), 0.14, rand(-0.15, 0.15)], [0.06, rand(0.25, 0.42), 0.06], [rand(-0.35, 0.35), rand(0, 3), rand(-0.35, 0.35)]);
     }
     yield 'Polishing everything';
-    for (const k in chunks) { const ch = chunks[k]; scene.add(ch); const m = TT.bakeDeep(ch); if (m) m.material = TT.swayMat; prune(ch); }
+    for (const k in chunks) { const ch = chunks[k], ak = ch.userData.area, ar = W.areas[ak] || (W.areas[ak] = new THREE.Group()); if (!ar.parent) scene.add(ar); ar.add(ch); const m = TT.bakeDeep(ch); if (m) m.material = TT.swayMat; prune(ch); TT.freeze(ch); }
 
     // soft shadows painted into the ground under trees and buildings (free on slow tablets)
     {
@@ -500,6 +526,7 @@
   W.setGate = open => { W.gateBar.visible = !open; const i = W.colliders.indexOf(W.gateCol); if (open && i >= 0) W.colliders.splice(i, 1); if (!open && i < 0) W.colliders.push(W.gateCol); };
   W.blocked = (x, z, r) => { const p = W.collide(x, z, r); return Math.abs(p[0] - x) > 0.01 || Math.abs(p[1] - z) > 0.01; };
   W.update = (t, cam, px, pz) => {
+    W.px = px; W.pz = pz;
     for (const f of W.anim) f(t);
     if (cam) { W.back.position.set(cam.position.x, 0, cam.position.z); W.clouds.rotation.y = t * 0.004; }
     for (const b of W.occ) {

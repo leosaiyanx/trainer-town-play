@@ -54,8 +54,12 @@
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals(); return g;
   })();
   TT.G = {
-    sph: new THREE.SphereGeometry(1, 18, 12),
-    sphS: new THREE.SphereGeometry(1, 9, 6),
+    sph: new THREE.SphereGeometry(1, 16, 11),
+    sphM: new THREE.SphereGeometry(1, 10, 7),
+    sphS: new THREE.SphereGeometry(1, 7, 5),
+    sphT: new THREE.SphereGeometry(1, 5, 3),
+    cylS: new THREE.CylinderGeometry(1, 1, 1, 8),
+    cylT: new THREE.CylinderGeometry(1, 1, 1, 5),
     box: new THREE.BoxGeometry(1, 1, 1),
     cyl: new THREE.CylinderGeometry(1, 1, 1, 12),
     cone: new THREE.ConeGeometry(1, 1, 12),
@@ -69,12 +73,18 @@
     torus: new THREE.TorusGeometry(1, 0.32, 8, 16),
     thinTorus: new THREE.TorusGeometry(1, 0.13, 6, 24)
   };
+  TT.triStat = /tristat/.test(location.search) ? {} : null;
   const gc2 = {};
-  TT.capsule = (r, len) => { const k = 'c' + r + '_' + len; return gc2[k] || (gc2[k] = new THREE.CapsuleGeometry(r, len, 4, 10)); };
-  TT.taper = (rt, rb, h) => { const k = 't' + rt + '_' + rb + '_' + h; return gc2[k] || (gc2[k] = new THREE.CylinderGeometry(rt, rb, h, 14)); };
+  TT.capsule = (r, len) => { const k = 'c' + r + '_' + len; return gc2[k] || (gc2[k] = new THREE.CapsuleGeometry(r, len, 3, r < 0.11 ? 7 : 9)); };
+  TT.taper = (rt, rb, h) => { const k = 't' + rt + '_' + rb + '_' + h; return gc2[k] || (gc2[k] = new THREE.CylinderGeometry(rt, rb, h, Math.max(rt, rb) < 0.12 ? 8 : 12)); };
   // P(parent, geo, colorOrMaterial, [x,y,z], scale|[sx,sy,sz], [rx,ry,rz])
   TT.P = (parent, geo, col, p, s, r) => {
-    if (geo === 'sph' && s != null && (typeof s === 'number' ? s : Math.max(s[0], s[1], s[2])) < 0.085) geo = 'sphS';
+    // small parts get lighter geometry: nobody can see 400 triangles in a berry, but a slow tablet has to draw them
+    if (s != null && (geo === 'sph' || geo === 'cyl')) {
+      const big = typeof s === 'number' ? s : geo === 'cyl' ? Math.max(s[0], s[2]) : Math.max(s[0], s[1], s[2]);
+      if (geo === 'sph') geo = big < 0.05 ? 'sphT' : big < 0.13 ? 'sphS' : big < 0.34 ? 'sphM' : 'sph';
+      else geo = big < 0.06 ? 'cylT' : big < 0.22 ? 'cylS' : 'cyl';
+    }
     const m = new THREE.Mesh(typeof geo === 'string' ? TT.G[geo] : geo, typeof col === 'number' ? TT.mat(col) : col);
     if (p) m.position.set(p[0], p[1], p[2]);
     if (s != null) { if (typeof s === 'number') m.scale.setScalar(s); else m.scale.set(s[0], s[1], s[2]); }
@@ -86,7 +96,7 @@
   const _v = new THREE.Vector3(), _n3 = new THREE.Matrix3();
   function merge(list, ao) { // list: [{mesh, matrix}]; ao darkens vertices near the ground for depth
     let n = 0;
-    const gs = list.map(e => { const g0 = e.mesh.geometry, g = g0.index ? (g0._ni || (g0._ni = g0.toNonIndexed())) : g0; n += g.attributes.position.count; return g; });
+    const gs = list.map(e => { const g0 = e.mesh.geometry, g = g0.index ? (g0._ni || (g0._ni = g0.toNonIndexed())) : g0; n += g.attributes.position.count; if (TT.triStat) { let nm = '?'; for (const k in TT.G) if (TT.G[k] === g0) nm = k; if (nm === '?') nm = g0.type; const sc = e.mesh.scale, big = Math.max(sc.x, sc.y, sc.z); nm += big < 0.12 ? ':tiny' : big < 0.35 ? ':small' : ''; nm = (ao ? 'S ' : 'D ') + nm; TT.triStat[nm] = (TT.triStat[nm] || 0) + g.attributes.position.count / 3; } return g; });
     const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
     list.forEach((e, i) => {
       const g = gs[i], pa = g.attributes.position, na = g.attributes.normal, c = e.mesh.material.color, mx = e.matrix;
@@ -112,8 +122,44 @@
     }
     if (!ms.length) return;
     const m = merge(ms); m.material = TT.cmat; ms.forEach(e => node.remove(e.mesh)); node.add(m);
-    if (ol && !node.userData.noOl) { const o = new THREE.Mesh(m.geometry, TT.olMat); m.add(o); if (ols) ols.push(o); }
+    // the baked mesh (and its ink outline) sit exactly on their rig joint, so they borrow its matrix instead of computing their own
+    const share = o => { o.matrixAutoUpdate = false; o.matrixWorldAutoUpdate = false; o.matrixWorld = node.matrixWorld; };
+    share(m);
+    if (ol && !node.userData.noOl) { const o = new THREE.Mesh(m.geometry, TT.olMat); m.add(o); share(o); if (ols) ols.push(o); }
   };
+  // Characters and creatures: the whole rig becomes ONE skinned mesh (plus one for the ink outline). Each part follows its own
+  // joint rigidly, so it looks exactly like separate parts — but a character is 2 draw calls instead of 15-30, which is what
+  // slow tablets care about most.
+  const noop = () => { };
+  TT.bakeRig = function (root, ols) {
+    root.updateMatrixWorld(true);
+    const bones = [], main = [], line = [];
+    const walk = (node, ol) => {
+      let bi = -1;
+      for (const ch of node.children.slice()) {
+        if (bakeable(ch)) { if (bi < 0) { bi = bones.length; bones.push(node); } const e = { mesh: ch, matrix: ch.matrixWorld.clone(), bi }; main.push(e); if (ol) line.push(e); }
+        else if (!ch.isMesh && !ch.isSprite && ch.children.length) walk(ch, ol && !ch.userData.noOl);
+      }
+    };
+    walk(root, !root.userData.noOl);
+    if (!main.length) return;
+    main.forEach(e => e.mesh.parent.remove(e.mesh));
+    const skel = new THREE.Skeleton(bones, bones.map(b => new THREE.Matrix4().copy(b.matrixWorld).invert()));
+    const mk = (list, mat) => {
+      const g = merge(list).geometry, n = g.attributes.position.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4); let o = 0;
+      for (const e of list) { const g0 = e.mesh.geometry, cnt = (g0.index ? g0._ni : g0).attributes.position.count; for (let j = 0; j < cnt; j++, o += 4) { si[o] = e.bi; sw[o] = 1; } }
+      g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); g.userData.own = true;
+      const m = new THREE.SkinnedMesh(g, mat); m.castShadow = true; m.frustumCulled = false; m.bindMode = 'detached';
+      m.bind(skel, new THREE.Matrix4());
+      // vertices are stored in world-at-bind space and the joints carry all movement, so the mesh itself stays at identity forever
+      m.matrixAutoUpdate = false; m.matrixWorldAutoUpdate = false; m.updateMatrixWorld = noop;
+      root.add(m); return m;
+    };
+    root.userData.skin = mk(main, TT.cmat);
+    if (line.length) { const o = mk(line, TT.olMat); if (ols) ols.push(o); }
+  };
+  // free the GPU memory of a character that is gone for good (wild Pokémon that left, battle models, other players)
+  TT.dispose = root => { if (!root) return; root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.dispose(); if (o.geometry && o.geometry.userData.own) o.geometry.dispose(); }); };
   // flattens a whole static subtree into ONE mesh (root must be at its final transform's parent space)
   TT.bakeDeep = function (root) {
     root.updateMatrixWorld(true);
@@ -123,6 +169,8 @@
     ms.forEach(e => e.mesh.parent.remove(e.mesh));
     const m = merge(ms, true); root.add(m); return m;
   };
+  // scenery that never moves: work out its matrices once, then skip it every frame
+  TT.freeze = o => { o.updateMatrixWorld(true); o.matrixWorldAutoUpdate = false; o.traverse(c => { c.matrixAutoUpdate = false; }); return o; };
   TT.rand = (a, b) => a + Math.random() * (b - a);
   TT.pick = a => a[(Math.random() * a.length) | 0];
   TT.clamp = (v, a, b) => v < a ? a : v > b ? b : v;

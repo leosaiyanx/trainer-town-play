@@ -22,7 +22,7 @@
 
   function spot(side) { return [A().x + side * 2.4, A().z]; }
   function newMon(sp, x, z, ry) { const o = TT.creature(sp); o.userData.s0 = o.scale.x; o.userData.ry = ry; o.position.set(A().x + x, 0, A().z + z); o.rotation.y = ry; TT.scene.add(o); return o; }
-  function placeAlly(sp) { if (st.obj.ally) TT.scene.remove(st.obj.ally); st.obj.ally = newMon(sp, FRIEND[0], FRIEND[1], 1.57 - 0.75); TT.cry(sp); return st.obj.ally; }
+  function placeAlly(sp) { if (st.obj.ally) { TT.scene.remove(st.obj.ally); TT.dispose(st.obj.ally); } st.obj.ally = newMon(sp, FRIEND[0], FRIEND[1], 1.57 - 0.75); TT.cry(sp); return st.obj.ally; }
   function addHuman(key, x, z, ry) { const h = TT.human(TT.PEOPLE[key] || TT.PEOPLE.kid); h.position.set(A().x + x, 0, A().z + z); h.rotation.y = ry; TT.scene.add(h); st.extras.push(h); st.humans.push(h); return h; }
   function placeAllies(list) {
     st.allyObjs = []; list.forEach((a, i) => { const s = SLOTS[i]; addHuman(a.h, s[2], s[3], 1.25); const o = newMon(a.sp, s[0], s[1], 1.57 - 0.6); st.allyObjs.push(o); a.o = o; });
@@ -48,7 +48,7 @@
   }
   async function place(side, m, pop) {
     const k = side < 0 ? 'me' : 'foe';
-    if (st.obj[k]) { const old = st.obj[k]; if (old.userData.aura) kill(old.userData.aura); TT.scene.remove(old); }
+    if (st.obj[k]) { const old = st.obj[k]; if (old.userData.aura) kill(old.userData.aura); TT.scene.remove(old); TT.dispose(old); }
     const o = TT.creature(m.sp), s = spot(side);
     if (m.boss) { o.scale.multiplyScalar(1.45); o.userData.boss = 1; }
     o.userData.s0 = o.scale.x; o.userData.ry = side < 0 ? 1.57 - 0.5 : -1.57 + 0.5;
@@ -463,10 +463,10 @@
   };
   function cleanup() {
     $('battle').classList.add('hide'); $('foeBox').classList.remove('boss'); document.body.classList.remove('bossmode'); $('bossCard').classList.remove('on');
-    for (const k of ['me', 'foe', 'ally']) if (st.obj[k]) { const o = st.obj[k]; if (o.userData.aura) kill(o.userData.aura); TT.scene.remove(o); }
-    (st.allyObjs || []).forEach(o => TT.scene.remove(o));
+    for (const k of ['me', 'foe', 'ally']) if (st.obj[k]) { const o = st.obj[k]; if (o.userData.aura) kill(o.userData.aura); TT.scene.remove(o); TT.dispose(o); }
+    (st.allyObjs || []).forEach(o => { TT.scene.remove(o); TT.dispose(o); });
     if (st.ssAura) kill(st.ssAura.list);
-    st.extras.forEach(o => TT.scene.remove(o));
+    st.extras.forEach(o => { TT.scene.remove(o); TT.dispose(o); });
     st = null; B.active = false; cam.ov = null; W.applyStage(null); W.ARENA = W.STAGES.meadow;
   }
 

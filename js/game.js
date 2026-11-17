@@ -8,12 +8,14 @@
   let follower = null, eggObj = null, nestEgg = null, starObj = null;
   const npcs = [], wilds = [], respawns = [];
   const input = { x: 0, y: 0, keys: {} };
-  let sun, quality = 2, qLock = false, qN = 0, qT = 0, dustT = 0;
+  let sun, quality = 2, qLock = false, qN = 0, qT = 0, qSkip = 60, dustT = 0;
   const blobs = [], actors = [], dust = [];
   let miniOn = true, miniT = 0, dest = null, beacon = null, mapBase = null; try { miniOn = localStorage.getItem('tt_mini') !== '0'; } catch (e) { }
   const cam = { x: 0, z: 8 };
   const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad', gary: 'Gary', leaf: 'Leaf' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander', gary: 'squirtle', leaf: 'bulbasaur' };
   let slot = '', pname = '', cloudDirty = false, kidsList = [];
+  let viewX = 30, viewZ = 31, viewS = 11;
+  let actKey = '', netShown = -1, eggShown = -1, inB = false;
   let comps = [], snorlaxNpc = null, areaNow = '', camY = 0, runT = 0, lean = 0; const vel = { x: 0, z: 0 };
   const areaKey = (x, z) => x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
   const allies = () => { const a = []; if (S.flags.gohan) a.push({ h: 'gohan', sp: 'lugia', n: 'Gohan', mv: ['Aeroblast', 'flying', 55] }); if (S.flags.goku) a.push({ h: 'goku', sp: 'rayquaza', n: 'Goku', mv: ['Dragon Pulse', 'dragon', 60] }); return a; };
@@ -34,18 +36,21 @@
     renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    scene = TT.scene = new THREE.Scene(); scene.background = new THREE.Color(0xcdeeff); scene.fog = new THREE.Fog(0xcdeeff, 55, 135);
+    scene = TT.scene = new THREE.Scene(); scene.matrixAutoUpdate = false;   // the scene itself never moves; without this three.js force-updates every object every frame
+    scene.background = new THREE.Color(0xcdeeff); scene.fog = new THREE.Fog(0xcdeeff, 55, 135);
     const hemi = new THREE.HemisphereLight(0xffffff, 0xa8c4a0, 0.6); scene.add(hemi);
     sun = new THREE.DirectionalLight(0xfff2d8, 0.52); sun.position.set(18, 38, 24); scene.add(sun); scene.add(sun.target);
     sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.002; sun.shadow.normalBias = 0.04;
     const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 130;
     quality = +(new URLSearchParams(location.search).get('q') || 2); qLock = location.search.indexOf('q=') >= 0;
+    if (!qLock) try { const j = JSON.parse(localStorage.getItem('tt_q')); if (j && j.q >= 0 && j.q < 2 && Date.now() - j.t < 14 * 864e5) quality = j.q; } catch (e) { }   // what this device managed last time
     camera = new THREE.PerspectiveCamera(40, 1, 0.5, 900); document.body.classList.toggle('grade', quality >= 2);
     const tm = TT.timing = {}, t0 = performance.now();
     TT.lights = { hemi, sun };
     let pct = 30; LP(pct, 'Building Trainer Town'); await frameWait();
-    const steps = W.build(scene);
+    const pre = new Set(scene.children), steps = W.build(scene);
     for (let r = steps.next(); !r.done; r = steps.next()) { pct = Math.min(90, pct + 4.5); LP(pct, r.value); await frameWait(); }
+    tm.frozen = W.freezeStatic(scene, pre);
     tm.world = Math.round(performance.now() - t0);
     LP(92, 'Waking up the Pokémon'); await frameWait();
     W.makeMotes(scene);
@@ -72,6 +77,7 @@
     kidsList = readKids(); if (kidsList.length) buildProfiles();
     const duo = (k, sp) => () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[k]), c = TT.creature(sp); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; };
     if ($('pLiko')) { $('pLiko').src = TT.portrait('t_liko', duo('liko', 'sprigatito'), true); $('pAsh').src = TT.portrait('t_ash', duo('ash', 'pikachu'), true); }
+    setQuality(quality);
     tm.all = Math.round(performance.now() - t0); LP(100, 'Ready!');
     $('title').addEventListener('pointerdown', () => { TT.audioInit(); if (mode === 'title') TT.music('title'); });
     bindInput(); resize(); window.addEventListener('resize', resize); window.addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -102,6 +108,7 @@
   function resize() {
     const w = window.innerWidth, h = window.innerHeight; if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    const zm = w < h ? 1.5 : 1; viewX = 15 * zm * (w / h) + 5; viewZ = 27 * zm + 4; viewS = 8 * zm + 3;
   }
 
   function newSave(ch) { return { v: 1, ch, party: [TT.mon(STARTER[ch], 5)], box: [], balls: 3, stars: [], egg: { have: false, warm: 0 }, flags: {}, rocket: 0, caught: [] }; }
@@ -184,12 +191,12 @@
     const ci = W.colliders.indexOf(W.snorlaxCol); snorlaxNpc.hidden = !!f.snorlax;
     if (f.snorlax && ci >= 0) W.colliders.splice(ci, 1); if (!f.snorlax && ci < 0) W.colliders.push(W.snorlaxCol);
     for (const n of npcs) { if (n.key === 'hideout') n.hidden = !!f.hideout; if (n.key === 'goku') n.hidden = !!f.goku; if (n.key === 'gohan') n.hidden = !!f.gohan; }
-    for (const c of comps) scene.remove(c.root); comps = [];
+    for (const c of comps) { scene.remove(c.root); TT.dispose(c.root); } comps = [];
     for (const [k, on] of [['gohan', f.gohan], ['goku', f.goku]]) if (on) comps.push({ key: k, x: player.x - 1 - comps.length, z: player.z + 1.5, h: 0, mv: 0, root: wrap(TT.human(TT.PEOPLE[k]), 0.42) });
   }
   function setFollower() {
     const old = follower;
-    if (old) scene.remove(old.root);
+    if (old) { scene.remove(old.root); TT.dispose(old.root); }
     const m = S.party[0];
     follower = { sp: m.sp, x: old ? old.x : player.x + 1, z: old ? old.z : player.z + 1, h: 0, mv: 0, root: wrap(TT.creature(m.sp), 0.35) };
   }
@@ -210,7 +217,7 @@
     if (rare) { const sg = new THREE.Group(); for (let i = 0; i < 4; i++) P(sg, 'sphS', TT.glow(i % 2 ? 0xfff27a : 0xffffff), [Math.cos(i * 1.57) * 0.55, i * 0.15, Math.sin(i * 1.57) * 0.55], 0.06); w.root.add(sg); w.spark = sg; }
     wilds.push(w);
   }
-  function removeWild(w) { scene.remove(w.root); wilds.splice(wilds.indexOf(w), 1); respawns.push({ z: w.zone, at: playT + 18 }); }
+  function removeWild(w) { scene.remove(w.root); TT.dispose(w.root); wilds.splice(wilds.indexOf(w), 1); respawns.push({ z: w.zone, at: playT + 18 }); }
 
   function wander(e, dt, speed, pickTarget) {
     if (e.wait > 0) { e.wait -= dt; e.mv = 0; return; }
@@ -223,8 +230,9 @@
   function placeEnt(e, isHuman) {
     const r = e.root, m = r.userData.model;
     r.position.set(e.x, W.gy(e.x, e.z), e.z); r.rotation.y = e.h;
-    const d = Math.hypot(e.x - player.x, e.z - player.z);
-    r.visible = d < 48 && !e.hidden;
+    const dx = e.x - cam.x, dz = e.z - cam.z, d = Math.hypot(e.x - player.x, e.z - player.z);
+    // only what the camera can see (plus a margin) is shown and animated; everything else costs nothing at all
+    r.visible = !e.hidden && (mode === 'play' && !TT.Battle.active ? Math.abs(dx) < viewX && dz > -viewZ && dz < viewS : d < 48); r.matrixWorldAutoUpdate = r.visible;
     if (!r.visible) return;
     const near = d < 26 && quality > 0, u = m.userData;
     if (u.ols && u.olOn !== near) { u.olOn = near; for (const o of u.ols) o.visible = near; }
@@ -446,7 +454,7 @@
   function hud() {
     if (!S) return;
     $('nBall').textContent = S.balls; $('nStar').textContent = S.stars.length;
-    $('chipEgg').classList.toggle('hide', !S.egg.have); $('eggBar').style.width = Math.min(100, S.egg.warm) + '%';
+    $('chipEgg').classList.toggle('hide', !S.egg.have); { const wv = Math.round(Math.min(100, S.egg.warm)); if (wv !== eggShown) { eggShown = wv; $('eggBar').style.width = wv + '%'; } }
     let q;
     if (!S.flags.profMet) q = '➜ Visit Professor Oak at the Lab (top of town)';
     else if (!S.flags.profDone) q = S.caught.length >= 3 ? '➜ Go show Professor Oak!' : '➜ Catch 3 kinds of Pokémon in the tall grass (' + S.caught.length + '/3)';
@@ -538,11 +546,11 @@
   }
   function toTitle() {
     save(); closePanel(); stopInput(); TT.hush(); setDest(null);
-    scene.remove(player.root); if (follower) scene.remove(follower.root); follower = null; eggObj.visible = false; player.root = null;
+    scene.remove(player.root); TT.dispose(player.root); if (follower) { scene.remove(follower.root); TT.dispose(follower.root); } follower = null; eggObj.visible = false; player.root = null;
     S = null; TT.S = null; mode = 'title';
     for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn', 'bPause']) $(id).classList.add('hide');
     $('friends').innerHTML = ''; friendsDirty = true; cloudPush(); if (kidsList.length) buildProfiles();
-    for (const c of comps) scene.remove(c.root); comps = [];
+    for (const c of comps) { scene.remove(c.root); TT.dispose(c.root); } comps = [];
     $('title').classList.remove('hide'); TT.music('title');
   }
 
@@ -727,31 +735,32 @@
   function updatePeers(dt) {
     for (const id in Net.peers) {
       const p = Net.peers[id], d = p.d;
-      if (p.gone || !d || performance.now() - p.last > 8000) { if (p.root) { scene.remove(p.root); scene.remove(p.fol.root); } delete Net.peers[id]; friendsDirty = true; continue; }
+      if (p.gone || !d || performance.now() - p.last > 8000) { if (p.root) { scene.remove(p.root); TT.dispose(p.root); if (p.fol) { scene.remove(p.fol.root); TT.dispose(p.fol.root); } } delete Net.peers[id]; friendsDirty = true; continue; }
       if (!p.root || p.ch !== d.c) {
-        if (p.root) scene.remove(p.root);
+        if (p.root) { scene.remove(p.root); TT.dispose(p.root); }
         p.ch = d.c; p.root = wrap(TT.human(TT.PEOPLE[d.c] || TT.PEOPLE.kid), 0.42); p.x = d.x; p.z = d.z; p.h = d.h;
         p.b = -1; p.lab = null; friendsDirty = true;
       }
-      if (!p.fol || p.sp !== d.p) { if (p.fol) scene.remove(p.fol.root); p.sp = d.p; p.fol = { x: d.x + 1, z: d.z + 1, h: 0, mv: 0, root: wrap(TT.creature(d.p), 0.35) }; }
+      if (!p.fol || p.sp !== d.p) { if (p.fol) { scene.remove(p.fol.root); TT.dispose(p.fol.root); } p.sp = d.p; p.fol = { x: d.x + 1, z: d.z + 1, h: 0, mv: 0, root: wrap(TT.creature(d.p), 0.35) }; }
       if (p.b !== (d.b ? 1 : 0)) { p.b = d.b ? 1 : 0; friendsDirty = true; if (p.lab) p.root.remove(p.lab); p.nm = String(d.n || NAMES[d.c] || 'Friend').replace(/[<>&]/g, '').slice(0, 14); p.lab = TT.label(p.nm + (p.b ? ' ⚔' : ''), p.b ? 'rgba(232,64,42,.95)' : 'rgba(58,160,232,.9)'); p.lab.position.y = 2.2; p.root.add(p.lab); }
       const k = Math.min(1, dt * 10); p.x += (d.x - p.x) * k; p.z += (d.z - p.z) * k; p.h = TT.angLerp(p.h, d.h, k); p.mv = d.m;
       placeEnt(p, true); follow(p.fol, p.x, p.z, dt, 1.5); placeEnt(p.fol, false);
     }
-    const c = Net.count(); $('chipNet').classList.toggle('hide', !c); if (c) $('netTxt').textContent = '👫 ' + (c + 1);
+    const c = Net.count(); if (c !== netShown) { netShown = c; $('chipNet').classList.toggle('hide', !c); if (c) $('netTxt').textContent = '👫 ' + (c + 1); }
     if (friendsDirty && S) { friendsDirty = false; drawFriends(); }
   }
 
   // ---------- main update ----------
   function update(dt) {
     W.update(t, camera, mode === 'play' && !TT.Battle.active ? player.x : null, player.z);
+    W.showAreas(player.x, player.z, TT.Battle.active, mode !== 'play');
     TT.uTime.value = t;
     { const fx = Math.round(TT.Battle.active ? W.ARENA.x : mode === 'play' ? cam.x : 0), fz = Math.round(TT.Battle.active ? W.ARENA.z : mode === 'play' ? cam.z : 0); sun.position.set(fx + 18, 38, fz + 24); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld(); }
     for (const a of actors) { if (a.userData.human) TT.animHuman(a, t, 0); else TT.animCreature(a, t, 0); }
     for (const d of dust) if (d.visible) { d.userData.k += dt * 2.2; const k = d.userData.k; if (k >= 1) d.visible = false; else { d.scale.setScalar(0.12 + k * 0.4); d.position.y = (d.userData.y0 || 0) + 0.1 + k * 0.5; d.material.opacity = 0.5 * (1 - k); } }
-    if (document.body.classList.contains('inbattle') !== TT.Battle.active) document.body.classList.toggle('inbattle', TT.Battle.active);
+    if (inB !== TT.Battle.active) { inB = TT.Battle.active; document.body.classList.toggle('inbattle', inB); }
     for (const n of npcs) {
-      if (n.hidden) { n.root.visible = false; if (n.zz) n.zz.forEach(z => { z.visible = false; }); continue; }
+      if (n.hidden) { n.root.visible = n.root.matrixWorldAutoUpdate = false; if (n.zz) n.zz.forEach(z => { z.visible = false; }); continue; }
       if (n.zz) n.zz.forEach((z, i) => { const k = (t * 0.35 + i / 3) % 1; z.visible = n.root.visible; z.position.set(n.x + 0.6 + k * 1.2, W.gy(n.x, n.z) + 3.1 + k * 1.8, n.z + 0.3); z.material.opacity = Math.sin(k * 3.14); z.scale.set(1.2 * (0.5 + k), 0.3 * (0.5 + k), 1); });
       if (!(busy && dist(n, player) < 3)) { if (n.r > 0) wander(n, dt, n.human ? 1.1 : 1.4, e => { const a = Math.random() * 6.283, r = Math.random() * e.r; e.tx = e.hx + Math.cos(a) * r; e.tz = e.hz + Math.sin(a) * r; }); }
       else n.mv = 0;
@@ -798,7 +807,7 @@
       if (S.egg.have) {
         const nearFire = dist(W.FIRE, player) < 6;
         if (nearFire) { S.egg.warm += dt * 5; if (!fireTold) { fireTold = true; TT.toast('The egg is warming up by the fire!'); } } else { fireTold = false; if (player.mv > 0) S.egg.warm += dt * 0.3; }
-        $('eggBar').style.width = Math.min(100, S.egg.warm) + '%';
+        { const wv = Math.round(Math.min(100, S.egg.warm)); if (wv !== eggShown) { eggShown = wv; $('eggBar').style.width = wv + '%'; } }
         if (S.egg.warm >= 100) hatch();
       }
       // hidden dragon ball
@@ -823,7 +832,7 @@
     if (miniOn && !TT.Battle.active && (miniT += dt) > 0.12) { miniT = 0; drawMini(); }
     if (dest) { beacon.rotation.y = t * 2; beacon.children[1].position.y = 3.2 + Math.sin(t * 4) * 0.4; beacon.position.y = W.gy(beacon.position.x, beacon.position.z); if (idle && Math.hypot(dest.x - player.x, dest.z - player.z) < 2.6) { TT.sfx.pick(); TT.toast('You made it to ' + dest.n + '!'); setDest(null); } }
     const nn = idle && nearestNpc(), nw = idle && nearestWild(), fight = nw && (!nn || dist(nw, player) < dist(nn, player)), near = nn || nw, act = $('act');
-    act.textContent = fight ? '⚔ Battle' : nn ? 'Talk' : 'A'; act.classList.toggle('dim', !near && !TT.dialogOpen); act.classList.toggle('fight', !!fight);
+    { const lbl = fight ? '⚔ Battle' : nn ? 'Talk' : 'A', dim = !near && !TT.dialogOpen, key = lbl + (dim ? 1 : 0); if (key !== actKey) { actKey = key; act.textContent = lbl; act.classList.toggle('dim', dim); act.classList.toggle('fight', !!fight); } }   // touch the page only when something changed
 
     if (!TT.Battle.active) {
       const zm = camera.aspect < 1 ? 1.5 : 1, k = Math.min(1, dt * 5), spd = Math.hypot(vel.x, vel.z), out = 1 + spd * 0.014;
@@ -844,22 +853,31 @@
   function frame(ts) {
     requestAnimationFrame(frame);
     const now = performance.now(), rdt = now - lastReal; lastReal = now;
-    if (!qLock && mode === 'play' && quality > 0 && rdt < 500) { qN++; qT += rdt; if (qN >= 100) { if (qT / qN > 40) setQuality(quality - 1); qN = 0; qT = 0; } }
+    // Automatic picture quality: watch the frame rate for a couple of seconds at a time; if this device cannot keep up,
+    // step down (shadows first, then outlines and resolution) and remember that for next time.
+    if (!qLock && mode === 'play' && !TT.paused && rdt < 400) {
+      if (qSkip > 0) qSkip--;
+      else { qN++; qT += rdt; if (qT > 2500) { const ms = qT / qN; qN = 0; qT = 0; if (ms > 38 && quality > 0) { setQuality(quality - 1); qSkip = 30; try { localStorage.setItem('tt_q', JSON.stringify({ q: quality, t: Date.now() })); } catch (e) { } } } }
+    } else if (rdt >= 400) { qSkip = 30; qN = 0; qT = 0; }
     G.tick(ts);
   }
   G.tick = function (ts) {
     let dt = (ts - last) / 1000; last = ts;
-    if (!(dt > 0)) dt = 0.016; if (dt > 0.05) dt = 0.05;
+    if (!(dt > 0)) dt = 0.016; if (dt > 0.1) dt = 0.1;
     if (TT.paused) { renderer.render(scene, camera); return; }    // everything (battles too) freezes; the picture stays
-    if (TT.hitStop > 0) { TT.hitStop -= dt; dt *= 0.06; }
-    t += dt; TT.updateTweens(dt);
-    try { update(dt); } catch (e) { console.error(e); }
+    // on a slow frame the world still moves at full speed: take two half-steps instead of running in slow motion
+    const n = dt > 0.05 ? 2 : 1; dt /= n;
+    for (let i = 0; i < n; i++) {
+      let d = dt; if (TT.hitStop > 0) { TT.hitStop -= d; d *= 0.06; }
+      t += d; TT.updateTweens(d);
+      try { update(d); } catch (e) { console.error(e); }
+    }
     renderer.render(scene, camera);
   };
   TT.areaMusic = () => { if (mode !== 'play') return 'title'; const a = areaKey(player.x, player.z); return a === 'world' && Math.hypot(player.x - W.PLATEAU.x, player.z - W.PLATEAU.z) < 24 ? 'goku' : a; };
   // test hooks
   G.toTitle = toTitle; G.setPause = setPause;
-  G.dbg = () => ({ S, player, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
+  G.dbg = () => ({ S, player, camera, renderer, quality, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
 
   // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
   // and start the chosen character the moment the world is ready.
