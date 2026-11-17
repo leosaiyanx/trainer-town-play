@@ -810,17 +810,18 @@
       P(h, 'sph', BL, [0, 0.27, 0.19], [0.1, 0.075, 0.1]); P(h, 'sph', LB, [0, 0.245, 0.27], [0.075, 0.06, 0.07]);                                                    // the quiff, with a pale tip
       for (const a of [-0.4, 0, 0.4]) P(ud.tail, 'cone', a ? W2 : BL, [Math.sin(a) * 0.06, 0.07, -0.05], [0.045, 0.17, 0.025], [-0.9, 0, -a]);
     } }); };
-  B.lugia = () => crit({ c: 0xf2f4fa, belly: 0xdfe8f6, b: [0.3, 0.32, 0.42], by: 0.75, hy: 1.5, hz: 0.42, hr: 0.2, hs: [0.19, 0.17, 0.26], float: 0.45, kind: 'float', eyeS: 'dot', eye: 0xe8402a, er: 0.18, ex: 0.1, ey: 0.03, ez: 0.17, eyeTurn: 0.5, scale: 1.15,
+  // Lugia: a great white sea bird: one sweeping body and neck, a pale blue front, dark blue plates down its back, and wings like huge hands.
+  B.lugia = () => { const W2 = 0xf2f4fa, NV = 0x3a5ac8; return crit({ c: W2, noBody: 1, b: [0.3, 0.32, 0.42], by: 0.75, hy: 1.52, hz: 0.44, hr: 0.2, hs: [0.19, 0.17, 0.26], float: 0.45, kind: 'float', eyeS: 'dot', eye: 0xe8402a, er: 0.18, ex: 0.1, ey: 0.03, ez: 0.17, eyeTurn: 0.5, scale: 1.15,
     x: (g, h, body, f, ud) => {
-      P(body, TT.capsule(0.11, 0.55), 0xf2f4fa, [0, 1.12, 0.3], null, [0.6, 0, 0]);                                          // long neck
-      for (const s of [1, -1]) P(h, 'sph', 0x3a5ac8, [s * 0.09, 0.03, 0.12], [0.08, 0.05, 0.08]);                            // blue eye mask
-      P(h, 'cone', 0x3a5ac8, [0, 0.08, -0.22], [0.05, 0.25, 0.05], [-1.9, 0, 0]);
-      for (let i = 0; i < 4; i++) P(body, 'cone', 0x3a5ac8, [0, 1.05 - i * 0.04, -0.05 - i * 0.18], [0.06, 0.22, 0.12], [-0.8, 0, 0]);  // back plates
-      for (let i = 0; i < 3; i++) P(body, 'sph', 0x5a7ad8, [0, 0.7 - i * 0.08, 0.38 - i * 0.04], [0.14, 0.05, 0.06]);        // belly plates
-      P(ud.tail, TT.capsule(0.07, 0.6), 0xf2f4fa, [0, 0.05, -0.35], null, [-1.4, 0, 0]); P(ud.tail, 'cone', 0x3a5ac8, [0, 0.06, -0.75], [0.12, 0.25, 0.05], [-1.57, 0, 0]);
-      ud.slowWings = 1; ud.wings = []; for (const s of [1, -1]) { const w = grp(body, s * 0.28, 0.95, 0); w.userData.s = s; P(w, 'sph', 0xf2f4fa, [s * 0.45, 0.05, 0], [0.5, 0.06, 0.22], [0, 0, s * 0.25]); for (let i = 0; i < 4; i++) P(w, 'cone', i % 2 ? 0xf2f4fa : 0x3a5ac8, [s * (0.75 + i * 0.05), -0.05 - i * 0.05, -0.12 + i * 0.08], [0.06, 0.32, 0.05], [0, 0, s * 2.4]); ud.wings.push(w); }
-    } });
-
+      const R = [[0.36, 0.1, 0.12, W2, 0, 0, -0.22], [0.48, 0.27, 0.32, W2, 0, 0, -0.12], [0.72, 0.33, 0.4, W2, 0, 0, 0], [0.95, 0.28, 0.32, W2, 0, 0, 0.12], [1.12, 0.165, 0.175, W2, 0, 0, 0.26], [1.3, 0.118, 0.125, W2, 0, 0, 0.36], [1.46, 0.105, 0.112, W2, 0, 0, 0.42]];
+      TB(body, R, 12); SHELL(body, R.slice(0, 5), 0xcfdcf4, 0.8, Math.PI / 2, 1.02, 8);
+      for (const s of [1, -1]) P(h, 'sph', NV, [s * 0.09, 0.03, 0.12], [0.08, 0.05, 0.08]);                            // blue eye mask
+      P(h, 'cone', NV, [0, 0.08, -0.22], [0.05, 0.25, 0.05], [-1.9, 0, 0]);
+      for (let i = 0; i < 4; i++) P(body, 'cone', NV, [0, 1.05 - i * 0.04, -0.05 - i * 0.18], [0.06, 0.22, 0.12], [-0.8, 0, 0]);  // back plates
+      TB(ud.tail, RG(W2, [[0, 0.11], [0.3, 0.08, 0.08, 0, 0.02], [0.6, 0.05, 0.05, 0, 0.06], [0.8, 0.02, 0.02, 0, 0.1]]), 8, [0, 0.05, 0], [-1.45, 0, 0]);
+      for (const s of [1, -1]) P(ud.tail, 'cone', NV, [s * 0.07, 0.12, -0.62], [0.05, 0.22, 0.03], [-1.2, 0, -s * 0.5]);
+      ud.slowWings = 1; ud.wings = []; for (const s of [1, -1]) { const w = grp(body, s * 0.28, 0.95, 0); w.userData.s = s; P(w, 'sph', W2, [s * 0.45, 0.05, 0], [0.5, 0.06, 0.22], [0, 0, s * 0.25]); for (let i = 0; i < 4; i++) P(w, 'cone', i % 2 ? W2 : NV, [s * (0.75 + i * 0.05), -0.05 - i * 0.05, -0.12 + i * 0.08], [0.06, 0.32, 0.05], [0, 0, s * 2.4]); ud.wings.push(w); }
+    } }); };
   // name, type, hp, atk, def, moves [name,type,power,level], evo [to, level]
   const D = TT.DEX = {
     pikachu: ['Pikachu', 'electric', 35, 55, 40, [['Thunder Shock', 'electric', 40, 1], ['Quick Attack', 'normal', 35, 1], ['Iron Tail', 'normal', 65, 6], ['Thunderbolt', 'electric', 70, 8]]],
@@ -919,8 +920,19 @@
       P(fl, 'cone', TT.glow(0xff7a1a), [0, 0.24, 0], [0.13, 0.52, 0.13]); P(fl, 'cone', TT.glow(0xffd040), [0, 0.16, 0], [0.075, 0.32, 0.075]);
       for (const s of [1, -1]) P(fl, 'cone', TT.glow(0xff9a2a), [s * 0.07, 0.14, 0], [0.07, 0.3, 0.07], [0, 0, -s * 0.5]);
     } }); };
-  B.abra = () => crit({ c: 0xf2c230, b: [0.2, 0.24, 0.18], by: 0.4, hy: 0.82, hz: 0.04, hr: 0.21, hs: [0.2, 0.19, 0.2], snout: 1, legs: 2, legLen: 1, legX: 0.5, arms: 1, ear: 'long', earA: 0.35, earY: 0.6, eyeS: 'none', tail: 'thin', tailC: 0xf2c230, tailTip: 0x8a5a2a, float: 0.18, kind: 'float',
-    x: (g, h, body, f) => { P(body, 'sph', 0x8a5a2a, [0, 0.5, 0.02], [0.21, 0.13, 0.18]); for (const s of [1, -1]) { P(body, 'sph', 0x8a5a2a, [s * 0.17, 0.56, 0], [0.09, 0.06, 0.09]); P(f, 'box', 0x3a2a1a, [s * 0.08, 0.03, 0.19], [0.08, 0.014, 0.01], [0, s * 0.4, s * 0.15]); } } });
+  // Abra: a golden fox-like Pokémon that hovers with its eyes shut; brown shoulder plates and chest band, wide ears and a thick banded tail.
+  B.abra = () => { const Y = 0xf2c230, BR = 0x8a5a2a; return crit({ c: Y, noBody: 1, b: [0.2, 0.24, 0.18], by: 0.4, hy: 0.84, hz: 0.04, hr: 0.21, hs: [0.215, 0.185, 0.2], snout: 1, legs: 2, legT: 0.055, legX: 0.55, foot: [0.075, 0.045, 0.14], arms: 1, armT: [0.24, 0.04], eyeS: 'none', float: 0.18, kind: 'float', tailY: 0.6,
+    x: (g, h, body, f, ud) => {
+      TB(body, RG(Y, [[0.2, 0.1, 0.09], [0.3, 0.172, 0.152], [0.44, 0.185, 0.16], [0.56, 0.16, 0.14], [0.67, 0.1, 0.095]]), 10);
+      BAND(body, 0.46, 0.6, [0.19, 0.165], BR, 3.15, Math.PI / 2);
+      TB(ud.tail, [[0, 0.07, 0.07, Y], [0.14, 0.075, 0.075, Y, 0, 0, 0.01], [0.26, 0.068, 0.068, Y, 0, 0, 0.04], [0.262, 0.07, 0.07, BR, 0, 0, 0.04], [0.33, 0.062, 0.062, BR, 0, 0, 0.07], [0.332, 0.06, 0.06, Y, 0, 0, 0.07], [0.42, 0.04, 0.04, Y, 0, 0, 0.13], [0.47, 0.012, 0.012, Y, 0, 0, 0.17]], 8, null, [-1.2, 0, 0]);
+      for (const s of [1, -1]) {
+        P(body, 'sph', BR, [s * 0.18, 0.6, 0], [0.095, 0.065, 0.095]);
+        tEar(h, ud, s, 0.13, 0.1, 0.8, 0.27, 0.1, Y, 0xd8a020);
+        P(f, 'box', 0x3a2a1a, [s * 0.08, 0.03, 0.19], [0.08, 0.014, 0.01], [0, s * 0.4, s * 0.15]);
+        for (const dx of [-0.03, 0, 0.03]) P(ud.legs[s > 0 ? 0 : 1], 'cone', Y, [dx, -0.24, 0.17], [0.014, 0.05, 0.014], [1.57, 0, 0]);
+      }
+    } }); };
   B.snorlax = () => crit({ c: 0x2a5a6a, belly: 0xf2e2c0, b: [0.72, 0.78, 0.6], by: 0.82, hy: 1.72, hz: 0.1, hr: 0.46, hs: [0.48, 0.4, 0.42], legs: 2, legX: 0.55, foot: [0.24, 0.12, 0.3], legC: 0xf2e2c0, arms: 1, ear: 'cat', earX: 0.62, earY: 0.6, eyeS: 'none', kind: 'biped',
     x: (g, h, body, f, ud) => { P(h, 'sph', 0xf2e2c0, [0, -0.08, 0.2], [0.36, 0.28, 0.25]); for (const s of [1, -1]) P(f, 'box', 0x1c2a30, [s * 0.15, 0.04, 0.44], [0.14, 0.02, 0.02], [0, 0, s * 0.1]);
       P(f, 'box', 0x6a3a3a, [0, -0.16, 0.44], [0.2, 0.025, 0.02]); for (const s of [1, -1]) P(f, 'cone', WH, [s * 0.07, -0.13, 0.44], [0.025, 0.05, 0.02]); for (const a of ud.arms) a.scale.setScalar(2.6); } });
@@ -948,15 +960,32 @@
     x: (h, f, body) => { P(body, 'box', 0xf2c230, [0, 0.47, 0.2], [0.11, 0.06, 0.03]); BAND(body, 0.445, 0.5, [0.262, 0.204], 0xf2c230, 3.1, Math.PI / 2); P(h, 'sph', 0x8a8ab0, [0, -0.06, 0.15], [0.1, 0.07, 0.09]); } });
   B.pidgeot = () => bird({ c: 0xc8a060, sc: 1.75, wing: 0x8a6030, tail: 0xe84a2a, tail2: 0xe84a2a, x: h => { for (const a of [-0.3, 0, 0.3]) TB(h, RG(a ? 0xe84a2a : 0xf2c040, [[0, 0.03, 0.02], [0.12, 0.055, 0.024], [0.4, 0.04, 0.02], [0.62, 0.006, 0.006]]), 6, [a * 0.13, 0.15, -0.02], [-1.3 - Math.abs(a) * 0.4, 0, -a * 0.45]); } });
   // serpents: a chain of segments laid along path(k), k = 0 (head) .. 1 (tail); they ripple when animated
+  // One length of a long body between two joints. Each joint has one ring; neighbouring lengths share their rings exactly, so the body bends without gaps.
+  // A and B are { p: [x, y, z], u, v, t (THREE.Vector3), r }. arc = [from, to] makes a strip (the pale underside) instead of a full tube.
+  function skinPiece(A, B, col, arc, grow, capA, capB) {
+    const m = arc ? 4 : 10, per = arc ? m + 1 : m, pos = [], nor = [], vc = [], w2 = [], idx = [], c = new THREE.Color(col);
+    [A, B].forEach((R, ri) => { for (let j = 0; j < per; j++) { const a = arc ? arc[0] + (arc[1] - arc[0]) * j / m : j / m * 6.2832, cx = Math.cos(a), sx = Math.sin(a), nx = R.u.x * cx + R.v.x * sx, ny = R.u.y * cx + R.v.y * sx, nz = R.u.z * cx + R.v.z * sx, r = R.r * grow; pos.push(R.p[0] + nx * r, R.p[1] + ny * r, R.p[2] + nz * r); nor.push(nx, ny, nz); vc.push(c.r, c.g, c.b); w2.push(ri); } });
+    for (let j = 0; j < m; j++) { const a = j, b = arc ? j + 1 : (j + 1) % m, c2 = a + per, d = b + per; idx.push(a, c2, b, b, c2, d); }
+    if (!arc) for (const [R, ri, sg] of [[A, 0, -1], [B, 1, 1]]) { if (!(ri ? capB : capA)) continue; const k = pos.length / 3; pos.push(R.p[0] + R.t.x * sg * R.r * 0.7, R.p[1] + R.t.y * sg * R.r * 0.7, R.p[2] + R.t.z * sg * R.r * 0.7); nor.push(R.t.x * sg, R.t.y * sg, R.t.z * sg); vc.push(c.r, c.g, c.b); w2.push(ri); for (let j = 0; j < m; j++) { const a = ri * per + j, b = ri * per + (j + 1) % m; if (ri) idx.push(k, b, a); else idx.push(k, a, b); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('vc', new THREE.Float32BufferAttribute(vc, 3)); g.setAttribute('w2', new THREE.Float32BufferAttribute(w2, 1)); g.setIndex(idx);
+    return g;
+  }
   function serpent(o) {
     const g = new THREE.Group(), ud = g.userData = { legs: [], ears: [], arms: [], kind: 'serpent', float: o.float || 0, segs: [], path: [], wv: o.wave || [0.15, 0.06] };
     const body = ud.body = grp(g), n = o.n;
     for (let i = 0; i < n; i++) {
       const k = i / (n - 1), r = o.r0 * (1 - k * (o.taper == null ? 0.7 : o.taper)), q = o.path(k), sg = grp(body, q[0], q[1], q[2]);
-      ud.path.push(q); P(sg, 'sph', o.c, [0, 0, 0], [r, r, r * 1.25]);
-      if (o.belly != null) P(sg, 'sph', o.belly, o.bellyUp ? [0, 0, r * 0.32] : [0, -r * 0.32, 0], o.bellyUp ? [r * 0.8, r * 0.95, r * 0.8] : [r * 0.82, r * 0.78, r * 1.12]);
+      ud.path.push(q); sg.userData.r = r;
+      if (o.balls) { P(sg, 'sph', o.c, [0, 0, 0], [r, r, r * 1.25]); if (o.belly != null) P(sg, 'sph', o.belly, o.bellyUp ? [0, 0, r * 0.32] : [0, -r * 0.32, 0], o.bellyUp ? [r * 0.8, r * 0.95, r * 0.8] : [r * 0.82, r * 0.78, r * 1.12]); }
       if (o.seg) o.seg(sg, i, r, k);
       ud.segs.push(sg);
+    }
+    if (!o.balls) {            // one smooth skin over all the joints
+      const V = THREE.Vector3, bd = o.bellyUp ? new V(0, 0, 1) : new V(0, -1, 0), fr = [];
+      for (let i = 0; i < n; i++) { const a = ud.path[Math.max(0, i - 1)], b = ud.path[Math.min(n - 1, i + 1)], t = new V(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize(), v = bd.clone().addScaledVector(t, -bd.dot(t)); if (v.length() < 0.2 && i) v.copy(fr[i - 1].v).addScaledVector(t, -fr[i - 1].v.dot(t)); v.normalize(); fr.push({ t, v, u: new V().crossVectors(t, v), r: ud.segs[i].userData.r }); }
+      for (let i = 0; i < n - 1; i++) { const q = ud.path[i], q2 = ud.path[i + 1], A = Object.assign({ p: [0, 0, 0] }, fr[i]), Bn = Object.assign({ p: [q2[0] - q[0], q2[1] - q[1], q2[2] - q[2]] }, fr[i + 1]);
+        P(ud.segs[i], skinPiece(A, Bn, o.c, null, 1, i === 0, i === n - 2), WH).userData.bone2 = ud.segs[i + 1];
+        if (o.belly != null) P(ud.segs[i], skinPiece(A, Bn, o.belly, [0.55, 2.59], 1.03), WH).userData.bone2 = ud.segs[i + 1]; }
     }
     const hr = o.hr, head = ud.head = grp(ud.segs[0], 0, o.hy || 0, o.hz == null ? hr * 0.6 : o.hz);
     P(head, 'sph', o.hc != null ? o.hc : o.c, [0, 0, 0], o.hs || [hr, hr * 0.85, hr * 1.1]);
@@ -992,11 +1021,20 @@
       for (const s of [1, -1]) tEar(h, ud, s, 0.13, 0.11, 0.45, 0.26, 0.08, RB, DK);
       P(f, 'sph', 0x3a2a22, [0, -0.045, 0.21], 0.017);
     } }); };
-  B.onix = () => serpent({ c: 0x8a8a96, n: 10, r0: 0.36, taper: 0.5, hr: 0.38, hs: [0.36, 0.36, 0.42], hz: 0.2, hy: 0.05, top: 2.6, wave: [0.08, 0.03], path: k => [Math.sin(k * 4.5) * 0.35, 0.3 + 2.1 * Math.pow(1 - k, 1.5), 0.3 - k * 1.5], eyeS: 'slit', er: 0.15, ex: 0.17, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
+  B.onix = () => serpent({ c: 0x8a8a96, balls: 1, n: 10, r0: 0.36, taper: 0.5, hr: 0.38, hs: [0.36, 0.36, 0.42], hz: 0.2, hy: 0.05, top: 2.6, wave: [0.08, 0.03], path: k => [Math.sin(k * 4.5) * 0.35, 0.3 + 2.1 * Math.pow(1 - k, 1.5), 0.3 - k * 1.5], eyeS: 'slit', er: 0.15, ex: 0.17, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
     seg: (sg, i, r) => { if (i % 2) P(sg, 'rock', 0x74747e, [r * 0.5, r * 0.4, 0], r * 0.5, [i, i * 2, 0]); },
     x: (g, h) => { P(h, 'cone', 0x74747e, [0, 0.42, -0.05], [0.09, 0.4, 0.09], [-0.25, 0, 0]); P(h, 'sph', 0x9a9aa6, [0, -0.14, 0.2], [0.26, 0.1, 0.24]); } });
-  B.mewtwo = () => crit({ c: 0xe4dcec, belly: 0xa886c8, b: [0.2, 0.3, 0.17], by: 0.58, hy: 1.14, hz: 0.04, hr: 0.2, hs: [0.19, 0.2, 0.22], legs: 2, legLen: 1, legX: 0.5, arms: 1, tail: 'thin', tailC: 0xa886c8, tailTip: 0xa886c8, eyeS: 'slit', eye: 0x8a4ac8, er: 0.16, float: 0.25, kind: 'float', scale: 1.1,
-    x: (g, h, body) => { for (const s of [1, -1]) { P(h, 'cone', 0xe4dcec, [s * 0.1, 0.2, -0.02], [0.05, 0.14, 0.05], [0, 0, -s * 0.25]); P(body, 'sph', 0xa886c8, [s * 0.16, 0.5, 0], [0.09, 0.07, 0.09]); } P(body, 'cyl', 0xe4dcec, [0, 0.84, -0.14], [0.05, 0.3, 0.05], [0.5, 0, 0]); P(body, 'sph', 0xa886c8, [0, 0.2, -0.3], [0.12, 0.12, 0.2]); } });
+  // Mewtwo: tall and lean, pale grey with a purple belly and a long heavy purple tail; two blunt horns and a tube from the back of its head to its spine.
+  B.mewtwo = () => { const G = 0xe4dcec, PU = 0xa886c8; return crit({ c: G, noBody: 1, b: [0.2, 0.3, 0.17], by: 0.58, hy: 1.16, hz: 0.04, hr: 0.2, hs: [0.19, 0.2, 0.22], legs: 2, legT: 0.065, legX: 0.6, foot: [0.075, 0.045, 0.18], arms: 1, armT: [0.4, 0.038], eyeS: 'slit', eye: 0x8a4ac8, er: 0.16, float: 0.25, kind: 'float', scale: 1.1, tailY: 0.62,
+    x: (g, h, body, f, ud) => {
+      const R = RG(G, [[0.3, 0.12, 0.11], [0.4, 0.185, 0.16], [0.52, 0.172, 0.15], [0.64, 0.12, 0.105], [0.78, 0.178, 0.135], [0.9, 0.2, 0.142], [1.0, 0.11, 0.09]]);
+      TB(body, R, 11); SHELL(body, R.slice(0, 4), PU, 1.15, Math.PI / 2, 1.03, 8);
+      TB(ud.tail, RG(PU, [[0, 0.085], [0.2, 0.085, 0.085, 0, 0.02], [0.42, 0.072, 0.072, 0, 0.09], [0.62, 0.062, 0.062, 0, 0.22], [0.76, 0.075, 0.075, 0, 0.38], [0.84, 0.04, 0.04, 0, 0.5]]), 8, null, [-1.3, 0, 0]);
+      TB(body, RG(G, [[0, 0.042], [0.34, 0.042]]), 6, [0, 0.86, -0.12], [0.55, 0, 0]);
+      for (const pv of ud.legs) P(pv, 'sph', G, [0, -0.06, 0.01], [0.105, 0.17, 0.125]);                                              // strong thighs
+      for (const pv of ud.arms) { const s = pv.userData.s; pv.position.set(s * 0.215, 0.9, 0.0); P(body, 'sph', G, [s * 0.2, 0.91, 0], 0.075); for (const dx of [-0.035, 0, 0.035]) P(pv, 'sph', G, [s * 0.14 + dx, -0.36, 0.2], 0.032); }      // three round fingers
+      for (const s of [1, -1]) P(h, 'cone', G, [s * 0.1, 0.2, -0.02], [0.055, 0.15, 0.055], [0, 0, -s * 0.25]);
+    } }); };
   // The three legendary birds: a leaning body and neck in one piece, great layered wings that beat slowly, and each one's own crest and tail.
   function legendBird(o) {
     const C = o.c;
