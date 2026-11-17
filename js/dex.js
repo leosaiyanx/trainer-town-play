@@ -123,7 +123,7 @@
     if (o.glasses) for (const s of [1, -1]) P(face, TT.G.torus, 0x333340, [s * 0.078, 0.012, 0.195], 0.04);
     const eyes = rig.eyes = grp(head, 0, 0.012, 0, 1);
     for (const s of [1, -1]) {
-      const e = grp(eyes, s * 0.078, 0, 0.178); e.rotation.y = s * 0.38;
+      const e = grp(eyes, s * 0.08, 0.004, 0.178); e.rotation.y = s * 0.38; e.scale.set(1.22, 1.26, 1);     // big bright anime eyes
       P(e, 'sph', WH, [0, 0, 0], [0.04, 0.05, 0.012]); P(e, 'sph', o.eye || 0x5a3a22, [0, -0.004, 0.008], [0.028, 0.04, 0.01]);
       P(e, 'sph', BK, [0, -0.004, 0.013], [0.014, 0.022, 0.008]); P(e, 'sph', WH, [0.012, 0.016, 0.017], 0.009);
       P(e, 'box', BK, [0, 0.047, 0.006], [0.085, 0.012, 0.012]);

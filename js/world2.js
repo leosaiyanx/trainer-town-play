@@ -103,11 +103,20 @@
     const blades = ['rgba(60,150,60,.4)', 'rgba(170,235,120,.4)', 'rgba(95,185,75,.45)'];
     for (let i = 0; i < 15000; i++) { x.fillStyle = blades[i % 3]; x.fillRect(Math.random() * 2048, Math.random() * 2048, 2, rand(4, 9)); }
     // mountains, river banks, plateau
-    const ROCK = ['#9a8f80', '#8a8072', '#a89c8a', '#948a7c'];
+    // rock is painted on its own layer in big soft patches, then blurred into the grass (no more checkerboard squares)
+    const ROCK = ['#9a8f80', '#8d8375', '#a89c8a', '#94897a'], rc = document.createElement('canvas'); rc.width = rc.height = 2048; const rx2 = rc.getContext('2d');
     for (let gx = MX0; gx < MX1; gx += 1.5) for (let gz = MZ0; gz < MZ1; gz += 1.5) {
       const cx = gx + 0.75, cz = gz + 0.75, w = wallAt(cx, cz), dp = Math.hypot(cx - W.PLATEAU.x, cz - W.PLATEAU.z);
-      if (w > 0.4) { x.globalAlpha = ss(0.4, 3.5, w); x.fillStyle = W.h(cx, cz) > 13 ? '#f2f6fa' : ROCK[(Math.abs(cx * 7 + cz * 13) | 0) % 4]; x.fillRect(X(gx), Z(gz), 1.5 * kx + 1, 1.5 * kz + 1); }
-      else if (dp < 22) { x.globalAlpha = 0.55 * ss(22, 15, dp); x.fillStyle = ROCK[(Math.abs(cx * 5 + cz * 11) | 0) % 4]; x.fillRect(X(gx), Z(gz), 1.5 * kx + 1, 1.5 * kz + 1); }
+      const tone = ROCK[Math.min(3, Math.floor((Math.sin(cx * 0.21 + cz * 0.07) + Math.sin(cz * 0.17 - cx * 0.05) + 2) * 0.999))];
+      if (w > 0.4) { rx2.globalAlpha = ss(0.4, 3.5, w); rx2.fillStyle = W.h(cx, cz) > 13 ? '#f2f6fa' : tone; rx2.fillRect(X(gx) - 1, Z(gz) - 1, 1.5 * kx + 2, 1.5 * kz + 2); }
+      else if (dp < 22) { rx2.globalAlpha = 0.62 * ss(22, 15, dp); rx2.fillStyle = tone; rx2.fillRect(X(gx) - 1, Z(gz) - 1, 1.5 * kx + 2, 1.5 * kz + 2); }
+    }
+    try { x.filter = 'blur(7px)'; } catch (e) { }
+    x.drawImage(rc, 0, 0); x.filter = 'none';
+    // pebbles and cracks give the stone some grain
+    for (let i = 0; i < 9000; i++) {
+      const cx = rand(MX0, MX1), cz = rand(MZ0, MZ1), w = wallAt(cx, cz), dp = Math.hypot(cx - W.PLATEAU.x, cz - W.PLATEAU.z); if (w < 1 && dp > 17) continue;
+      x.globalAlpha = 0.35; x.fillStyle = i % 3 ? 'rgba(70,62,54,1)' : 'rgba(225,215,200,1)'; x.beginPath(); x.ellipse(X(cx), Z(cz), rand(1.5, 5), rand(1, 3), rand(0, 3), 0, 7); x.fill();
     }
     x.globalAlpha = 1;
     for (let z = MZ0; z < MZ1; z += 1) { const rx = W.riverX(z); const g = x.createLinearGradient(X(rx - 7), 0, X(rx + 7), 0); g.addColorStop(0, 'rgba(230,212,160,0)'); g.addColorStop(0.25, '#e6d4a0'); g.addColorStop(0.75, '#e6d4a0'); g.addColorStop(1, 'rgba(230,212,160,0)'); x.fillStyle = g; x.fillRect(X(rx - 7), Z(z), 14 * kx, kz + 1); }

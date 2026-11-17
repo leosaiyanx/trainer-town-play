@@ -382,15 +382,20 @@
   // opts: { foes:[mon], wild, trainer, people:[keys], easy, stage, allies:[{h, sp, n, mv}], music, after, bossTitle, bossMusic, transform:{at, to, say} }
   B.start = async function (opts) {
     const S = TT.S, stage = W.STAGES[opts.stage] ? opts.stage : 'meadow';
-    W.ARENA = W.STAGES[stage]; W.applyStage(stage);
+    // the way in: two flashes, the camera rushes toward your trainer, and a swirl closes over the screen
+    TT.sfx.battle(); TT.music(opts.music || 'battle'); flash('#ffffff', 0.75);
+    TT.tween(0.62, q => { TT.camZoom = 1 - 0.42 * ease(q); });
+    await TT.wait(0.14); flash('#ffffff', 0.55);
+    await TT.wipeTo(1, 0.5, 0);
+    TT.camZoom = 1; W.ARENA = W.STAGES[stage]; W.applyStage(stage);
     st = { foes: opts.foes, fi: 0, wild: !!opts.wild, easy: !!opts.easy, obj: {}, extras: [], humans: [], assists: [], trainers: [], trainer: opts.trainer || '', people: opts.people || [], allies: (opts.allies || []).map(a => Object.assign({}, a)), stage, rageMul: 1, bt: 0, turn: 0, allyObjs: [] };
     st.foe = st.foes[0]; st.me = S.party.find(m => m.hp > 0);
-    B.active = true; camK = 0; cam.f = cam.tf = 0; cam.z = cam.tz = 0; TT.sfx.battle(); TT.music(opts.music || 'battle');
-    flash('#ffffff', 0.85);
+    B.active = true; camK = 0; cam.f = cam.tf = 0; cam.z = cam.tz = 0;
     st.me_h = addHuman(S.ch, -4.7, -0.9, 1.25);
     st.people.forEach((k, i) => st.trainers.push(addHuman(k, 4.3 + i * 1.5, 0.1 - i * 1.9, -1.25)));
     placeAllies(st.allies);
-    $('battle').classList.remove('hide'); $('bmenu').innerHTML = '';
+    $('battle').classList.remove('hide'); $('bmenu').innerHTML = ''; $('bmsg').textContent = '';
+    await TT.wipeTo(0, 0.45, 1);      // the stage opens up from the middle
     const fo = await place(1, st.foe, !st.wild && !st.foe.boss); await place(-1, st.me); st.obj.me.visible = false; bars();
     TT.tween(1.2, q => { camK = ease(q); });
     if (st.foe.boss) { await TT.wait(0.4); await bossIntro(fo, st.foe, opts.bossTitle, opts.bossMusic); }
@@ -457,8 +462,10 @@
       for (const m of S.party.slice()) if (m.hp > 0) await evolve(m);
     }
     emit('end', { r: result });
+    await TT.wipeTo(1, 0.3, 1);
     cleanup();
     TT.music(opts.after || (TT.areaMusic ? TT.areaMusic() : 'town'));
+    TT.wipeTo(0, 0.4, 1);
     return result;
   };
   function cleanup() {
@@ -556,9 +563,17 @@
     const dt = TT.clamp(t - cam.lt, 0, 0.1); cam.lt = t;
     if (cam.ov) return cam.ov(c, t, cam.ok || 0);
     const k = Math.min(1, dt * 3.5); cam.f += (cam.tf - cam.f) * k; cam.z += (cam.tz - cam.z) * k;
-    const a = A(), d = (aspect < 1 ? 7.4 / Math.max(aspect, 0.45) * 0.8 : 7.4) * (1 - cam.z * 0.3), s = B.shake;
+    const a = A(), s = B.shake;
+    if (aspect < 0.95) {
+      // Upright phone: there is no room side by side, so look over your Pokémon's shoulder — yours near and low, the foe far and high.
+      const th = 0.86, d = TT.clamp(6.3 / aspect, 9, 14.5) * (1 - cam.z * 0.22), sw = Math.sin(t * 0.35) * 0.04;
+      c.position.set(a.x - Math.sin(th + sw) * d + cam.f * 0.5 + rand(-s, s) * 0.35, 4.3 + (1 - camK) * 1.4 + rand(-s, s) * 0.35, a.z + Math.cos(th + sw) * d + (1 - camK) * 2.5);
+      c.lookAt(a.x + cam.f * 1.0 - 0.1, B.lookY != null ? B.lookY : -1.5, a.z - 0.3);
+      return;
+    }
+    const d = 7.4 * (1 - cam.z * 0.3), up = B.lift || 0;      // lift: short, wide phone screens keep the fighters above the buttons
     const x = a.x + cam.f * 1.3 + Math.sin(t * 0.35) * 0.5 + (1 - camK) * 2.2 + rand(-s, s) * 0.35, y = 2.3 + d * 0.12 - (1 - camK) * 0.9 + rand(-s, s) * 0.35, z = a.z + d - (1 - camK) * 3.2;
-    c.position.set(x, y, z); c.lookAt(a.x + cam.f * 2.1 + (1 - camK) * 1.6, 0.9 + cam.z * 0.2, a.z);
+    c.position.set(x, y, z); c.lookAt(a.x + cam.f * 2.1 + (1 - camK) * 1.6, 0.9 + cam.z * 0.2 - up, a.z);
   };
   B.focus = () => W.ARENA;
 })();

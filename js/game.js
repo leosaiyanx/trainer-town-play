@@ -14,7 +14,7 @@
   const cam = { x: 0, z: 8 };
   const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad', gary: 'Gary', leaf: 'Leaf' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander', gary: 'squirtle', leaf: 'bulbasaur' };
   let slot = '', pname = '', cloudDirty = false, kidsList = [];
-  let viewX = 30, viewZ = 31, viewS = 11;
+  let viewX = 30, viewZ = 31, viewS = 11, flying = false;
   let actKey = '', netShown = -1, eggShown = -1, inB = false;
   let comps = [], snorlaxNpc = null, areaNow = '', camY = 0, runT = 0, lean = 0; const vel = { x: 0, z: 0 };
   const areaKey = (x, z) => x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
@@ -51,6 +51,7 @@
     const pre = new Set(scene.children), steps = W.build(scene);
     for (let r = steps.next(); !r.done; r = steps.next()) { pct = Math.min(90, pct + 4.5); LP(pct, r.value); await frameWait(); }
     tm.frozen = W.freezeStatic(scene, pre);
+    TT.wipeInit(scene);
     tm.world = Math.round(performance.now() - t0);
     LP(92, 'Waking up the Pokémon'); await frameWait();
     W.makeMotes(scene);
@@ -75,8 +76,8 @@
 
     tm.chars = Math.round(performance.now() - t0);
     kidsList = readKids(); if (kidsList.length) buildProfiles();
-    const duo = (k, sp) => () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[k]), c = TT.creature(sp); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; };
-    if ($('pLiko')) { $('pLiko').src = TT.portrait('t_liko', duo('liko', 'sprigatito'), true); $('pAsh').src = TT.portrait('t_ash', duo('ash', 'pikachu'), true); }
+    if ($('pLiko')) { $('pLiko').src = bustPic('liko'); $('pAsh').src = bustPic('ash'); }
+    buildShow();
     setQuality(quality);
     tm.all = Math.round(performance.now() - t0); LP(100, 'Ready!');
     $('title').addEventListener('pointerdown', () => { TT.audioInit(); if (mode === 'title') TT.music('title'); });
@@ -100,7 +101,7 @@
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
       const ev = q.get('evt');
-      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
+      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev && ev.startsWith('wipe:')) { const w = ev.split(':'); TT.wipeTo(+w[1], 0.01, +w[2], w[3] ? parseInt(w[3], 16) : null); } if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
     }
     requestAnimationFrame(frame);
     setInterval(() => { if (performance.now() - lastReal > 400) G.tick(performance.now()); }, 200);
@@ -108,6 +109,7 @@
   function resize() {
     const w = window.innerWidth, h = window.innerHeight; if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    TT.wipeAsp(w / h); TT.Battle.lift = h < 500 && w > h ? 0.55 : 0;
     const zm = w < h ? 1.5 : 1; viewX = 15 * zm * (w / h) + 5; viewZ = 27 * zm + 4; viewS = 8 * zm + 3;
   }
 
@@ -157,18 +159,54 @@
     } catch (e) { if (km) k = decodeURIComponent(km[1]); }
     return k.split(',').map(x => x.trim().replace(/[^A-Za-z0-9 '-]/g, '').slice(0, 14)).filter(Boolean).slice(0, 6);
   }
+  // a close-up of a trainer's face for the round picture on a title button
+  const bustPic = ch => TT.portrait('b_' + ch, () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash); h.position.y = -1.08; g.add(h); g.userData.h = 0.72; return g; }, true);
+  // ---------- title screen: the heroes and their partners stand in the plaza, alive ----------
+  const SHOW_Z = 15; let show = null, starting = false;
+  const readSave = k => { try { const j = JSON.parse(localStorage.getItem(k)); return j && j.v === 1 && j.party && j.party.length ? j : null; } catch (e) { return null; } };
+  const kidKey = name => 'tt1_p_' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  function buildShow() {
+    if (show) { scene.remove(show.g); for (const e of show.list) { TT.dispose(e.h); TT.dispose(e.p); const bi = blobs.indexOf(e.sh); if (bi >= 0) blobs.splice(bi, 1); } }
+    const cast = [];
+    if (kidsList.length) kidsList.slice(0, 4).forEach((name, i) => { const sv = readSave(kidKey(name)); cast.push(sv ? [sv.ch, sv.party[0].sp, name] : [['liko', 'ash', 'leaf', 'gary'][i], null, name]); });
+    else for (const ch of ['liko', 'ash']) { const sv = readSave('tt1_' + ch); cast.push([ch, sv && sv.party[0].sp, ch]); }
+    const g = new THREE.Group(), list = [];
+    for (const [ch, sp0, id] of cast) {
+      const sp = sp0 && TT.DEX[sp0] ? sp0 : STARTER[ch] || 'pikachu', h = TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), p = TT.creature(sp);
+      const sh = new THREE.Mesh(TT.G.disc, shadowMat); sh.rotation.x = -Math.PI / 2; sh.position.y = 0.035; sh.scale.setScalar(0.45); sh.visible = quality < 2; blobs.push(sh);
+      g.add(h); g.add(p); g.add(sh); list.push({ h, p, sh, ch, sp, id, wave: rand(1.5, 4), gt: 0 });
+    }
+    g.position.set(0, 0, SHOW_Z); scene.add(g); show = { g, list };
+  }
+  // a tapped hero cheers and their partner calls out, then the adventure starts
+  function pickHero(id, fn) {
+    if (starting) return; starting = true; TT.sfx.pick();
+    const e = show && show.list.find(x => x.id === id); if (e) { e.h.userData.gesture = 'cheer'; e.gt = 3; e.wave = 9; TT.cry(e.sp); }
+    TT.wait(e ? 0.55 : 0.05).then(() => { starting = false; if (mode === 'title') fn(); });
+  }
+  function updateShow(dt) {
+    const asp = camera.aspect, n = show.list.length, tight = asp < 1, gap = tight ? 1.5 : 2.1, po = tight ? 0.5 : 0.8;
+    show.list.forEach((e, i) => {
+      const x = (i - (n - 1) / 2) * gap, side = i < (n - 1) / 2 ? -1 : 1;
+      e.h.position.set(x, 0, 0); e.sh.position.set(x, 0.035, 0); e.p.position.set(x + side * po, 0, 0.9); e.p.rotation.y = -side * 0.3;
+      if ((e.wave -= dt) < 0) { e.h.userData.gesture = TT.pick(['cheer', 'talk', 'point']); e.gt = 1.4; e.wave = rand(3.5, 7); }
+      if (e.gt > 0 && (e.gt -= dt) <= 0) e.h.userData.gesture = null;
+      TT.animHuman(e.h, t, 0); TT.animCreature(e.p, t, 0);
+    });
+    const hw = (n - 1) / 2 * gap + po + 0.9, d = Math.max(6.4, hw / (0.364 * asp)), short = window.innerHeight < 500 && asp > 1;
+    camera.position.set(Math.sin(t * 0.3) * 0.7, 1.75 + d * 0.05, SHOW_Z + d); camera.lookAt(0, 0.95 - (short ? 0.2 : tight ? 0.03 : 0.06) * 0.728 * d, SHOW_Z);
+  }
   const duoPic = ch => TT.portrait('t_' + ch, () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[ch]), c = TT.creature(STARTER[ch]); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; }, true);
   function buildProfiles() {
     const kids = kidsList, box = $('chars'); box.innerHTML = ''; box.classList.toggle('many', kids.length > 2);
     document.querySelector('#title h2').textContent = (kids.length > 1 ? kids.slice(0, -1).join(', ') + ' & ' + kids[kids.length - 1] : kids[0]) + "'s Adventure";
     document.querySelector('#title .fine').textContent = 'A family fan game — made with love';
     for (const name of kids) {
-      const key = 'tt1_p_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''); let sv = null;
-      try { sv = JSON.parse(localStorage.getItem(key)); } catch (e) { }
+      const key = kidKey(name), sv = readSave(key);
       const b = document.createElement('button'); b.className = 'card';
-      b.innerHTML = (sv ? '<img src="' + duoPic(sv.ch) + '" alt="">' : '<div class="newp">＋</div>') + '<b></b><span>' + (sv ? 'Lv ' + sv.party[0].lvl + ' ' + TT.monName(sv.party[0]) + ' · ' + sv.stars.length + '★' : 'New adventure') + '</span>';
+      b.innerHTML = (sv ? '<img src="' + bustPic(sv.ch) + '" alt="">' : '<div class="newp">＋</div>') + '<b></b><span>' + (sv ? 'Lv ' + sv.party[0].lvl + ' ' + TT.monName(sv.party[0]) + ' · ' + sv.stars.length + '★' : 'New adventure') + '</span>';
       b.querySelector('b').textContent = name;
-      b.onclick = () => { TT.audioInit(); if (!ready) return; if (sv) startGame(sv.ch, key, name); else chooseChar(name, key); };
+      b.onclick = () => { TT.audioInit(); if (!ready) return; if (sv) pickHero(name, () => startGame(sv.ch, key, name)); else chooseChar(name, key); };
       box.appendChild(b);
     }
   }
@@ -229,8 +267,8 @@
   }
   function placeEnt(e, isHuman) {
     const r = e.root, m = r.userData.model;
-    r.position.set(e.x, W.gy(e.x, e.z), e.z); r.rotation.y = e.h;
-    const dx = e.x - cam.x, dz = e.z - cam.z, d = Math.hypot(e.x - player.x, e.z - player.z);
+    r.position.set(e.x, W.gy(e.x, e.z) + (e.lift || 0), e.z); r.rotation.y = e.h;
+    const dx = e.x - cam.x, dz = e.z - cam.z, d = mode === 'play' ? Math.hypot(e.x - player.x, e.z - player.z) : Math.hypot(e.x, e.z - SHOW_Z);
     // only what the camera can see (plus a margin) is shown and animated; everything else costs nothing at all
     r.visible = !e.hidden && (mode === 'play' && !TT.Battle.active ? Math.abs(dx) < viewX && dz > -viewZ && dz < viewS : d < 48); r.matrixWorldAutoUpdate = r.visible;
     if (!r.visible) return;
@@ -496,7 +534,7 @@
   }
   function showMap() {
     const here = areaKey(player.x, player.z), f = S.flags;
-    const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? 'You are here! ' : '') + 'Tap to see the map ➜</small>' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' : '') + '</div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
+    const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? '📍 You are here' : 'Tap Fly to jump there') + '</small><span class="prow">' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' : '') + '<button class="seemap">🗺 Map</button></span></div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
     let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="mapgrid">' + card('town', '🏡', 'Trainer Town', true) + card('city', '🏙️', 'The City', f.city, 'Ask Officer Gus at the gate') +
       card('world', '🌍', 'The Wide World', f.world, 'Beat the City Gym first') + '<div class="place lock">🐉 Dragon\'s Lair<small>Needs all 7 Dragon Balls · coming soon</small></div></div><div class="stars">';
     for (let i = 1; i <= 7; i++) h += '<i class="' + (S.stars.indexOf(i) >= 0 ? 'got' : '') + '">' + '★'.repeat(i > 4 ? 1 : i) + (i > 4 ? i : '') + '</i>';
@@ -507,11 +545,20 @@
     $('pReset').onclick = () => { if (confirm('Erase ' + pname + "'s saved game and start over?")) { localStorage.removeItem(slot); const u = cloudUrl(); if (u) fetch(u, { method: 'DELETE', keepalive: true }).catch(() => { }); setTimeout(() => location.reload(), 300); } };
   }
   const SPAWN = { town: [0, 8], city: [0, -80], world: [80, -100] };
-  function flyTo(k) {
-    if (busy) return; closePanel(); const p = SPAWN[k];
-    poof(player.x, player.z); player.x = cam.x = p[0]; player.z = cam.z = p[1]; camY = W.gy(p[0], p[1]); vel.x = vel.z = 0;
+  // Fly: your trainer leaps into the sky, clouds close over the screen, and you drop in at the new place.
+  async function flyTo(k) {
+    if (busy || !SPAWN[k]) return; closePanel(); busy = flying = true; stopInput(); setDest(null);
+    const p = SPAWN[k], h0 = player.h;
+    TT.sfx.whoosh(); poof(player.x, player.z); player.root.userData.model.userData.gesture = 'cheer';
+    TT.tween(0.75, q => { player.lift = q * q * 16; player.h = h0 + q * 12; follower.lift = Math.max(0, q - 0.15) * 14; TT.camZoom = 1 + q * 0.35; });
+    await TT.wait(0.4); await TT.wipeTo(1, 0.4, 1, 0xf4fbff);
+    player.x = cam.x = p[0]; player.z = cam.z = p[1]; camY = W.gy(p[0], p[1]); vel.x = vel.z = 0;
     follower.x = p[0] + 1; follower.z = p[1] + 0.8; comps.forEach((c, i) => { c.x = p[0] - 1 - i; c.z = p[1] + 1.5; });
-    poof(p[0], p[1]); TT.sfx.star(); TT.toast('✈ Whoosh! Welcome to ' + AREAS[k].name + '!'); setDest(null);
+    player.lift = follower.lift = 16; TT.camZoom = 1.35; areaNow = k; TT.music(TT.areaMusic());
+    await TT.wait(0.25); TT.sfx.star(); TT.wipeTo(0, 0.45, 1, 0xf4fbff);
+    await TT.tween(0.7, q => { const e = 1 - (1 - q) * (1 - q); player.lift = 16 * (1 - e); follower.lift = 16 * (1 - Math.min(1, e * 1.1)); player.h = Math.PI + (1 - e) * 9; TT.camZoom = 1.35 - 0.35 * e; });
+    player.lift = follower.lift = 0; player.h = Math.PI; TT.camZoom = 1; player.root.userData.model.userData.gesture = null;
+    poof(p[0], p[1]); TT.sfx.pick(); TT.toast('✈ Welcome to ' + AREAS[k].name + '!'); busy = flying = false; save();
   }
 
   // ---------- new-version check: offer a one-tap update without leaving the game ----------
@@ -549,7 +596,7 @@
     scene.remove(player.root); TT.dispose(player.root); if (follower) { scene.remove(follower.root); TT.dispose(follower.root); } follower = null; eggObj.visible = false; player.root = null;
     S = null; TT.S = null; mode = 'title';
     for (const id of ['hud', 'joy', 'act', 'mini', 'miniBtn', 'bPause']) $(id).classList.add('hide');
-    $('friends').innerHTML = ''; friendsDirty = true; cloudPush(); if (kidsList.length) buildProfiles();
+    $('friends').innerHTML = ''; friendsDirty = true; cloudPush(); if (kidsList.length) buildProfiles(); buildShow();
     for (const c of comps) { scene.remove(c.root); TT.dispose(c.root); } comps = [];
     $('title').classList.remove('hide'); TT.music('title');
   }
@@ -771,7 +818,8 @@
     updatePeers(dt);
     if (TT.Battle.active) { TT.Battle.update(dt, t); TT.Battle.camera(camera, camera.aspect, t); W.updateMotes(t, W.ARENA.x, W.ARENA.z - 4, 0); }
     else W.updateMotes(t, cam.x, cam.z - 3, camY);
-    if (mode !== 'play') { camera.position.set(Math.sin(t * 0.12) * 36, 15, Math.cos(t * 0.12) * 36); camera.lookAt(0, 2.5, 0); W.updateMotes(t, 0, 0, 0); return; }
+    if (show) { const on = mode !== 'play' && !TT.Battle.active; if (show.g.visible !== on) show.g.visible = show.g.matrixWorldAutoUpdate = on; }
+    if (mode !== 'play') { if (show) updateShow(dt); W.updateMotes(t, 0, SHOW_Z, 0); return; }
 
     const idle = !busy && !panelOpen && !TT.dialogOpen;
     if (idle) {
@@ -823,7 +871,7 @@
     placeEnt(player, true); player.root.visible = true;
     if (!busy || !TT.Battle.active) {
       follow(follower, player.x, player.z, dt, 1.5);
-      if (!(busy && follower.root.position.y > 0.05 + W.gy(follower.x, follower.z))) placeEnt(follower, false);
+      if (flying || !(busy && follower.root.position.y > 0.05 + W.gy(follower.x, follower.z))) placeEnt(follower, false);
       let ld = follower; for (const c of comps) { follow(c, ld.x, ld.z, dt, 1.8); placeEnt(c, true); ld = c; }
     }
     if (S.egg.have && !(busy && S.egg.warm >= 100)) { eggObj.visible = true; const ex = follower.x - Math.sin(follower.h) * 0.8, ez = follower.z - Math.cos(follower.h) * 0.8; eggObj.position.x += (ex - eggObj.position.x) * Math.min(1, dt * 6); eggObj.position.z += (ez - eggObj.position.z) * Math.min(1, dt * 6); eggObj.position.y = W.gy(eggObj.position.x, eggObj.position.z) + Math.abs(Math.sin(t * 5)) * 0.08 * follower.mv; }
@@ -835,7 +883,7 @@
     { const lbl = fight ? '⚔ Battle' : nn ? 'Talk' : 'A', dim = !near && !TT.dialogOpen, key = lbl + (dim ? 1 : 0); if (key !== actKey) { actKey = key; act.textContent = lbl; act.classList.toggle('dim', dim); act.classList.toggle('fight', !!fight); } }   // touch the page only when something changed
 
     if (!TT.Battle.active) {
-      const zm = camera.aspect < 1 ? 1.5 : 1, k = Math.min(1, dt * 5), spd = Math.hypot(vel.x, vel.z), out = 1 + spd * 0.014;
+      const zm = (camera.aspect < 1 ? 1.5 : 1) * TT.camZoom, k = Math.min(1, dt * 5), spd = Math.hypot(vel.x, vel.z), out = 1 + spd * 0.014;
       cam.x += (player.x + vel.x * 0.3 - cam.x) * k; cam.z += (player.z + vel.z * 0.3 - cam.z) * k;
       camY += (W.gy(player.x, player.z) - camY) * Math.min(1, dt * 4);
       camera.position.set(cam.x, camY + 12.5 * zm * out, cam.z + 12.5 * zm * out); camera.lookAt(cam.x, camY + 1, cam.z - 1);
@@ -884,7 +932,7 @@
   let ready = false, pending = window.__pick || null; window.__gameLoaded = true;
   document.querySelectorAll('.card').forEach(b => b.addEventListener('click', () => {
     TT.audioInit();
-    if (ready) return startGame(b.dataset.ch);
+    if (ready) return b.dataset.ch === 'dad' ? startGame('dad') : pickHero(b.dataset.ch, () => startGame(b.dataset.ch));
     pending = b.dataset.ch; document.querySelectorAll('.card').forEach(c => c.classList.toggle('picked', c === b));
     $('loading').textContent = 'Getting ' + NAMES[pending] + ' ready…';
   }));

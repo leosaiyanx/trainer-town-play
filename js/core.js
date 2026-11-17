@@ -452,6 +452,37 @@
   TT.music = name => { if (cur === name) return; cur = name; tune = name ? TUNES[name] : null; stepI = 0; nextT = 0; if (!timer) timer = setInterval(pump, 70); };
   TT.musicName = () => cur;
 
+  // --- full-screen transitions drawn by the GPU: mode 0 = battle swirl (blades sweep round while a ring closes in), mode 1 = iris ---
+  let wipeM = null;
+  TT.camZoom = 1;
+  TT.wipeInit = scene => {
+    const u = { k: { value: 0 }, mode: { value: 0 }, asp: { value: 1.6 }, col: { value: new THREE.Color(0x10131f) }, col2: { value: new THREE.Color(0xe8402a) } };
+    wipeM = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      uniforms: u, transparent: true, depthTest: false, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: `uniform float k, mode, asp; uniform vec3 col, col2; varying vec2 vUv;
+        void main(){
+          vec2 p = (vUv - 0.5) * 2.0 * vec2(asp, 1.0); float d = length(p), mx = length(vec2(asp, 1.0)) + 0.1;
+          float r = (1.0 - k) * mx, cover = step(r, d); vec3 c = col;
+          float ring = cover * (1.0 - step(r + 0.07, d));
+          if (mode < 0.5) {
+            float v = (atan(p.y, p.x) / 6.2832 + 0.5) * 6.0 - d * 0.7 + k * 1.6, bl = fract(v);
+            cover = max(cover, step(bl, k * 1.2));
+            c = mix(mix(col, col2, mod(floor(v), 2.0)), col, smoothstep(0.75, 1.0, k));
+          }
+          c = mix(c, vec3(1.0), ring * (1.0 - smoothstep(0.85, 1.0, k)));
+          if (cover < 0.5) discard; gl_FragColor = vec4(c, 1.0);
+        }` }));
+    wipeM.frustumCulled = false; wipeM.renderOrder = 9999; wipeM.visible = false; wipeM.matrixAutoUpdate = false; scene.add(wipeM);
+  };
+  TT.wipeAsp = a => { if (wipeM) wipeM.material.uniforms.asp.value = a; };
+  // k: 0 = clear, 1 = fully covered
+  TT.wipeTo = (k1, dur, mode, col) => {
+    if (!wipeM) return Promise.resolve();
+    const u = wipeM.material.uniforms, k0 = u.k.value; u.mode.value = mode || 0; if (col != null) u.col.value.setHex(col); wipeM.visible = true;
+    return TT.tween(dur, q => { u.k.value = k0 + (k1 - k0) * (q * q * (3 - 2 * q)); }).then(() => { u.k.value = k1; if (k1 <= 0) { wipeM.visible = false; u.col.value.setHex(0x10131f); } });
+  };
+
   // --- toast + dialog ---
   let toastT = null;
   TT.toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); };
