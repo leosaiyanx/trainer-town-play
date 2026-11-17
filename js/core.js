@@ -92,6 +92,18 @@
     parent.add(m); return m;
   };
 
+  // A smooth tube through a list of rings, top to bottom: [y, rx, rz, colour, w, x, z]. Each ring can have its own colour and
+  // its own share "w" (0..1) of a second joint, which is what lets an arm or leg bend smoothly at the elbow or knee.
+  const _tc = new THREE.Color();
+  TT.tube = (rings, seg, arc) => {        // arc = [from, to] in radians makes an open shell (a vest, a fringe) instead of a closed tube
+    seg = seg || 8; const n = rings.length, pos = [], vc = [], w2 = [], idx = [], per = arc ? seg + 1 : seg;
+    for (const r of rings) { _tc.setHex(r[3]); for (let j = 0; j < per; j++) { const a = arc ? arc[0] + (arc[1] - arc[0]) * j / seg : j / seg * 6.2832; pos.push((r[5] || 0) + Math.cos(a) * r[1], r[0], (r[6] || 0) + Math.sin(a) * r[2]); vc.push(_tc.r, _tc.g, _tc.b); w2.push(r[4] || 0); } }
+    const up = rings[0][0] < rings[n - 1][0];        // rings may be listed bottom-to-top; keep the surface facing outwards either way
+    for (let i = 0; i < n - 1; i++) for (let j = 0; j < seg; j++) { const a = i * per + j, b = i * per + (arc ? j + 1 : (j + 1) % seg), c = a + per, d = b + per; if (up) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c); }
+    if (!arc) for (const [ri, top0] of [[0, 1], [n - 1, 0]]) { const top = up ? !top0 : top0; const r = rings[ri], k = pos.length / 3; _tc.setHex(r[3]); pos.push(r[5] || 0, r[0] + (top ? 1 : -1) * Math.min(r[1], r[2]) * 0.35, r[6] || 0); vc.push(_tc.r, _tc.g, _tc.b); w2.push(r[4] || 0); for (let j = 0; j < seg; j++) { const a = ri * seg + j, b = ri * seg + (j + 1) % seg; if (top) idx.push(k, b, a); else idx.push(k, a, b); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('vc', new THREE.Float32BufferAttribute(vc, 3)); g.setAttribute('w2', new THREE.Float32BufferAttribute(w2, 1)); g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  };
   // ---- baking: merge many primitive meshes into one vertex-coloured mesh ----
   const _v = new THREE.Vector3(), _n3 = new THREE.Matrix3();
   function merge(list, ao) { // list: [{mesh, matrix}]; ao darkens vertices near the ground for depth
@@ -99,13 +111,13 @@
     const gs = list.map(e => { const g0 = e.mesh.geometry, g = g0.index ? (g0._ni || (g0._ni = g0.toNonIndexed())) : g0; n += g.attributes.position.count; if (TT.triStat) { let nm = '?'; for (const k in TT.G) if (TT.G[k] === g0) nm = k; if (nm === '?') nm = g0.type; const sc = e.mesh.scale, big = Math.max(sc.x, sc.y, sc.z); nm += big < 0.12 ? ':tiny' : big < 0.35 ? ':small' : ''; nm = (ao ? 'S ' : 'D ') + nm; TT.triStat[nm] = (TT.triStat[nm] || 0) + g.attributes.position.count / 3; } return g; });
     const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
     list.forEach((e, i) => {
-      const g = gs[i], pa = g.attributes.position, na = g.attributes.normal, c = e.mesh.material.color, mx = e.matrix;
+      const g = gs[i], pa = g.attributes.position, na = g.attributes.normal, c = e.mesh.material.color, mx = e.matrix, vc = g.attributes.vc;
       _n3.getNormalMatrix(mx);
       for (let j = 0; j < pa.count; j++, o += 3) {
         _v.fromBufferAttribute(pa, j).applyMatrix4(mx); pos[o] = _v.x; pos[o + 1] = _v.y; pos[o + 2] = _v.z;
         _v.fromBufferAttribute(na, j).applyMatrix3(_n3).normalize(); nor[o] = _v.x; nor[o + 1] = _v.y; nor[o + 2] = _v.z;
         let k = 1; if (ao) { const y = Math.min(1, Math.max(0, pos[o + 1] / 1.5)); k = 0.84 + 0.16 * y * y * (3 - 2 * y); }
-        col[o] = c.r * k; col[o + 1] = c.g * k; col[o + 2] = c.b * k;
+        if (vc) { col[o] = vc.getX(j) * k; col[o + 1] = vc.getY(j) * k; col[o + 2] = vc.getZ(j) * k; } else { col[o] = c.r * k; col[o + 1] = c.g * k; col[o + 2] = c.b * k; }
       }
     });
     const g = new THREE.BufferGeometry();
@@ -134,10 +146,11 @@
   TT.bakeRig = function (root, ols) {
     root.updateMatrixWorld(true);
     const bones = [], main = [], line = [];
+    const bidx = node => { let i = bones.indexOf(node); if (i < 0) { i = bones.length; bones.push(node); } return i; };
     const walk = (node, ol) => {
-      let bi = -1;
       for (const ch of node.children.slice()) {
-        if (bakeable(ch)) { if (bi < 0) { bi = bones.length; bones.push(node); } const e = { mesh: ch, matrix: ch.matrixWorld.clone(), bi }; main.push(e); if (ol) line.push(e); }
+        // a mesh may name a second joint (userData.bone2) and carry a per-vertex share "w2" of it: that part bends smoothly
+        if (bakeable(ch)) { const e = { mesh: ch, matrix: ch.matrixWorld.clone(), bi: bidx(node), b2: ch.userData.bone2 ? bidx(ch.userData.bone2) : -1 }; main.push(e); if (ol) line.push(e); }
         else if (!ch.isMesh && !ch.isSprite && ch.children.length) walk(ch, ol && !ch.userData.noOl);
       }
     };
@@ -147,7 +160,7 @@
     const skel = new THREE.Skeleton(bones, bones.map(b => new THREE.Matrix4().copy(b.matrixWorld).invert()));
     const mk = (list, mat) => {
       const g = merge(list).geometry, n = g.attributes.position.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4); let o = 0;
-      for (const e of list) { const g0 = e.mesh.geometry, cnt = (g0.index ? g0._ni : g0).attributes.position.count; for (let j = 0; j < cnt; j++, o += 4) { si[o] = e.bi; sw[o] = 1; } }
+      for (const e of list) { const g0 = e.mesh.geometry, gn = g0.index ? g0._ni : g0, cnt = gn.attributes.position.count, wa = e.b2 >= 0 && gn.attributes.w2; for (let j = 0; j < cnt; j++, o += 4) { const w = wa ? wa.getX(j) : 0; si[o] = e.bi; sw[o] = 1 - w; if (wa) { si[o + 1] = e.b2; sw[o + 1] = w; } } }
       g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); g.userData.own = true;
       const m = new THREE.SkinnedMesh(g, mat); m.castShadow = true; m.frustumCulled = false; m.bindMode = 'detached';
       m.bind(skel, new THREE.Matrix4());
@@ -159,7 +172,7 @@
     if (line.length) { const o = mk(line, TT.olMat); if (ols) ols.push(o); }
   };
   // free the GPU memory of a character that is gone for good (wild Pokémon that left, battle models, other players)
-  TT.dispose = root => { if (!root) return; root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.dispose(); if (o.geometry && o.geometry.userData.own) o.geometry.dispose(); }); };
+  TT.dispose = root => { if (!root) return; root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.dispose(); if (o.geometry && o.geometry.userData.own) o.geometry.dispose(); if (o.material && o.material.userData && o.material.userData.own) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); };
   // flattens a whole static subtree into ONE mesh (root must be at its final transform's parent space)
   TT.bakeDeep = function (root) {
     root.updateMatrixWorld(true);

@@ -8,19 +8,51 @@
   // ============ PEOPLE ============
   function hair(head, o) {
     const h = o.hair, st = o.hairStyle || 'short', bang = (x, y, z, sx, sy, sz, rz) => P(head, 'sph', h, [x, y, z], [sx, sy, sz], [0, 0, rz || 0]);
-    if (st !== 'bald') P(head, 'sph', h, [0, 0.035, -0.022], [0.213, 0.2, 0.212]);
-    if (st === 'ash') {
+    const v2 = o.v2 !== 0;       // second-generation heads have a drawn face: hair and hats sit a little higher and further back so they never cover it
+    if (st !== 'bald') P(head, 'sph', h, v2 ? [0, 0.05, -0.04] : [0, 0.035, -0.022], v2 ? [0.212, 0.2, 0.205] : [0.213, 0.2, 0.212]);
+    if (st === 'liko2') {       // a navy bob that curls in at the chin, a swept fringe with two green clips, and a little bun with a tuft on top
+      for (const s of [1, -1]) { P(head, 'sph', h, [s * 0.165, -0.06, -0.02], [0.075, 0.18, 0.135]); P(head, 'sph', h, [s * 0.15, -0.2, 0.03], [0.06, 0.06, 0.085]); P(head, 'sph', h, [s * 0.183, 0.03, 0.06], [0.035, 0.1, 0.07]); }
+      P(head, 'sph', h, [0, -0.07, -0.13], [0.2, 0.21, 0.105]);
+      P(head, 'sph', h, [-0.075, 0.118, 0.14], [0.115, 0.05, 0.07], [0, 0, 0.28]); P(head, 'sph', h, [0.085, 0.122, 0.135], [0.1, 0.046, 0.07], [0, 0, -0.32]); P(head, 'sph', h, [0, 0.16, 0.1], [0.15, 0.06, 0.1]);
+      P(head, 'sph', h, [0, 0.262, -0.07], 0.062); for (const q of [[-0.05, 0.31, -0.1, 0.5], [-0.01, 0.325, -0.11, 0.1], [-0.075, 0.28, -0.085, 1.0]]) P(head, 'cone', h, [q[0], q[1], q[2]], [0.022, 0.09, 0.022], [-0.3, 0, q[3]]);
+      for (const q of [[0.075, 0.138], [0.1, 0.118]]) P(head, 'box', 0x6ad24a, [q[0], q[1], 0.196], [0.062, 0.014, 0.014], [0, -0.3, 0.62]);
+    } else if (st === 'ash2') {
+      const red = 0xd8443c;
+      P(head, 'sph', red, [0, 0.128, -0.018], [0.203, 0.118, 0.21]);                                      // cap dome: red all over
+      P(head, 'sph', red, [0, 0.245, -0.018], 0.022);                                                     // button on top
+      P(head, 'sph', 0xf4f4f8, [0, 0.092, 0.2], [0.168, 0.015, 0.125], [-0.22, 0, 0]);                    // white brim, tipped up a little
+      P(head, 'cyl', WH, [0, 0.165, 0.176], [0.06, 0.014, 0.06], [1.05, 0, 0]);                           // a white badge on the front...
+      P(head, 'box', 0x2aa85a, [-0.016, 0.172, 0.186], [0.017, 0.062, 0.012], [-0.5, 0, 0]); P(head, 'box', 0x2aa85a, [0.004, 0.146, 0.196], [0.052, 0.017, 0.012], [-0.5, 0, 0]);     // ...with LJ's green "L" 
+      // big jagged spikes out to both sides and at the back, and a pointed fringe under the brim
       for (const s of [1, -1]) {
-        P(head, 'cone', h, [s * 0.2, -0.03, 0.03], [0.05, 0.16, 0.05], [0.3, 0, -s * 2.0]);
-        P(head, 'cone', h, [s * 0.21, -0.07, -0.06], [0.05, 0.17, 0.05], [0, 0, -s * 2.25]);
-        P(head, 'cone', h, [s * 0.17, -0.1, -0.15], [0.05, 0.16, 0.05], [-0.5, 0, -s * 2.4]);
-        P(head, 'cone', h, [s * 0.15, 0.0, 0.14], [0.035, 0.09, 0.03], [0, 0, -s * 2.7]);
+        P(head, 'cone', h, [s * 0.215, 0.015, -0.03], [0.062, 0.25, 0.05], [0.1, 0, -s * 1.85]);
+        P(head, 'cone', h, [s * 0.215, -0.06, -0.05], [0.06, 0.27, 0.05], [0, 0, -s * 2.2]);
+        P(head, 'cone', h, [s * 0.185, -0.125, -0.09], [0.055, 0.22, 0.05], [-0.2, 0, -s * 2.55]);
+        P(head, 'cone', h, [s * 0.14, -0.03, -0.17], [0.065, 0.26, 0.06], [-1.2, 0, -s * 2.0]);
+        P(head, 'cone', h, [s * 0.172, 0.01, 0.075], [0.03, 0.12, 0.022], [0.15, 0, -s * 2.75]);            // sideburn in front of each ear
       }
-      P(head, 'cone', h, [0, -0.08, -0.22], [0.06, 0.17, 0.06], [-2.2, 0, 0]);
+      P(head, 'cone', h, [0, -0.09, -0.215], [0.07, 0.22, 0.06], [-2.3, 0, 0]); P(head, 'cone', h, [0.0, 0.0, -0.225], [0.075, 0.2, 0.06], [-1.75, 0, 0]);
+      for (const q of [[-0.1, 0.07, 0.165, 0.032, 0.05, 0.5], [-0.045, 0.072, 0.186, 0.036, 0.062, 0.12], [0.02, 0.074, 0.19, 0.03, 0.045, -0.1], [0.085, 0.072, 0.172, 0.032, 0.05, -0.45]]) P(head, 'cone', h, [q[0], q[1], q[2]], [q[3], q[4], 0.012], [3.0, 0, q[5]]);     // a jagged fringe tucked under the brim, clear of the eyes
+    } else if (st === 'ash') {
+      const hk = v2 ? 1.4 : 1, hw = v2 ? 1.25 : 1;
+      for (const s of [1, -1]) {
+        P(head, 'cone', h, [s * 0.2, -0.03, 0.03], [0.05 * hw, 0.16 * hk, 0.05 * hw], [0.3, 0, -s * 2.0]);
+        P(head, 'cone', h, [s * 0.21, -0.07, -0.06], [0.05 * hw, 0.17 * hk, 0.05 * hw], [0, 0, -s * 2.25]);
+        P(head, 'cone', h, [s * 0.17, -0.1, -0.15], [0.05 * hw, 0.16 * hk, 0.05 * hw], [-0.5, 0, -s * 2.4]);
+        P(head, 'cone', h, [s * 0.15, 0.0, 0.14], [0.035, 0.09, 0.03], [0, 0, -s * 2.7]);
+        if (v2) { P(head, 'cone', h, [s * 0.215, 0.03, -0.02], [0.05, 0.19, 0.05], [0, 0, -s * 1.75]); P(head, 'cone', h, [s * 0.1, -0.12, -0.2], [0.055, 0.2, 0.055], [-1.4, 0, -s * 2.6]); }
+      }
+      P(head, 'cone', h, [0, -0.08, -0.22], [0.06 * hw, 0.17 * hk, 0.06 * hw], [-2.2, 0, 0]);
+      if (v2) {
+        P(head, 'sph', 0xe2382e, [0, 0.155, -0.012], [0.22, 0.128, 0.224]);              // cap dome, sitting above the eyes
+        P(head, 'sph', WH, [0, 0.165, 0.1], [0.165, 0.112, 0.128]);                      // white front panel
+        P(head, 'sph', 0xe2382e, [0, 0.112, 0.27], [0.168, 0.016, 0.135], [0.16, 0, 0]); // brim, tipped slightly down
+      } else {
       P(head, 'sph', 0xe2382e, [0, 0.1, -0.012], [0.222, 0.155, 0.226]);                 // cap dome
       P(head, 'sph', WH, [0, 0.105, 0.105], [0.165, 0.135, 0.125]);                      // white front panel
       P(head, 'sph', 0xe2382e, [0, 0.062, 0.265], [0.165, 0.018, 0.13]);                 // brim
-      P(head, 'box', 0x2aa85a, [0, 0.13, 0.228], [0.07, 0.022, 0.012]); P(head, 'box', 0x2aa85a, [-0.024, 0.15, 0.222], [0.022, 0.06, 0.012]);
+      }
+      { const dy = v2 ? 0.055 : 0; P(head, 'box', 0x2aa85a, [0, 0.13 + dy, 0.228], [0.07, 0.022, 0.012]); P(head, 'box', 0x2aa85a, [-0.024, 0.15 + dy, 0.222], [0.022, 0.06, 0.012]); }
     } else if (st === 'liko') {
       bang(0.085, 0.1, 0.15, 0.1, 0.075, 0.07, -0.5); bang(-0.07, 0.105, 0.155, 0.12, 0.07, 0.07, 0.35); bang(0, 0.14, 0.15, 0.08, 0.05, 0.06);
       P(head, 'sph', h, [0, -0.15, -0.115], [0.205, 0.3, 0.115]);
@@ -66,16 +98,18 @@
     }
     if (o.hat === 'cap') {
       const hc = o.hatColor || 0x2a8a6a;
-      P(head, 'sph', hc, [0, 0.1, -0.012], [0.222, 0.155, 0.226]); P(head, 'sph', hc, [0, 0.062, 0.265], [0.165, 0.018, 0.13]);
+      if (v2) { P(head, 'sph', hc, [0, 0.128, -0.018], [0.203, 0.118, 0.21]); P(head, 'sph', hc, [0, 0.092, 0.2], [0.168, 0.015, 0.125], [-0.12, 0, 0]); P(head, 'sph', shade(hc, 0.8), [0, 0.245, -0.018], 0.02); }
+      else { P(head, 'sph', hc, [0, 0.1, -0.012], [0.222, 0.155, 0.226]); P(head, 'sph', hc, [0, 0.062, 0.265], [0.165, 0.018, 0.13]); }
     } else if (o.hat === 'nurse') {
       P(head, 'box', WH, [0, 0.235, 0.03], [0.2, 0.09, 0.13]);
       P(head, 'box', 0xf0608a, [0, 0.235, 0.1], [0.07, 0.024, 0.012]); P(head, 'box', 0xf0608a, [0, 0.235, 0.1], [0.024, 0.07, 0.012]);
     } else if (o.hat === 'straw') {
-      P(head, 'cyl', 0xe9c46a, [0, 0.15, 0], [0.36, 0.022, 0.36]); P(head, 'sph', 0xe9c46a, [0, 0.17, 0], [0.2, 0.13, 0.2]); P(head, 'cyl', 0xc0503a, [0, 0.185, 0], [0.2, 0.04, 0.2]);
+      const hy = v2 ? 0.03 : 0; P(head, 'cyl', 0xe9c46a, [0, 0.15 + hy, 0], [0.36, 0.022, 0.36]); P(head, 'sph', 0xe9c46a, [0, 0.17 + hy, 0], [0.2, 0.13, 0.2]); P(head, 'cyl', 0xc0503a, [0, 0.185 + hy, 0], [0.2, 0.04, 0.2]);
     }
   }
 
   TT.human = function (o) {
+    if (o.v2 !== 0) return human2(o);          // every character now uses the second-generation builder
     const g = new THREE.Group(), ud = g.userData, rig = ud.rig = {}, skin = o.skin, lower = o.lower;
     const hips = rig.hips = grp(g, 0, HIP, 0);
     P(hips, 'sph', o.skirt != null ? o.skirt : lower, [0, 0, 0], [0.165, 0.125, 0.118]);
@@ -140,8 +174,199 @@
   };
 
   // walk / idle / gestures. mv 0..1
+
+  // ================= characters, second generation =================
+  // Limbs are single smooth tubes that bend at the elbow and knee, hands and shoes are real shapes, and the face is a drawn
+  // anime face (a small picture with four expressions) laid over the head. Used when a character has v2: 1.
+  // The head is egg-shaped with a pointed chin, like the show's characters: [height, radius] from crown to chin.
+  const HEADP = [[0.212, 0.05], [0.186, 0.118], [0.132, 0.166], [0.06, 0.188], [-0.01, 0.19], [-0.07, 0.172], [-0.12, 0.14], [-0.165, 0.094], [-0.198, 0.042]];
+  const headR = y => { for (let k = 0; k < HEADP.length - 1; k++) { const a = HEADP[k], b = HEADP[k + 1]; if (y <= a[0] && y >= b[0]) return a[1] + (b[1] - a[1]) * (a[0] - y) / (a[0] - b[0]); } return y > 0 ? HEADP[0][1] : HEADP[HEADP.length - 1][1]; };
+  const headZ = y => y < -0.04 ? (-0.04 - y) * 0.16 : 0;                 // the chin sits a little forward
+  // the patch of the head that carries the drawn face: it follows the head's own shape exactly
+  const FY0 = 0.135, FY1 = -0.195, FSPAN = 1.05;
+  const FACE_GEO = (() => {
+    const R = 14, C = 12, pos = [], uv = [], idx = [];
+    for (let i = 0; i <= R; i++) { const y = FY0 + (FY1 - FY0) * i / R, r = headR(y) * 1.018; for (let k = 0; k <= C; k++) { const f = -FSPAN + 2 * FSPAN * k / C; pos.push(Math.sin(f) * r, y, headZ(y) + Math.cos(f) * r * 0.97); uv.push(k / C, 1 - i / R); } }
+    for (let i = 0; i < R; i++) for (let k = 0; k < C; k++) { const a = i * (C + 1) + k, b = a + 1, c = a + C + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
+  })();
+  // drawn faces: four expressions side by side (0 neutral · 1 blink · 2 talking · 3 big grin). 128 px = from the brow to the chin.
+  const faceCache = new Map();
+  function faceCanvas(o) {
+    if (faceCache.has(o)) return faceCache.get(o);
+    // small tablets get the half-size picture
+    const SC = navigator.deviceMemory && navigator.deviceMemory <= 4 ? 1 : 2, c = document.createElement('canvas'); c.width = 512 * SC; c.height = 128 * SC; const x = c.getContext('2d'); x.scale(SC, SC);
+    const css = h => '#' + new THREE.Color(h).getHexString(), eye = css(o.eye != null ? o.eye : 0x5a3a22), brow = css(o.brow != null ? o.brow : o.hair), ink = '#1c1820';
+    const girl = !!o.lash, EX = 23.5, EY = 47, RX = girl ? 10.5 : 9.6, RY = girl ? 17.5 : 16.5;
+    for (let f = 0; f < 4; f++) {
+      x.save(); x.translate(f * 128, 0); x.lineCap = 'round'; x.lineJoin = 'round';
+      for (const s of [-1, 1]) {
+        const ex = 64 + s * EX, ey = EY;
+        if (f === 1) { x.strokeStyle = ink; x.lineWidth = 3.4; x.beginPath(); x.moveTo(ex - RX, ey + 3); x.quadraticCurveTo(ex, ey + 10, ex + RX, ey + 3); x.stroke(); }
+        else if (f === 3) { x.strokeStyle = ink; x.lineWidth = 3.6; x.beginPath(); x.moveTo(ex - RX - 1, ey + 5); x.quadraticCurveTo(ex, ey - 9, ex + RX + 1, ey + 5); x.stroke(); }
+        else {
+          // a tall anime eye: white, a big iris with a darker top, a large pupil, one bold highlight, a heavy top line
+          x.fillStyle = '#fff'; x.beginPath(); x.ellipse(ex, ey, RX, RY, 0, 0, 7); x.fill();
+          x.save(); x.beginPath(); x.ellipse(ex, ey, RX, RY, 0, 0, 7); x.clip();
+          const g = x.createLinearGradient(0, ey - RY, 0, ey + RY); g.addColorStop(0, '#2a1410'); g.addColorStop(0.42, eye); g.addColorStop(1, eye);
+          x.fillStyle = g; x.beginPath(); x.ellipse(ex, ey + 1.5, RX - 1.6, RY - 1.2, 0, 0, 7); x.fill();
+          x.fillStyle = '#140c0c'; x.beginPath(); x.ellipse(ex, ey + 1.5, RX * 0.46, RY * 0.5, 0, 0, 7); x.fill();
+          x.fillStyle = 'rgba(255,255,255,.22)'; x.beginPath(); x.ellipse(ex, ey + RY * 0.62, RX * 0.6, RY * 0.22, 0, 0, 7); x.fill();
+          x.restore();
+          x.fillStyle = '#fff'; x.beginPath(); x.ellipse(ex - 3.4, ey - RY * 0.42, 3.3, 4.1, -0.3, 0, 7); x.fill(); x.beginPath(); x.arc(ex + 3.6, ey + RY * 0.42, 1.5, 0, 7); x.fill();
+          x.strokeStyle = ink; x.lineWidth = 3.2; x.beginPath(); x.ellipse(ex, ey, RX + 0.3, RY + 0.3, 0, Math.PI + 0.12, -0.12); x.stroke();
+          x.lineWidth = 1.5; x.beginPath(); x.ellipse(ex, ey, RX, RY, 0, -0.12, 0.9); x.stroke(); x.beginPath(); x.ellipse(ex, ey, RX, RY, 0, Math.PI - 0.9, Math.PI + 0.12); x.stroke();
+          if (girl) { x.lineWidth = 2.4; x.beginPath(); x.moveTo(ex + s * (RX - 1), ey - RY * 0.55); x.lineTo(ex + s * (RX + 4.5), ey - RY * 0.8); x.stroke(); }
+        }
+        // eyebrows sit just above the eyes; a grin lifts them
+        x.strokeStyle = brow; x.lineWidth = girl ? 2.6 : 4; x.beginPath(); const by = ey - RY - (f === 3 ? 7.5 : 5);
+        x.moveTo(ex - s * (RX + 1), by + (girl ? 1.5 : 3.2)); x.quadraticCurveTo(ex + s * 2, by - 2.2, ex + s * (RX + 2.5), by - (girl ? 0 : 1)); x.stroke();
+        if (o.blush) { const bg = x.createRadialGradient(ex + s * 5, 74, 1, ex + s * 5, 74, 10); bg.addColorStop(0, 'rgba(240,120,120,.5)'); bg.addColorStop(1, 'rgba(240,120,120,0)'); x.fillStyle = bg; x.fillRect(ex + s * 5 - 11, 63, 22, 22); }
+        if (o.marks) { x.strokeStyle = '#5a3020'; x.lineWidth = 1.9; x.beginPath(); const mx = ex + s * 7, my = 71; x.moveTo(mx - 5.5, my - 1.5); x.lineTo(mx - 2, my + 1.5); x.lineTo(mx + 1.5, my - 1.5); x.lineTo(mx + 5, my + 1.5); x.stroke(); }
+      }
+      x.strokeStyle = 'rgba(110,60,40,.55)'; x.lineWidth = 1.6; x.beginPath(); x.moveTo(63, 71); x.lineTo(65.5, 73.5); x.stroke();      // nose
+      if (f === 2) { x.fillStyle = '#6a2028'; x.strokeStyle = ink; x.lineWidth = 1.6; x.beginPath(); x.ellipse(64, 93, 6.5, 7.5, 0, 0, 7); x.fill(); x.stroke(); x.fillStyle = '#e8707a'; x.beginPath(); x.ellipse(64, 97, 4.2, 3, 0, 0, 7); x.fill(); }
+      else if (f === 3) {          // the big confident grin
+        x.beginPath(); x.moveTo(47, 86); x.quadraticCurveTo(64, 90, 81, 86); x.quadraticCurveTo(79, 106, 64, 107); x.quadraticCurveTo(49, 106, 47, 86); x.closePath();
+        x.fillStyle = '#6a2028'; x.fill(); x.save(); x.clip(); x.fillStyle = '#fff'; x.fillRect(44, 84, 40, 9.5); x.fillStyle = '#e8707a'; x.beginPath(); x.ellipse(64, 106, 9, 5, 0, 0, 7); x.fill(); x.restore();
+        x.strokeStyle = ink; x.lineWidth = 1.8; x.stroke();
+      } else { x.strokeStyle = '#6a2a2a'; x.lineWidth = 2.4; x.beginPath(); if (o.grin) { x.moveTo(51, 89); x.quadraticCurveTo(64, 99, 77, 89); } else { x.moveTo(56, 91); x.quadraticCurveTo(64, 96.5, 72, 91); } x.stroke(); }
+      if (o.glasses) { x.strokeStyle = '#333340'; x.lineWidth = 2.4; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(64 + s * EX, EY, RX + 4, RY + 3, 0, 0, 7); x.stroke(); } x.beginPath(); x.moveTo(58, EY - 2); x.lineTo(70, EY - 2); x.stroke(); }
+      x.restore();
+    }
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; faceCache.set(o, t); return t;       // one picture per kind of character; every copy of that character shares it
+  }
+  function human2(o) {
+    const g = new THREE.Group(), ud = g.userData, rig = ud.rig = {}, skin = o.skin, lower = o.lower, top = o.top, T = (parent, rings, seg, arc) => P(parent, TT.tube(rings, seg, arc), WH);
+    ud.v2 = 1;
+    const hips = rig.hips = grp(g, 0, HIP, 0), spine = rig.spine = grp(hips, 0, 0.06, 0);
+    // ---- torso: one tube from the seat to the neck; the waist blends between hips and chest so it twists naturally ----
+    const hipC = o.skirt != null ? o.skirt : lower, belt = o.trim != null && !o.vest ? o.trim : top, st = o.stripe != null ? o.stripe : top, neckC = o.under != null ? o.under : o.collar != null ? o.collar : skin;
+    const torso = T(hips, [[-0.14, 0.09, 0.078, hipC, 0], [-0.07, 0.146, 0.108, hipC, 0], [0.0, 0.15, 0.11, hipC, 0.1], [0.022, 0.147, 0.107, hipC, 0.2], [0.026, 0.146, 0.106, belt, 0.22], [0.06, 0.14, 0.1, belt, 0.4], [0.064, 0.139, 0.099, top, 0.42], [0.1, 0.134, 0.095, top, 0.6],
+      [0.2, 0.142, 0.099, top, 0.9], [0.27, 0.156, 0.106, top, 1], [0.274, 0.157, 0.107, st, 1], [0.345, 0.166, 0.11, st, 1], [0.349, 0.167, 0.11, top, 1], [0.44, 0.168, 0.108, top, 1], [0.5, 0.142, 0.094, top, 1],
+      [0.53, 0.1, 0.078, top, 1], [0.534, 0.096, 0.075, o.collar != null ? o.collar : top, 1], [0.556, 0.066, 0.06, o.collar != null ? o.collar : top, 1], [0.56, 0.062, 0.057, neckC, 1], [0.58, 0.05, 0.05, neckC, 1]], 12);
+    torso.userData.bone2 = spine;
+    if (o.vest) {            // an open, sleeveless vest worn over the shirt: a shell with a gap down the front and a stand-up collar
+      const v = o.vest, gap = 0.52, arc = [Math.PI / 2 + gap, Math.PI * 2.5 - gap];
+      const vm = T(hips, [[0.0, 0.164, 0.124, v.c, 0.1], [0.1, 0.152, 0.112, v.c, 0.6], [0.2, 0.158, 0.114, v.c, 0.9], [0.33, 0.181, 0.123, v.c, 1], [0.44, 0.184, 0.121, v.c, 1], [0.505, 0.158, 0.106, v.c, 1], [0.545, 0.108, 0.088, v.c, 1], [0.612, 0.098, 0.086, v.c, 1]], 14, arc);
+      vm.userData.bone2 = spine;
+      const lin = T(hips, [[0.612, 0.097, 0.085, v.trim, 1], [0.545, 0.106, 0.086, v.trim, 1]], 14, [arc[1], arc[0]]); lin.userData.bone2 = spine;       // the collar's lining, seen from the front
+      for (const s of [1, -1]) {
+        P(spine, 'box', v.trim, [s * 0.082, 0.21, 0.097], [0.02, 0.5, 0.014], [0.03, 0, -s * 0.05]);                       // trim down each front edge
+        P(spine, 'box', shade(v.c, 0.88), [s * 0.128, 0.03, 0.092], [0.078, 0.085, 0.022], [0, s * 0.5, 0]);                  // big pockets
+        P(spine, 'box', shade(v.c, 1.12), [s * 0.128, 0.068, 0.097], [0.082, 0.022, 0.024], [0, s * 0.5, 0]);
+      }
+    }
+    if (o.skirt != null) T(hips, [[-0.02, 0.15, 0.11, o.skirt, 0], [-0.16, 0.21, 0.165, o.skirt, 0], [-0.3, 0.26, 0.2, o.skirt, 0]], 12);
+    if (o.coat) { const L = o.coat === 1 ? 0.4 : o.coat; T(hips, [[0.03, 0.15, 0.112, top, 0.2], [-L * 0.5, 0.165 + L * 0.06, 0.122 + L * 0.05, top, 0], [-L, 0.17 + L * 0.13, 0.128 + L * 0.08, top, 0]], 12).userData.bone2 = spine; }
+    if (o.inner != null) P(spine, 'box', o.inner, [0, 0.29, 0.088], [0.09, 0.34, 0.04]);
+    if (o.apron) P(spine, 'box', WH, [0, 0.06, 0.096], [0.2, 0.5, 0.03]);
+    if (o.badge != null) P(spine, 'box', o.badge, [0, 0.3, 0.108], [0.085, 0.11, 0.02]);
+    if (o.hood) { const hc = o.hoodC != null ? o.hoodC : top; P(spine, 'sph', hc, [0, 0.47, -0.11], [0.15, 0.1, 0.1]); if (o.hoodC != null) for (const s2 of [1, -1]) P(spine, 'sph', hc, [s2 * 0.075, 0.5, 0.045], [0.085, 0.045, 0.06], [0.3, 0, s2 * 0.35]); }
+    if (o.pack != null) { P(spine, 'sph', o.pack, [0, 0.25, -0.165], [0.14, 0.19, 0.085]); P(spine, 'sph', shade(o.pack, 0.85), [0, 0.2, -0.235], [0.09, 0.09, 0.035]); for (const s of [1, -1]) { P(spine, 'box', o.pack, [s * 0.118, 0.36, 0.045], [0.036, 0.25, 0.145], [0.1, 0, -s * 0.08]); P(spine, 'box', 0x2a2a30, [s * 0.132, 0.22, 0.104], [0.03, 0.05, 0.02]); } }
+    if (o.collar != null && !o.vest) for (const s of [1, -1]) P(spine, 'sph', o.collar, [s * 0.058, 0.482, 0.058], [0.056, 0.024, 0.046], [0.5, s * 0.5, s * 0.55]);
+    T(spine, [[0.62, 0.04, 0.04, skin, 0], [0.5, 0.044, 0.044, skin, 0]], 8);      // neck
+    // ---- legs: hip -> knee -> ankle in one tube, then a shoe that can roll at the ankle ----
+    const bare = o.shorts || o.skirt != null, legC = o.skirt != null ? skin : lower, sockC = o.sock != null ? o.sock : bare ? skin : lower, cut = o.shorts ? (o.shorts === 2 ? -0.36 : -0.2) : 9, wide = o.shorts === 2 ? 1.16 : 1;
+    const legRings = [[0.03, 0.07, 0.074], [-0.08, 0.074, 0.078], [-0.2, 0.066, 0.07], [-0.31, 0.057, 0.059], [-0.38, 0.054, 0.056], [-0.45, 0.053, 0.058], [-0.55, 0.051, 0.057], [-0.64, 0.042, 0.046], [-0.74, 0.038, 0.04]];
+    const leg = s => {
+      const hip = grp(hips, s * 0.078, -0.03, 0), knee = grp(hip, 0, -0.38, 0), foot = grp(knee, 0, -0.355, 0), rings = [];
+      for (const q of legRings) {
+        const y = q[0], w = y > -0.31 ? 0 : y > -0.36 ? 0.2 : y > -0.4 ? 0.5 : y > -0.5 ? 0.8 : 1, inShort = y > cut, col = y <= -0.6 ? sockC : (o.shorts ? (inShort ? legC : skin) : (bare ? skin : lower)), k = o.shorts && inShort ? wide : 1;
+        rings.push([y, q[1] * k, q[2] * k, col, w]);
+      }
+      if (o.sock != null) { const k = rings.findIndex(q => q[0] <= -0.6); if (k > 0) { const a = rings[k - 1], b = rings[k], t = (a[0] + 0.598) / (a[0] - b[0]), rx = a[1] + (b[1] - a[1]) * t, rz = a[2] + (b[2] - a[2]) * t; rings.splice(k, 0, [-0.596, rx, rz, a[3], 1], [-0.6, rx * 1.04, rz * 1.04, sockC, 1]); } }
+      if (o.shorts) { const k = rings.findIndex(q => q[0] <= cut); if (k > 0) { const a = rings[k - 1], t = (a[0] - cut) / (a[0] - rings[k][0]), rx = a[1] / wide + (rings[k][1] - a[1] / wide) * t, rz = a[2] / wide + (rings[k][2] - a[2] / wide) * t, w = a[4] + (rings[k][4] - a[4]) * t; rings.splice(k, 0, [cut + 0.002, rx * wide, rz * wide, legC, w], [cut - 0.002, rx * 0.97, rz * 0.97, skin, w]); } }
+      const m = T(hip, rings, 9); m.userData.bone2 = knee;
+      const sh = o.shoes || 0x3a3a44;
+      P(foot, 'sph', sh, [0, -0.035, 0.028], [0.06, 0.056, 0.094]); P(foot, 'sph', o.toe != null ? o.toe : sh, [0, -0.046, 0.108], [0.058, 0.046, 0.072]); P(foot, 'sph', sh, [0, -0.012, 0.0], [0.05, 0.05, 0.06]);
+      if (o.laces != null) for (const a of [0.6, -0.6]) P(foot, 'box', o.laces, [0, -0.002, 0.075], [0.085, 0.012, 0.016], [0.5, a, 0]);
+      P(foot, 'box', o.sole != null ? o.sole : 0xf4f4f4, [0, -0.085, 0.052], [0.122, 0.028, 0.256]);
+      return { hip, knee, foot };
+    };
+    rig.legL = leg(1); rig.legR = leg(-1);
+    // ---- arms: shoulder -> elbow -> wrist in one tube, then a hand with a thumb ----
+    const arm = s => {
+      const sc = o.sleeveC != null ? o.sleeveC : top, fore = o.short ? skin : sc, sh = grp(spine, s * 0.186, 0.435, 0), el = grp(sh, 0, -0.27, 0), hand = grp(el, 0, -0.245, 0);
+      const cuff = o.cuff != null ? o.cuff : fore;
+      const m = T(sh, [[0.028, 0.044, 0.044, sc, 0], [-0.01, 0.062, 0.062, sc, 0], [-0.08, 0.057, 0.057, sc, 0], [-0.128, 0.056, 0.056, sc, 0], [-0.132, 0.045, 0.045, fore, 0], [-0.22, 0.042, 0.042, fore, 0.2], [-0.27, 0.041, 0.043, fore, 0.5],
+        [-0.32, 0.041, 0.041, fore, 0.8], [-0.41, 0.038, 0.038, fore, 1], [-0.458, 0.036, 0.036, fore, 1], [-0.462, o.cuff != null ? 0.04 : 0.036, o.cuff != null ? 0.04 : 0.036, cuff, 1], [-0.52, 0.034, 0.034, cuff, 1]], 8);
+      m.userData.bone2 = el;
+      const hc = o.glove != null ? o.glove : skin;
+      P(hand, 'sph', hc, [0, -0.05, 0], [0.035, 0.052, 0.027]); P(hand, 'sph', hc, [0, -0.09, 0.004], [0.032, 0.03, 0.025]); P(hand, 'sph', hc, [-s * 0.027, -0.04, 0.02], [0.014, 0.027, 0.014], [0, 0, s * 0.5]);
+      return { sh, el, hand, s };
+    };
+    rig.armL = arm(1); rig.armR = arm(-1);
+    // ---- head: an egg with a pointed chin, ears, then the drawn face on top ----
+    const head = rig.head = grp(spine, 0, 0.712, 0); head.scale.setScalar(o.headS || 0.9);
+    T(head, HEADP.map(q => [q[0], q[1], q[1] * 0.97, skin, 0, 0, headZ(q[0])]), 14);
+    for (const s of [1, -1]) { P(head, 'sph', skin, [s * 0.19, -0.02, -0.005], [0.03, 0.05, 0.034]); P(head, 'sph', shade(skin, 0.84), [s * 0.197, -0.02, 0.002], [0.012, 0.028, 0.018]); }
+    if (o.beard != null) P(head, 'sph', o.beard, [0, -0.15, 0.08], [0.12, 0.09, 0.1]);
+    const tex = faceCanvas(o).clone(); tex.repeat.set(0.25, 1); tex.needsUpdate = true;
+    const fm = new THREE.MeshToonMaterial({ map: tex, transparent: true, gradientMap: TT.grad, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }); fm.userData.own = true;
+    head.add(new THREE.Mesh(FACE_GEO, fm));
+    ud.face = { tex, f: 0 };
+    rig.eyes = grp(head, 0, 0, 0, 1);            // kept so older code that blinks the eye group still finds something
+    const face = grp(head, 0, 0, 0, 1);
+    hair(head, o);
+    if (o.x) o.x({ g, hips, spine, head, face });
+    ud.ols = []; TT.bakeRig(g, ud.ols); ud.h = 1.9; ud.human = true;
+    if (o.scale) g.scale.setScalar(o.scale);
+    return g;
+  }
+  const lerp = (a, b, k) => a + (b - a) * k;
+  function anim2(g, t, mv) {
+    const u = g.userData, r = u.rig, p = u.ph || (u.ph = Math.random() * 6.28);
+    const dt = TT.clamp(t - (u.lt == null ? t : u.lt), 0, 0.1); u.lt = t;
+    u.amp = (u.amp || 0) + ((mv || 0) - (u.amp || 0)) * Math.min(1, dt * 9);
+    u.wph = (u.wph || 0) + dt * (7.2 + 4.6 * Math.min(u.amp, 1.4));
+    const a = Math.min(u.amp, 1.25), run = TT.clamp((u.amp - 1) / 0.4, 0, 1), i = Math.max(0, 1 - u.amp), ph = u.wph, s = Math.sin(ph), c = Math.cos(ph), ge = u.gesture;
+    // how strongly each gesture is "on" eases in and out, so poses melt into each other instead of snapping
+    const W = u.gw || (u.gw = { talk: 0, cheer: 0, 'throw': 0, point: 0 }), k = Math.min(1, dt * 10);
+    for (const n in W) W[n] = lerp(W[n], ge === n ? 1 : 0, k);
+    const P0 = { lx: 0, rx: 0, lz: 0.09, rz: -0.09, le: -0.12, re: -0.12, hop: 0, crouch: 0, lean: 0, twist: 0, headY: 0, headX: 0 };
+    // --- walking and running ---
+    const swing = (0.5 + 0.42 * run) * a, stride = (0.62 + 0.3 * run) * a;
+    const hipL = -s * stride, hipR = s * stride;
+    let kneeL = (0.1 + (1.05 + 0.7 * run) * Math.max(0, Math.sin(ph - 1.15))) * a, kneeR = (0.1 + (1.05 + 0.7 * run) * Math.max(0, Math.sin(ph - 1.15 + Math.PI))) * a;
+    P0.lx = s * swing; P0.rx = -s * swing;
+    P0.le = -(0.22 + 1.0 * run + 0.38 * Math.max(0, -s)) * a - 0.12 * i; P0.re = -(0.22 + 1.0 * run + 0.38 * Math.max(0, s)) * a - 0.12 * i;
+    P0.lean = (0.07 + 0.2 * run) * a; P0.twist = s * (0.16 + 0.1 * run) * a;
+    let bob = (Math.abs(c) * (0.045 + 0.05 * run) - 0.03) * a;
+    // --- standing still: breathing, a slow shift of weight, looking around ---
+    const br = Math.sin(t * 1.9 + p);
+    P0.lx += Math.sin(t * 1.1 + p) * 0.035 * i; P0.rx += Math.sin(t * 1.1 + p + 1.3) * 0.035 * i; P0.lz += 0.03 * br * i; P0.rz -= 0.03 * br * i;
+    P0.headY = (Math.sin(t * 0.43 + p) * 0.3 + Math.sin(t * 0.17 + p * 2) * 0.18) * i; P0.headX = Math.sin(t * 0.7 + p) * 0.05 * i;
+    // --- gestures ---
+    let lx = P0.lx, rx = P0.rx, lz = P0.lz, rz = P0.rz, le = P0.le, re = P0.re, hop = 0, crouch = 0, hy = P0.headY, hx = P0.headX - 0.08 * a, lhx = 0, rhx = 0;
+    if (W.talk > 0.01) { const w = W.talk; rx = lerp(rx, -0.95 + Math.sin(t * 4.2) * 0.22, w); re = lerp(re, -1.35 + Math.sin(t * 4.2 + 1) * 0.3, w); rz = lerp(rz, -0.28, w); lx = lerp(lx, -0.1, w); le = lerp(le, -0.45, w); rhx = Math.sin(t * 6) * 0.3 * w; hy = lerp(hy, Math.sin(t * 1.7) * 0.1, w); hx += Math.sin(t * 3.4) * 0.05 * w; }
+    if (W.cheer > 0.01) { const w = W.cheer, q = Math.sin(t * 7.2), up = Math.max(0, q), down = Math.max(0, -q); hop = up * 0.3 * w; crouch = down * 0.5 * w; lx = lerp(lx, -2.75 - up * 0.2 + down * 1.2, w); rx = lerp(rx, -2.75 - up * 0.2 + down * 1.2, w); lz = lerp(lz, 0.45, w); rz = lerp(rz, -0.45, w); le = lerp(le, -0.2 - down * 1.2, w); re = lerp(re, -0.2 - down * 1.2, w); hx -= 0.18 * up * w; hy = lerp(hy, 0, w); }
+    if (W['throw'] > 0.01) { const w = W['throw'], q = u.gk || 0, wind = q < 0.4 ? q / 0.4 : 1, rel = q < 0.4 ? 0 : Math.min(1, (q - 0.4) / 0.2); rx = lerp(rx, 1.5 * wind - 3.9 * rel, w); re = lerp(re, -1.5 * wind + 1.3 * rel, w); lx = lerp(lx, -0.7 * wind + 0.9 * rel, w); P0.twist = lerp(P0.twist, -0.5 * wind + 0.9 * rel, w); P0.lean = lerp(P0.lean, -0.08 * wind + 0.25 * rel, w); hy = lerp(hy, 0, w); }
+    if (W.point > 0.01) { const w = W.point; rx = lerp(rx, -1.5, w); re = lerp(re, -0.04, w); rz = lerp(rz, -0.05, w); lx = lerp(lx, 0.25, w); le = lerp(le, -1.5, w); lz = lerp(lz, 0.5, w); P0.twist = lerp(P0.twist, 0.22, w); hy = lerp(hy, 0, w); }
+    // --- write the pose ---
+    r.legL.hip.rotation.x = hipL - crouch; r.legR.hip.rotation.x = hipR - crouch;
+    r.legL.knee.rotation.x = kneeL + crouch * 2; r.legR.knee.rotation.x = kneeR + crouch * 2;
+    r.legL.foot.rotation.x = -s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15)) - crouch; r.legR.foot.rotation.x = s * 0.32 * a - 0.12 * a * Math.max(0, Math.sin(ph - 1.15 + Math.PI)) - crouch;
+    const sway = Math.sin(t * 0.33 + p) * i;            // standing: the weight drifts from one leg to the other
+    r.legL.hip.rotation.z = (0.035 + sway * 0.05) * i; r.legR.hip.rotation.z = (-0.035 + sway * 0.05) * i;
+    r.legL.knee.rotation.x += Math.max(0, -sway) * 0.16; r.legR.knee.rotation.x += Math.max(0, sway) * 0.16; r.legL.hip.rotation.x -= Math.max(0, -sway) * 0.08; r.legR.hip.rotation.x -= Math.max(0, sway) * 0.08;
+    r.armL.sh.rotation.set(lx, 0, lz); r.armR.sh.rotation.set(rx, 0, rz); r.armL.el.rotation.x = le; r.armR.el.rotation.x = re;
+    r.armL.hand.rotation.x = lhx - 0.1; r.armR.hand.rotation.x = rhx - 0.1;
+    r.hips.position.y = HIP + bob + hop - (1 - Math.cos(crouch)) * 0.74;
+    r.hips.position.x = sway * 0.022;
+    r.hips.rotation.y = -s * 0.12 * a; r.hips.rotation.z = -sway * 0.05 + c * 0.03 * a;
+    r.spine.rotation.x = P0.lean + crouch * 0.35; r.spine.rotation.y = P0.twist; r.spine.rotation.z = -c * 0.03 * a + sway * 0.045;
+    const bs = 1 + br * 0.012 * (i + 0.3); r.spine.scale.set(bs, 1, 1 + br * 0.03 * (i + 0.3)); r.spine.position.y = 0.06 + br * 0.004 * i;
+    r.head.rotation.y = hy - P0.twist * 0.7 + s * 0.1 * a; r.head.rotation.x = hx - crouch * 0.2;
+    // --- face: blink now and then, move the mouth when talking, grin when cheering ---
+    let f = ((t + p) % 3.7) < 0.13 ? 1 : 0;
+    if (W.cheer > 0.5) f = 3; else if (W.talk > 0.5) f = Math.sin(t * 17) > 0.1 ? 2 : f;
+    if (u.face.f !== f) { u.face.f = f; u.face.tex.offset.x = f * 0.25; }
+  }
+
   TT.animHuman = (g, t, mv) => {
     const u = g.userData, r = u.rig; if (!r) return;
+    if (u.v2) return anim2(g, t, mv);
     const p = u.ph || (u.ph = Math.random() * 6.28);
     u.amp = (u.amp || 0) + ((mv || 0) - (u.amp || 0)) * 0.2;
     const dtt = TT.clamp(t - (u.lt == null ? t : u.lt), 0, 0.1); u.lt = t; u.wph = (u.wph || 0) + dtt * (9 + 3.5 * Math.min(u.amp, 1.4));   // stride speeds up when running
@@ -164,9 +389,16 @@
 
   const SK = [0xf5cfa6, 0xf8d8bc, 0xc68a5a, 0x8a5a3a, 0xe8c0a0, 0xa87048];
   TT.PEOPLE = {
-    ash: { skin: SK[0], hair: BK, hairStyle: 'ash', eye: 0x6a4a2a, marks: 1, top: 0x2f62c8, collar: WH, trim: 0xf2c230, sleeveC: WH, short: 1, glove: 0x2a9a5a, lower: 0x5a86c8, shoes: 0x23232b, scale: 0.9,
-      x: q => { for (const s of [1, -1]) P(q.spine, 'box', WH, [s * 0.1, 0.15, 0.105], [0.07, 0.05, 0.02]); P(q.spine, 'box', 0xf2c230, [0, 0.27, 0.12], [0.02, 0.4, 0.012]); } },
-    liko: { skin: SK[1], hair: 0x1f2740, hairStyle: 'liko', eye: 0x3cae98, blush: 1, top: 0xf5f2e8, hood: 1, trim: 0xbfe3c8, cuff: 0xbfe3c8, inner: 0x3f9c8c, lower: 0x2c3350, shorts: 1, sock: WH, shoes: 0x7a5238, scale: 0.88 },
+    // Ash as he looks in the newest series: all-red cap with a white brim, sleeveless blue vest with yellow lining over a white T-shirt
+    // with a red stripe, long shorts, bare arms and legs, black-and-blue sneakers, a green backpack.
+    ash: { v2: 1, skin: 0xf6c49e, hair: 0x20232c, hairStyle: 'ash2', eye: 0x8a4424, brow: 0x1a1a20, marks: 1, grin: 1, top: WH, stripe: 0xd8504a, sleeveC: WH, short: 1, vest: { c: 0x4a78c8, trim: 0xf0a83a },
+      lower: 0x5a5ea8, shorts: 2, shoes: 0x2a2a34, toe: 0x4a7ad0, laces: WH, pack: 0x5ab86a, scale: 0.9 },
+    // Liko as she looks in the show: navy bob, light-blue eyes, a teal sleeveless hoodie over black sleeves, white shorts, a yellow sling bag.
+    // Llorianne's touch: a gold "L" on the front pocket.
+    liko: { v2: 1, skin: 0xfde0d2, hair: 0x1e2648, hairStyle: 'liko2', eye: 0x6ab4e4, brow: 0x1e2648, lash: 1, blush: 1, top: 0x3aa4a4, sleeveC: 0x26262e, collar: 0x9ad2f0, hoodC: 0x9ad2f0, hood: 1, coat: 0.2, lower: 0xf6f6f6, shorts: 1,
+      sock: 0x26262e, shoes: 0xf4f4f6, laces: 0x5ac0c0, scale: 0.88,
+      x: q => { P(q.spine, 'box', 0x58b8b8, [0, 0.05, 0.1], [0.21, 0.12, 0.02]); P(q.spine, 'box', 0xf2c230, [-0.02, 0.058, 0.113], [0.022, 0.085, 0.012]); P(q.spine, 'box', 0xf2c230, [0.008, 0.024, 0.113], [0.072, 0.022, 0.012]);
+        P(q.spine, 'box', 0xf2d040, [0.0, 0.27, 0.103], [0.034, 0.5, 0.016], [0, 0, 0.62]); P(q.spine, 'sph', 0xf2d040, [0.17, 0.06, 0.05], [0.06, 0.07, 0.045]); } },
     dad: { skin: SK[5], hair: BK, hairStyle: 'short', beard: BK, eye: 0x4a3018, top: 0x2a6a4a, collar: WH, trim: 0x22222a, lower: 0x3a4a6a, shoes: 0x5a4030, pack: 0xc8742a },
     gary: { skin: SK[0], hair: 0x8a5a2a, hairStyle: 'spiky', eye: 0x3a5a3a, top: 0x5a3a8a, collar: 0x3a2a5a, lower: 0x3a3a4a, shoes: 0x5a4030, pack: 0xd8c890, scale: 0.9 },
     leaf: { skin: SK[1], hair: 0x7a4a2a, hairStyle: 'long', hat: 'cap', hatColor: 0xf4f4f4, blush: 1, top: 0x6ac0e0, skirt: 0xe2382e, short: 1, sock: WH, shoes: 0xf4f4f4, pack: 0xffd23c, scale: 0.88 },
@@ -194,7 +426,7 @@
   };
   Object.assign(TT.PEOPLE, {
     vegeta: { skin: SK[0], hair: BK, hairStyle: 'vegeta', eye: BK, brow: BK, top: 0xf2f2ee, sleeveC: 0x2a3a9a, inner: 0x2a3a9a, trim: 0xd8a020, glove: WH, lower: 0x2a3a9a, shoes: WH, sole: 0xd8a020, scale: 0.95,
-      x: q => { for (const s of [1, -1]) P(q.spine, 'sph', 0xd8a020, [s * 0.2, 0.36, 0], [0.11, 0.06, 0.13]); P(q.spine, 'box', 0xd8a020, [0, 0.08, 0.11], [0.2, 0.12, 0.02]); } },
+      x: q => { for (const s of [1, -1]) P(q.spine, 'sph', 0xd8a020, [s * 0.2, 0.36, 0], [0.11, 0.06, 0.13]); P(q.spine, 'box', 0xd8a020, [0, 0.1, 0.094], [0.17, 0.09, 0.016]); } },
     bulma: { skin: SK[1], hair: 0x3ac4cc, hairStyle: 'ponytail', eye: 0x2a7ab0, blush: 1, top: 0xf06a8a, skirt: 0xf06a8a, short: 1, trim: WH, sock: WH, shoes: 0x7a4a9a, pack: 0xf2c230, scale: 0.94 },
     krillin: { skin: SK[0], hairStyle: 'bald', hair: SK[0], eye: BK, top: 0xf08a24, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070, scale: 0.78,
       x: q => { for (const s of [1, -1]) for (let i = 0; i < 3; i++) P(q.head, 'sph', 0x9a6a4a, [s * 0.035, 0.13 + i * 0.035, 0.185 - i * 0.012], 0.011); } }

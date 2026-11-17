@@ -101,6 +101,8 @@
       if (q.get('lvl')) S.party.forEach(m => { m.lvl = +q.get('lvl'); m.hp = TT.maxHp(m); });
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
+      if (q.get('zoom')) setInterval(() => { if (!TT.Battle.active && !flying) TT.camZoom = +q.get('zoom'); }, 50);      // test: bring the camera close to check a model
+      if (q.get('gest')) setInterval(() => { if (player.root) player.root.userData.model.userData.gesture = q.get('gest'); }, 100);
       const ev = q.get('evt');
       setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev === 'wish') { busy = true; wish().then(() => { busy = false; }); } if (ev && ev.startsWith('wipe:')) { const w = ev.split(':'); TT.wipeTo(+w[1], 0.01, +w[2], w[3] ? parseInt(w[3], 16) : null); } if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
     }
@@ -166,6 +168,8 @@
   const bustPic = ch => TT.portrait('b_' + ch, () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash); h.position.y = -1.08; g.add(h); g.userData.h = 0.72; return g; }, true);
   // ---------- title screen: the heroes and their partners stand in the plaza, alive ----------
   const SHOW_Z = 15; let show = null, starting = false;
+  // test hook: ?solo=ash&pose=walk|run|cheer|talk|point|throw&turn=0.6&dist=3.2 shows one character close up on the title screen
+  const TEST = (() => { const q = new URLSearchParams(location.search), p = q.get('pose') || ''; return { solo: q.get('solo'), pose: p, mv: p === 'walk' ? 1 : p === 'run' ? 1.4 : 0, gest: ['cheer', 'talk', 'point', 'throw'].indexOf(p) >= 0 ? p : null, turn: +(q.get('turn') || 0), dist: +(q.get('dist') || 3.4) }; })();
   const readSave = k => { try { const j = JSON.parse(localStorage.getItem(k)); return j && j.v === 1 && j.party && j.party.length ? j : null; } catch (e) { return null; } };
   const kidKey = name => 'tt1_p_' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
   function buildShow() {
@@ -173,6 +177,7 @@
     const cast = [];
     if (kidsList.length) kidsList.slice(0, 4).forEach((name, i) => { const sv = readSave(kidKey(name)); cast.push(sv ? [sv.ch, sv.party[0].sp, name] : [['liko', 'ash', 'leaf', 'gary'][i], null, name]); });
     else for (const ch of ['liko', 'ash']) { const sv = readSave('tt1_' + ch); cast.push([ch, sv && sv.party[0].sp, ch]); }
+    if (TEST.solo) { cast.length = 0; for (const k of TEST.solo.split(',')) cast.push([k, null, k]); }       // test: one character, close up, in a chosen pose
     const g = new THREE.Group(), list = [];
     for (const [ch, sp0, id] of cast) {
       const sp = sp0 && TT.DEX[sp0] ? sp0 : STARTER[ch] || 'pikachu', h = TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), p = TT.creature(sp);
@@ -188,15 +193,17 @@
     TT.wait(e ? 0.55 : 0.05).then(() => { starting = false; if (mode === 'title') fn(); });
   }
   function updateShow(dt) {
-    const asp = camera.aspect, n = show.list.length, tight = asp < 1, gap = tight ? 1.5 : 2.1, po = tight ? 0.5 : 0.8;
+    const asp = camera.aspect, n = show.list.length, tight = asp < 1, gap = TEST.solo ? 1.2 : tight ? 1.5 : 2.1, po = tight ? 0.5 : 0.8;
     show.list.forEach((e, i) => {
       const x = (i - (n - 1) / 2) * gap, side = i < (n - 1) / 2 ? -1 : 1;
       e.h.position.set(x, 0, 0); e.sh.position.set(x, 0.035, 0); e.p.position.set(x + side * po, 0, 0.9); e.p.rotation.y = -side * 0.3;
       if ((e.wave -= dt) < 0) { e.h.userData.gesture = TT.pick(['cheer', 'talk', 'point']); e.gt = 1.4; e.wave = rand(3.5, 7); }
       if (e.gt > 0 && (e.gt -= dt) <= 0) e.h.userData.gesture = null;
-      TT.animHuman(e.h, t, 0); TT.animCreature(e.p, t, 0);
+      if (TEST.pose) { e.h.userData.gesture = TEST.gest; e.h.rotation.y = TEST.turn; e.p.visible = false; }
+      TT.animHuman(e.h, t, TEST.mv); TT.animCreature(e.p, t, 0);
     });
-    const hw = (n - 1) / 2 * gap + po + 0.9, d = Math.max(6.4, hw / (0.364 * asp)), short = window.innerHeight < 500 && asp > 1;
+    const hw = (n - 1) / 2 * gap + po + 0.9, d = TEST.solo ? TEST.dist : Math.max(6.4, hw / (0.364 * asp)), short = window.innerHeight < 500 && asp > 1;
+    if (TEST.solo) { camera.position.set(0, d < 2.4 ? 1.55 : 1.2, SHOW_Z + d); camera.lookAt(0, d < 2.4 ? 1.48 : 0.9, SHOW_Z); return; }
     camera.position.set(Math.sin(t * 0.3) * 0.7, 1.75 + d * 0.05, SHOW_Z + d); camera.lookAt(0, 0.95 - (short ? 0.2 : tight ? 0.03 : 0.06) * 0.728 * d, SHOW_Z);
   }
   const duoPic = ch => TT.portrait('t_' + ch, () => { const g = new THREE.Group(), h = TT.human(TT.PEOPLE[ch]), c = TT.creature(STARTER[ch]); h.position.x = -0.3; c.position.set(0.55, 0, 0.3); g.add(h); g.add(c); g.userData.h = 1.75; return g; }, true);
