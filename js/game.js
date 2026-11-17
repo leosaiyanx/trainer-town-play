@@ -8,13 +8,13 @@
   let follower = null, eggObj = null, nestEgg = null, starObj = null;
   const npcs = [], wilds = [], respawns = [];
   const input = { x: 0, y: 0, keys: {} };
-  let sun, quality = 2, qLock = false, qN = 0, qT = 0, qSkip = 60, dustT = 0;
+  let sun, quality = 2, qLock = false, qN = 0, qT = 0, qSkip = 60, dustT = 0, qDown = false, qGood = 0, qUpT = 0;
   const blobs = [], actors = [], dust = [];
   let miniOn = true, miniT = 0, dest = null, beacon = null, mapBase = null; try { miniOn = localStorage.getItem('tt_mini') !== '0'; } catch (e) { }
   const cam = { x: 0, z: 8 };
   const NAMES = { ash: 'Ash', liko: 'Liko', dad: 'Dad', gary: 'Gary', leaf: 'Leaf' }, STARTER = { ash: 'pikachu', liko: 'sprigatito', dad: 'charmander', gary: 'squirtle', leaf: 'bulbasaur' };
   let slot = '', pname = '', cloudDirty = false, kidsList = [];
-  let viewX = 30, viewZ = 31, viewS = 11, flying = false;
+  let viewX = 30, viewZ = 31, viewS = 11, flying = false, goal = null;
   let actKey = '', netShown = -1, eggShown = -1, inB = false;
   let comps = [], snorlaxNpc = null, areaNow = '', camY = 0, runT = 0, lean = 0; const vel = { x: 0, z: 0 };
   const areaKey = (x, z) => x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
@@ -43,7 +43,7 @@
     sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.002; sun.shadow.normalBias = 0.04;
     const sc = sun.shadow.camera; sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sc.near = 1; sc.far = 130;
     quality = +(new URLSearchParams(location.search).get('q') || 2); qLock = location.search.indexOf('q=') >= 0;
-    if (!qLock) try { const j = JSON.parse(localStorage.getItem('tt_q')); if (j && j.q >= 0 && j.q < 2 && Date.now() - j.t < 14 * 864e5) quality = j.q; } catch (e) { }   // what this device managed last time
+    if (!qLock) try { const j = JSON.parse(localStorage.getItem('tt_q')); if (j && j.q >= 0 && j.q < 2 && Date.now() - j.t < 14 * 864e5) { quality = j.q; qUpT = j.up || 0; } } catch (e) { }   // what this device managed last time
     camera = new THREE.PerspectiveCamera(40, 1, 0.5, 900); document.body.classList.toggle('grade', quality >= 2);
     const tm = TT.timing = {}, t0 = performance.now();
     TT.lights = { hemi, sun };
@@ -232,6 +232,19 @@
     for (const c of comps) { scene.remove(c.root); TT.dispose(c.root); } comps = [];
     for (const [k, on] of [['gohan', f.gohan], ['goku', f.goku]]) if (on) comps.push({ key: k, x: player.x - 1 - comps.length, z: player.z + 1.5, h: 0, mv: 0, root: wrap(TT.human(TT.PEOPLE[k]), 0.42) });
   }
+  // However you got somewhere (walking, flying, jumping to a friend), being there unlocks it: gates open, Fly works,
+  // and the goal line moves on to the next thing that is really left to do.
+  function arrive(ak) {
+    const f = S.flags; let ch = false;
+    if (ak !== 'town' && !f.city) { f.city = 1; ch = true; }
+    if (ak === 'world' && !f.world) { f.world = 1; ch = true; }
+    if (ch) { f.profMet = f.profDone = 1; applyFlags(); hud(); save(); }
+  }
+  // ---- fair fights: bosses match the whole team, and ease off a little each time you lose to them ----
+  const teamLvl = () => { const l = S.party.map(m => m.lvl).sort((a, b) => b - a); return Math.round(l.length > 1 ? l[0] * 0.5 + (l[1] + (l[2] != null ? l[2] : l[1])) / 2 * 0.5 : l[0]); };
+  const tries = k => (S.tries && S.tries[k]) || 0, lost = k => { S.tries = S.tries || {}; S.tries[k] = Math.min(5, tries(k) + 1); };
+  const bossL = (k, min, plus) => Math.max(min, teamLvl() + plus - tries(k) * 2);
+  const bossHp = (k, mul) => mul * Math.max(0.6, 1 - tries(k) * 0.1) * (S.easy ? 0.75 : 1);
   function setFollower() {
     const old = follower;
     if (old) { scene.remove(old.root); TT.dispose(old.root); }
@@ -335,13 +348,13 @@
     if (f.gym) return TT.say([[N, TT.pick(['You earned that Dragon Ball. Take good care of it!', 'Have you met Gohan in the plaza?'])]]);
     if (!S.party.some(m => m.hp > 0)) return TT.say([[N, 'Your Pokémon look tired. Visit Nurse Joy by the plaza first!']]);
     await TT.say([[N, "I'm Misty, the City Gym Leader! My Water Pokémon are tough."], [N, 'Ready for a Gym battle? Here we go!']]);
-    const L = Math.max(5, S.party[0].lvl);
+    const L = bossL('gym', 5, 0);
     const r = await TT.Battle.start({ foes: [TT.mon('psyduck', L - 2), TT.mon('squirtle', L - 1), TT.mon('quaxly', L)], trainer: 'Leader Misty', people: ['misty'], stage: 'gym' });
     if (follower.sp !== S.party[0].sp) setFollower();
     if (r === 'win') {
       f.gym = 1; await TT.say([[N, "Wow, you really beat me! You're a great trainer."], [N, 'Take this. It fell from the sky into my pool one day.']]);
       await giveStar(4); S.balls += 5; TT.sfx.pick(); await TT.say([['', 'You got 5 Poké Balls too!']]);
-    } else if (r === 'lose') await whiteOut();
+    } else if (r === 'lose') { lost('gym'); await whiteOut(); }
   }
   async function clerk() {
     const N = 'Clerk Kim', f = S.flags, now = Date.now();
@@ -364,10 +377,10 @@
   async function snorlaxTalk() {
     if (!S.party.some(m => m.hp > 0)) return TT.say([['', 'Your Pokémon are too tired. Visit Ranger Rita at the cabin first!']]);
     await TT.say([['', 'A huge Snorlax is fast asleep, blocking the path to the peak!'], ['Snorlax', 'Zzz... Zzz...'], ['', "Let's wake it up!"]]);
-    const L = Math.max(10, S.party[0].lvl + 2), foe = TT.Battle.bossMon('snorlax', L, 2.2);
+    const L = bossL('snorlax', 10, 2), foe = TT.Battle.bossMon('snorlax', L, bossHp('snorlax', 2.2));
     const r = await TT.Battle.start({ foes: [foe], wild: true, easy: true, stage: 'mountain', allies: allies(), bossTitle: 'The Sleepy Giant' });
     if (follower.sp !== S.party[0].sp) setFollower();
-    if (r === 'lose') return whiteOut();
+    if (r === 'lose') { lost('snorlax'); return whiteOut(); }
     if (r === 'run') return TT.say([['', 'Snorlax yawned and went back to sleep.']]);
     if (r === 'caught') { delete foe.boss; delete foe.mx; delete foe.raged; foe.hp = TT.maxHp(foe); addMon(foe); }
     else await TT.say([['Snorlax', 'Snorrr... (Snorlax yawned, stretched and waddled away!)']]);
@@ -377,7 +390,7 @@
     if (!S.party.some(m => m.hp > 0)) return TT.say([['Jessie', 'Ha! Your Pokémon are too tired to fight us, twerp!']]);
     TT.music('rocket');
     await TT.say([['Jessie', 'Well, well! The twerp found our secret hideout!'], ['James', 'Prepare for trouble... a really BIG one!'], ['Meowth', 'Meowth! Fire up the Mecha-Meowth!']]);
-    const L = Math.max(10, S.party[0].lvl + 3), foe = TT.Battle.bossMon('mecha', L, 2.4);
+    const L = bossL('mecha', 10, 3), foe = TT.Battle.bossMon('mecha', L, bossHp('mecha', 2.4));
     const r = await TT.Battle.start({ foes: [foe], trainer: 'Team Rocket', people: ['jessie', 'james'], easy: true, stage: 'hideout', allies: allies(), bossTitle: "Team Rocket's giant robot", music: 'rocket' });
     if (follower.sp !== S.party[0].sp) setFollower();
     if (r === 'win') {
@@ -387,14 +400,14 @@
       const star = P(scene, 'sph', TT.glow(0xffffff), [player.x + 10, camY + 16, player.z - 30], 0.5); TT.sfx.pick(); await TT.tween(0.8, k => star.scale.setScalar(0.5 + Math.sin(k * 3.14) * 1.4)); scene.remove(star);
       while (TT.dialogOpen) await TT.wait(0.1);
       await TT.say([['', 'Team Rocket left something behind...']]); await giveStar(6); S.balls += 5; TT.sfx.pick(); await TT.say([['', 'You got 5 Poké Balls too!']]);
-    } else { S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say([['Meowth', 'Ha! Come back when you are stronger, twerp!'], ['', 'Your Pokémon rested and feel better. Try again!']]); }
+    } else { lost('mecha'); S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say([['Meowth', 'Ha! Come back when you are stronger, twerp!'], ['', 'Your Pokémon rested and feel better. Try again!']]); }
     save();
   }
   async function gokuTalk() {
     const N = 'Goku';
     await TT.say([[N, 'Hey there! You must be the trainer Gohan keeps talking about!'], [N, "I'm Goku. This is my partner, Rayquaza. It's a legendary Pokémon!"], [N, "Let's have a battle! I want to see how strong you are!"]]);
-    const L = Math.max(12, S.party[0].lvl + 1);
-    const r = await TT.Battle.start({ foes: [TT.mon('machoke', L), TT.Battle.bossMon('rayquaza', L + 3, 2.2)], trainer: 'Goku', people: ['goku'], easy: true, stage: 'plateau', allies: allies(), music: 'goku', bossMusic: 'goku', bossTitle: "Goku's legendary partner", transform: { at: 1, to: 'goku_ss', say: 'Goku turned Super Saiyan!' } });
+    const L = bossL('goku', 12, 1);
+    const r = await TT.Battle.start({ foes: [TT.mon('machoke', L), TT.Battle.bossMon('rayquaza', L + 3, bossHp('goku', 2.2))], trainer: 'Goku', people: ['goku'], easy: true, stage: 'plateau', allies: allies(), music: 'goku', bossMusic: 'goku', bossTitle: "Goku's legendary partner", transform: { at: 1, to: 'goku_ss', say: 'Goku turned Super Saiyan!' } });
     S.party.forEach(m => m.hp = TT.maxHp(m)); if (follower.sp !== S.party[0].sp) setFollower();
     await TT.say(r === 'win' ? [[N, 'Wow! You beat me! You and your Pokémon are amazing!']] : [[N, "Ha ha! That was a great fight! You've got a strong heart."]]);
     await TT.say([[N, 'Here, take this Dragon Ball. I found it while training.']]); await giveStar(5);
@@ -493,20 +506,21 @@
     if (!S) return;
     $('nBall').textContent = S.balls; $('nStar').textContent = S.stars.length;
     $('chipEgg').classList.toggle('hide', !S.egg.have); { const wv = Math.round(Math.min(100, S.egg.warm)); if (wv !== eggShown) { eggShown = wv; $('eggBar').style.width = wv + '%'; } }
-    let q;
-    if (!S.flags.profMet) q = '➜ Visit Professor Oak at the Lab (top of town)';
-    else if (!S.flags.profDone) q = S.caught.length >= 3 ? '➜ Go show Professor Oak!' : '➜ Catch 3 kinds of Pokémon in the tall grass (' + S.caught.length + '/3)';
-    else if (!S.flags.city) q = '➜ Talk to Officer Gus at the north gate to enter the City';
-    else if (S.egg.have) q = '➜ Warm the egg by the campfire';
-    else if (!S.flags.gym) q = '➜ Challenge the City Gym at the far end of the avenue';
-    else if (!S.flags.gohan) q = '➜ Tell Gohan in the Clock Plaza!';
-    else if (!S.flags.world) q = "➜ Ask Officer Gail at the City's east gate about the Wide World";
-    else if (!S.flags.snorlax) q = '➜ Cross the big bridge and wake up the sleeping Snorlax';
-    else if (!S.flags.goku) q = "➜ Climb to Goku's Peak and meet Goku";
-    else if (!S.flags.hideout) q = '➜ Stop Team Rocket at their hideout in the south';
-    else if (S.stars.indexOf(3) < 0) q = '➜ Something shiny is hiding in the trees behind the town pond...';
+    let q, g = null; const f = S.flags, at = (x, z, n) => ({ x, z, n });
+    if (!f.profMet) { q = '➜ Visit Professor Oak at the Lab (top of town)'; g = at(3.5, -21.5, "Professor Oak's Lab"); }
+    else if (!f.profDone) { if (S.caught.length >= 3) { q = '➜ Go show Professor Oak!'; g = at(3.5, -21.5, "Professor Oak's Lab"); } else { q = '➜ Catch 3 kinds of Pokémon in the tall grass (' + S.caught.length + '/3)'; g = at(-40, 30, 'the West Meadow grass'); } }
+    else if (!f.city) { q = '➜ Talk to Officer Gus at the north gate to enter the City'; g = at(3.2, -50.5, 'the north gate'); }
+    else if (S.egg.have) { q = '➜ Warm the egg by the campfire'; g = at(W.FIRE.x, W.FIRE.z + 2, 'the campfire'); }
+    else if (!f.gym) { q = '➜ Challenge the City Gym at the far end of the avenue'; g = at(0, -159.5, 'the City Gym'); }
+    else if (!f.gohan) { q = '➜ Tell Gohan in the Clock Plaza!'; g = at(5, -117, 'Gohan'); }
+    else if (!f.world) { q = "➜ Ask Officer Gail at the City's east gate about the Wide World"; g = at(49.5, -95.5, 'the east gate'); }
+    else if (!f.snorlax) { q = '➜ Cross the big bridge and wake up the sleeping Snorlax'; g = at(W.SNORLAX.x - 5, W.SNORLAX.z, 'the sleeping Snorlax'); }
+    else if (!f.goku) { q = "➜ Climb to Goku's Peak and meet Goku"; g = at(W.PLATEAU.x - 2.5, W.PLATEAU.z, "Goku's Peak"); }
+    else if (!f.hideout) { q = '➜ Stop Team Rocket at their hideout in the south'; g = at(204, -149.5, "Team Rocket's hideout"); }
+    else if (S.stars.indexOf(3) < 0) { q = '➜ Something shiny is hiding in the trees behind the town pond...'; g = at(W.STARSPOT.x - 2, W.STARSPOT.z, 'the hiding place'); }
     else if (S.stars.indexOf(1) < 0) q = '➜ Beat Team Rocket when they swoop in, and they might drop something!';
     else q = "★ 6 Dragon Balls! The Dragon's Lair opens soon.";
+    goal = g; if (g) q += '  📍';
     $('quest').textContent = q;
   }
   const hex = n => '#' + n.toString(16).padStart(6, '0');
@@ -527,10 +541,27 @@
       h += '<button class="mon' + (i ? '' : ' lead') + '" data-i="' + i + '"><img src="' + TT.monPortrait(m.sp) + '"><div class="inf"><b>' + TT.monName(m) + '</b><span class="tag" style="background:' + hex(TT.TYPE_COL[ty]) + '">' + ty + '</span> &nbsp;Lv ' + m.lvl +
         '<div class="hp"><div style="width:' + k * 100 + '%;background:' + (k > 0.5 ? '#4cd964' : k > 0.22 ? '#f2c230' : '#e8402a') + '"></div></div></div><em>' + (i ? 'Make partner' : 'Partner') + '</em></button>';
     });
-    if (S.box.length) h += '<p><b>' + S.box.length + '</b> more Pokémon are resting at the Lab.</p>';
     h += '<p style="font-size:13px;opacity:.7;margin:6px 0 0">Tap a Pokémon to make it your partner. Your partner walks with you and battles first.</p>';
+    if (S.box.length) {
+      const lab = S.box.map((m, i) => [m, i]).sort((a, b) => b[0].lvl - a[0].lvl).slice(0, 18);
+      h += '<h3 style="margin-top:14px">At the Lab <button id="bBest" class="best">⭐ Pick my strongest team</button></h3><p style="font-size:13px;opacity:.7;margin:0 0 8px">Tap one to bring it onto your team. It swaps places with your weakest team member.</p><div class="labgrid">';
+      for (const [m, i] of lab) h += '<button class="labmon" data-b="' + i + '"><img src="' + TT.monPortrait(m.sp) + '"><b>' + TT.monName(m) + '</b><span>Lv ' + m.lvl + '</span></button>';
+      h += '</div>' + (S.box.length > lab.length ? '<p style="font-size:13px;opacity:.7">…and ' + (S.box.length - lab.length) + ' more resting.</p>' : '');
+    }
     openPanel(h);
-    document.querySelectorAll('#panelIn .mon').forEach(b => b.onclick = () => { const i = +b.dataset.i; if (i) { const m = S.party.splice(i, 1)[0]; S.party.unshift(m); setFollower(); save(); TT.sfx.pick(); showTeam(); } });
+    const done = () => { setFollower(); hud(); save(); TT.sfx.pick(); showTeam(); };
+    document.querySelectorAll('#panelIn .mon').forEach(b => b.onclick = () => { const i = +b.dataset.i; if (i) { const m = S.party.splice(i, 1)[0]; S.party.unshift(m); done(); } });
+    document.querySelectorAll('#panelIn .labmon').forEach(b => b.onclick = () => {
+      const m = S.box.splice(+b.dataset.b, 1)[0]; m.hp = TT.maxHp(m);
+      if (S.party.length < 6) S.party.push(m);
+      else { let w = 1; for (let i = 2; i < S.party.length; i++) if (S.party[i].lvl < S.party[w].lvl) w = i; S.box.push(S.party[w]); S.party[w] = m; }
+      TT.toast(TT.monName(m) + ' joined your team!'); done();
+    });
+    const best = $('bBest'); if (best) best.onclick = () => {
+      const lead = S.party[0], rest = S.party.slice(1).concat(S.box).sort((a, b) => b.lvl - a.lvl);
+      S.party = [lead].concat(rest.slice(0, 5)); S.box = rest.slice(5); S.party.forEach(m => { if (m.hp <= 0) m.hp = 1; });
+      TT.toast('⭐ Your strongest team is ready!'); done();
+    };
   }
   function showMap() {
     const here = areaKey(player.x, player.z), f = S.flags;
@@ -582,13 +613,14 @@
 
   // ---------- menu, main-menu return ----------
   function showMenu() {
-    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); };
-    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
+    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = '🛟 Easy mode: ' + (S.easy ? 'On — stronger hits, gentler bosses, free healing' : 'Off'); };
+    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
     lab();
     $('mResume').onclick = closePanel;
     $('mSound').onclick = () => { TT.setMuted(!TT.muted); lab(); };
     $('mVoice').onclick = () => { TT.setVoice(!TT.voiceOn); lab(); if (TT.voiceOn) TT.cry(S.party[0].sp); };
     $('mMini').onclick = () => { setMini(!miniOn); lab(); };
+    $('mEasy').onclick = () => { S.easy = S.easy ? 0 : 1; if (S.easy) S.party.forEach(m => m.hp = TT.maxHp(m)); save(); lab(); TT.sfx.pick(); };
     $('mTitle').onclick = toTitle;
   }
   function toTitle() {
@@ -715,6 +747,8 @@
     $('act').addEventListener('pointerdown', e => { e.preventDefault(); TT.audioInit(); interact(); });
     $('bTeam').onclick = () => { if (!busy && S) showTeam(); }; $('bMap').onclick = () => { if (!busy && S) showMap(); };
     $('bMenu').onclick = () => { TT.audioInit(); if (!busy && S) showMenu(); };
+    // tap the goal line: a guide arrow on the mini-map leads to the next thing to do
+    $('quest').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); TT.audioInit(); if (!S || busy || mode !== 'play') return; if (!goal) { TT.toast('Keep exploring!'); return; } setMini(true); setDest(goal); TT.sfx.pick(); TT.toast('📍 Follow the arrow to ' + goal.n + '!'); });
     $('bUpdate').onclick = doUpdate;
     $('bPause').onclick = () => setPause(true); $('bResume').onclick = () => setPause(false);
     $('pause').addEventListener('pointerdown', e => { if (e.target === $('pause')) setPause(false); });
@@ -888,7 +922,7 @@
       camY += (W.gy(player.x, player.z) - camY) * Math.min(1, dt * 4);
       camera.position.set(cam.x, camY + 12.5 * zm * out, cam.z + 12.5 * zm * out); camera.lookAt(cam.x, camY + 1, cam.z - 1);
       // area music and a little title card when you arrive somewhere new
-      const ak = areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World' }[ak]); areaNow = ak; }
+      const ak = areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World' }[ak]); areaNow = ak; arrive(ak); }
       if (!busy && !TT.dialogOpen) { const m = TT.areaMusic(); if (TT.musicName() !== m) TT.music(m); }
     }
     if ((netT += dt) > 0.1) { netT = 0; Net.send({ c: S.ch, x: +player.x.toFixed(2), z: +player.z.toFixed(2), h: +player.h.toFixed(2), m: player.mv > 0.1 ? 1 : 0, p: S.party[0].sp, b: TT.Battle.owning() ? 1 : 0, n: pname }); }
@@ -905,7 +939,11 @@
     // step down (shadows first, then outlines and resolution) and remember that for next time.
     if (!qLock && mode === 'play' && !TT.paused && rdt < 400) {
       if (qSkip > 0) qSkip--;
-      else { qN++; qT += rdt; if (qT > 2500) { const ms = qT / qN; qN = 0; qT = 0; if (ms > 38 && quality > 0) { setQuality(quality - 1); qSkip = 30; try { localStorage.setItem('tt_q', JSON.stringify({ q: quality, t: Date.now() })); } catch (e) { } } } }
+      else { qN++; qT += rdt; if (qT > 2500) { const ms = qT / qN; qN = 0; qT = 0; const put = () => { try { localStorage.setItem('tt_q', JSON.stringify({ q: quality, t: Date.now(), up: qUpT })); } catch (e) { } };
+        if (ms > 38 && quality > 0) { setQuality(quality - 1); qSkip = 30; qDown = true; qGood = 0; put(); }
+        // running very smoothly on a lowered setting? Try one step nicer, at most once a day; if that is too slow it steps back down for good.
+        else if (ms < 21 && quality < 2 && !qDown && !TT.Battle.active && Date.now() - qUpT > 20 * 3600e3) { if (++qGood >= 4) { qUpT = Date.now(); setQuality(quality + 1); qSkip = 30; qGood = 0; put(); } }
+        else qGood = 0; } }
     } else if (rdt >= 400) { qSkip = 30; qN = 0; qT = 0; }
     G.tick(ts);
   }

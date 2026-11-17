@@ -243,3 +243,13 @@ i.egg{background:radial-gradient(circle at 40% 30%,#fff,#ffe9c9);border-radius:5
   .mon{padding:3px 10px;margin-bottom:5px}.mon img{width:46px;height:46px}
 }
 @media (max-width:560px){#quest{top:max(92px,calc(env(safe-area-inset-top) + 92px))}#friends{top:max(126px,calc(env(safe-area-inset-top) + 126px))}}
+
+/* Lab team picker, battle hints, tappable goal line */
+.labgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.labmon{display:flex;flex-direction:column;align-items:center;background:#f4f8ff;border:3px solid #23324a;border-radius:14px;padding:4px 4px 6px;font-weight:800}
+.labmon img{width:52px;height:52px}.labmon b{font-size:13px;line-height:1.1}.labmon span{font-size:12px;opacity:.7}
+.labmon:active{transform:translateY(2px)}
+#panelIn h3 button.best{background:#ffd23c;color:#23324a;font-size:14px;padding:6px 12px}
+#bmenu button.best{box-shadow:0 0 0 3px #ffd23c,0 4px 0 rgba(35,50,74,.45)}
+#bmenu button.weak{opacity:.72}
+#quest{pointer-events:auto;cursor:pointer}

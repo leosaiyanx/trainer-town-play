@@ -82,12 +82,14 @@
   function choose() {
     return new Promise(res => {
       const menu = $('bmenu'); menu.innerHTML = ''; menu.classList.remove('off');
-      const add = (html, bg, act, alt) => {
-        const b = document.createElement('button'); b.innerHTML = html; if (alt) b.className = 'alt'; else b.style.background = bg;
+      const add = (html, bg, act, alt, cls) => {
+        const b = document.createElement('button'); b.innerHTML = html; if (alt) b.className = 'alt'; else b.style.background = bg; if (cls) b.classList.add(cls);
         b.addEventListener('pointerdown', e => { e.preventDefault(); if (!st || st.wake !== res) return; st.wake = null; TT.audioInit(); TT.sfx.blip(); menu.classList.add('off'); res(act); });
         menu.appendChild(b);
       };
-      TT.moves(st.me).forEach(mv => add(mv[0] + '<small>' + mv[1] + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }));
+      // a star marks the moves that work best against this foe
+      const ft = TT.DEX[st.foe.sp][1];
+      TT.moves(st.me).forEach(mv => { const e = TT.eff(mv[1], ft); add((e > 1 ? '★ ' : '') + mv[0] + '<small>' + mv[1] + (e > 1 ? ' · strong here!' : e < 1 ? ' · weak here' : '') + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }, false, e > 1 ? 'best' : e < 1 ? 'weak' : ''); });
       if (st.wild) add('Poké Ball<small>× ' + TT.S.balls + '</small>', '#e8402a', { t: 'ball' });
       if (TT.S.party.filter(m => m.hp > 0).length > 1) add('Swap', '', { t: 'swap' }, true);
       add('Run', '', { t: 'run' }, true);
@@ -203,7 +205,9 @@
     if (ao === st.obj.me) gesture('point', 0.9);
     await say((who ? who + "'s " : '') + TT.monName(att) + ' used ' + mv[0] + '!', 0.5);
     const eff = TT.eff(mv[1], TT.DEX[def.sp][1]);
-    const dmg = Math.max(1, Math.floor(mv[2] * TT.stat(att, 3) / TT.stat(def, 4) * 0.3 * (mult || 1) * eff * TT.rand(0.85, 1)));
+    // Easy mode (a switch in the menu, per child): your side hits harder and takes less
+    const ez = TT.S && TT.S.easy && !st.watch ? (dobj === st.obj.foe ? 1.4 : dobj === st.obj.me ? 0.65 : 1) : 1;
+    const dmg = Math.max(1, Math.floor(mv[2] * TT.stat(att, 3) / TT.stat(def, 4) * 0.3 * (mult || 1) * eff * ez * TT.rand(0.85, 1)));
     const hp = Math.max(0, def.hp - dmg);
     emit('atk', { s: sideOf(ao), ty: mv[1], dmg, hp, eff });
     await animAtk(ao, dobj, mv[1], dmg, eff, () => { def.hp = hp; bars(); });
@@ -462,6 +466,7 @@
       for (const m of S.party.slice()) if (m.hp > 0) await evolve(m);
     }
     emit('end', { r: result });
+    if (S.easy && result !== 'lose') S.party.forEach(m => { m.hp = TT.maxHp(m); });     // Easy mode: free healing after every battle
     await TT.wipeTo(1, 0.3, 1);
     cleanup();
     TT.music(opts.after || (TT.areaMusic ? TT.areaMusic() : 'town'));
