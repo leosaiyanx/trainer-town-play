@@ -209,7 +209,10 @@
   let ac = null, master, musicBus, sfxBus, voiceBus, echo, noiseBuf; TT.muted = false;
   TT.audioInit = () => {
     if (!ac) {
-      try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+      // Small tablets get a lighter band (see bandInit) and a roomier sound buffer, so music never crackles or drops out.
+      try { if (navigator.deviceMemory && navigator.deviceMemory <= 4) TT.audioLite = true; const j = JSON.parse(localStorage.getItem('tt_q')); if (j && j.q < 2) TT.audioLite = true; } catch (e) { }
+      const AC = window.AudioContext || window.webkitAudioContext;
+      try { ac = TT.audioLite ? new AC({ latencyHint: 'playback' }) : new AC(); } catch (e) { try { ac = new AC(); } catch (e2) { return; } }
       master = ac.createGain(); master.gain.value = TT.muted ? 0 : 0.9;
       const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
       musicBus = ac.createGain(); musicBus.gain.value = 0.42; musicBus.connect(master);
@@ -221,8 +224,14 @@
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    if (ac.state === 'suspended' && !TT.paused) ac.resume();
+    wake();
   };
+  // The sound engine can start asleep (after a one-tap update there is no touch yet) or be put to sleep by the system.
+  // Wake it on every touch or key, when the page comes back, and from the music timer.
+  const wake = () => { if (ac && ac.state !== 'running' && !TT.paused && !document.hidden) try { const p = ac.resume(); if (p && p.catch) p.catch(() => { }); } catch (e) { } };
+  for (const ev of ['pointerdown', 'touchstart', 'touchend', 'keydown']) document.addEventListener(ev, () => { if (ac) wake(); else TT.audioInit(); }, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+  TT.audioDbg = () => ac ? { state: ac.state, lite: !!TT.audioLite, rate: ac.sampleRate, base: ac.baseLatency, out: ac.outputLatency, t: +ac.currentTime.toFixed(2), muted: TT.muted, voiceOn: TT.voiceOn, vox: TT.VOX ? Object.keys(TT.VOX.lines).length : 0, music: cur, clips: Object.keys(clips).length, vfail, vplayed } : { state: 'none' };
   TT.audioPause = on => { if (ac) try { on ? ac.suspend() : ac.resume(); } catch (e) { } };
   TT.setMuted = m => { TT.muted = m; if (master) master.gain.value = m ? 0 : 0.9; };
   const N = n => 440 * Math.pow(2, (n - 69) / 12);
@@ -276,20 +285,27 @@
   // ---- recorded voices (voice/*.m4a, made by tools/make_voices.py) ----
   TT.voiceOn = true; try { TT.voiceOn = localStorage.getItem('tt_voice') !== '0'; } catch (e) { }
   TT.setVoice = on => { TT.voiceOn = on; try { localStorage.setItem('tt_voice', on ? '1' : '0'); } catch (e) { } if (!on) TT.hush(); };
-  TT.VOX = null; fetch('voice/index.json').then(r => r.ok ? r.json() : null).then(j => { TT.VOX = j; }).catch(() => { });
-  const clips = {}; let vsrc = null, vtok = 0;
-  const loadClip = f => clips[f] || (clips[f] = fetch('voice/' + f).then(r => r.arrayBuffer()).then(b => new Promise((res, rej) => ac.decodeAudioData(b, res, rej))).catch(() => null));
+  // the list of recorded lines; if the first try fails (weak Wi-Fi), keep trying instead of staying silent all session
+  TT.VOX = null; let voxAt = 0;
+  const loadVox = () => { if (TT.VOX || performance.now() - voxAt < 4000) return; voxAt = performance.now(); fetch('voice/index.json').then(r => r.ok ? r.json() : null).then(j => { if (j && j.lines) TT.VOX = j; }).catch(() => { }); };
+  voxAt = -1e9; loadVox();
+  const clips = {}; let vsrc = null, vtok = 0, vfail = 0, vplayed = 0;
+  // a clip that failed to download is forgotten so the next try can succeed
+  const loadClip = f => clips[f] || (clips[f] = fetch('voice/' + f).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ac.decodeAudioData(b, res, rej))).catch(() => { vfail++; delete clips[f]; return null; }));
+  // fetch a whole conversation's clips up front, so each line speaks the moment it appears
+  TT.preVoice = (who, text) => { loadVox(); const V = TT.VOX; if (!ac || !V || TT.muted || !TT.voiceOn) return; const key = TT.voiceKey(who, text); if (V.lines[key] != null) loadClip(key + '.m4a'); };
   function playClip(buf, rate, bus) { const s = ac.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate || 1; s.connect(bus); s.start(); return s; }
   TT.voiceKey = (who, text) => { const s = who + '|' + text; let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
   const duck = on => { if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.16 : 0.42, ac.currentTime, 0.15); };
   TT.hush = () => { vtok++; if (vsrc) { try { vsrc.stop(); } catch (e) { } vsrc = null; duck(false); } };
   // speak one dialogue line; a Pokémon speaker (or a line with no recording) falls back to its cry
   TT.speak = (who, text) => {
-    TT.hush(); if (!ac || TT.muted || !TT.voiceOn) return;
+    TT.hush(); loadVox(); if (!ac || TT.muted || !TT.voiceOn) return;
+    wake();
     const V = TT.VOX, key = TT.voiceKey(who, text), sp = (who || '').toLowerCase();
     if (!V || V.lines[key] == null) { if (TT.DEX && TT.DEX[sp]) TT.cry(sp); else if (V) (TT.voiceMiss = TT.voiceMiss || []).push(who + '|' + text); return; }
     const tok = ++vtok;
-    loadClip(key + '.m4a').then(buf => { if (!buf || tok !== vtok) return; duck(true); const s = vsrc = playClip(buf, V.lines[key], voiceBus); s.onended = () => { if (vsrc === s) { vsrc = null; duck(false); } }; });
+    loadClip(key + '.m4a').then(buf => { if (!buf || tok !== vtok) return; duck(true); vplayed++; const s = vsrc = playClip(buf, V.lines[key], voiceBus); s.onended = () => { if (vsrc === s) { vsrc = null; duck(false); } }; });
   };
   TT.cry = (sp, pitch) => {
     if (!ac || TT.muted) return; const t = ac.currentTime + 0.01, k = pitch || 1;
@@ -339,9 +355,13 @@
   let revIn = null, distIn = null;
   function bandInit() {
     if (revIn) return;
-    const rv = ac.createConvolver(), len = ac.sampleRate * 1.6 | 0, b = ac.createBuffer(2, len, ac.sampleRate);
-    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
-    rv.buffer = b; revIn = ac.createGain(); revIn.gain.value = 0.28; revIn.connect(rv); rv.connect(musicBus);
+    revIn = ac.createGain();
+    if (TT.audioLite) { revIn.gain.value = 0.5; revIn.connect(echo); }      // small tablets: a simple echo instead of the heavy hall reverb
+    else {
+      const rv = ac.createConvolver(), len = ac.sampleRate * 1.6 | 0, b = ac.createBuffer(2, len, ac.sampleRate);
+      for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
+      rv.buffer = b; revIn.gain.value = 0.28; revIn.connect(rv); rv.connect(musicBus);
+    }
     const ws = ac.createWaveShaper(), cv = new Float32Array(1024); for (let i = 0; i < 1024; i++) cv[i] = Math.tanh((i / 512 - 1) * 7);
     ws.curve = cv; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; const og = ac.createGain(); og.gain.value = 0.13;
     distIn = ac.createGain(); distIn.connect(ws); ws.connect(lp); lp.connect(og); og.connect(musicBus); og.connect(revIn);
@@ -352,15 +372,15 @@
     const f0 = N(n), g = ac.createGain(), fl = ac.createBiquadFilter();
     fl.type = 'lowpass'; fl.Q.value = 2.5; fl.frequency.setValueAtTime(f0 * 1.4, t); fl.frequency.linearRampToValueAtTime(f0 * (tn.bright || 5), t + 0.035); fl.frequency.exponentialRampToValueAtTime(f0 * 2.1, t + Math.max(0.09, d));
     env(g, t, vol, 0.012, d, 0.78);
-    (tn.wave || ['square', 'sawtooth']).forEach((w, k) => {
+    (TT.audioLite ? (tn.wave || ['square']).slice(0, 1) : tn.wave || ['square', 'sawtooth']).forEach((w, k) => {
       const o = osc(w, f0, t, d, fl, k ? 9 : -6);
-      if (d > 0.3) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = 5.6; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f0 * 0.013, t + 0.22); l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + d + 0.1); }
+      if (d > 0.3 && !TT.audioLite) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = 5.6; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f0 * 0.013, t + 0.22); l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + d + 0.1); }
     });
     fl.connect(g); g.connect(musicBus); g.connect(revIn); g.connect(echo);
   }
   function bass(n, t, d, vol) { const g = ac.createGain(), fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 650; env(g, t, vol, 0.006, d, 0.7); osc('sawtooth', N(n), t, d, fl); osc('sine', N(n), t, d, g); fl.connect(g); g.connect(musicBus); }
-  function gtr(n, t, d, vol) { const g = ac.createGain(); env(g, t, vol, 0.004, d, 0.85); for (const k of [0, 7, 12]) osc('sawtooth', N(n + k), t, d, g, (k - 6) * 1.6); g.connect(distIn); }
-  function pad(ns, t, d, vol) { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.4, d * 0.3)); g.gain.setValueAtTime(vol, t + d * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.3); for (const n of ns) { osc('triangle', N(n), t, d + 0.3, g, -7); osc('sine', N(n + 12), t, d + 0.3, g, 6); } g.connect(musicBus); g.connect(revIn); }
+  function gtr(n, t, d, vol) { const g = ac.createGain(); env(g, t, vol, 0.004, d, 0.85); for (const k of TT.audioLite ? [0, 7] : [0, 7, 12]) osc('sawtooth', N(n + k), t, d, g, (k - 6) * 1.6); g.connect(distIn); }
+  function pad(ns, t, d, vol) { const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.4, d * 0.3)); g.gain.setValueAtTime(vol, t + d * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.3); for (const n of ns) { osc('triangle', N(n), t, d + 0.3, g, -7); if (!TT.audioLite) osc('sine', N(n + 12), t, d + 0.3, g, 6); } g.connect(musicBus); g.connect(revIn); }
   function pluck(n, t, d, vol, type) { const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); osc(type || 'triangle', N(n), t, d, g); g.connect(musicBus); g.connect(revIn); }
   function epiano(ns, t, d, vol) { const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); for (const n of ns) { osc('sine', N(n), t, d, g); osc('triangle', N(n + 12), t, d * 0.4, g); } g.connect(musicBus); g.connect(revIn); }
   const kick = (t, v) => { voice(musicBus, 'sine', 155, t, 0.22, 0.62 * v, { slide: 42, sus: 0.6 }); noise(musicBus, t, 0.02, 0.18 * v, 'highpass', 2500); };
@@ -424,6 +444,7 @@
   let cur = null, tune = null, stepI = 0, nextT = 0, timer = null;
   function pump() {
     if (!ac || !tune || TT.muted || document.hidden || TT.paused) { nextT = 0; return; }
+    if (ac.state !== 'running') { wake(); nextT = 0; return; }
     bandInit();
     const now = ac.currentTime, sd = 60 / tune.bpm / 2; if (nextT < now) nextT = now + 0.06;
     while (nextT < now + 0.3) { try { playStep(tune, stepI, nextT, sd); } catch (e) { } stepI = (stepI + 1) % tune.len; nextT += sd; }
@@ -439,7 +460,7 @@
   // TT.say([[who, text], ...]) -> Promise resolved when the player taps through.
   TT.say = lines => new Promise(res => {
     if (typeof lines[0] === 'string') lines = [lines];
-    dq = { lines, i: 0, res };
+    dq = { lines, i: 0, res }; for (const l of lines) TT.preVoice(l[0] || '', l[1]);
     TT.dialogOpen = true; show();
   });
   function show() {
