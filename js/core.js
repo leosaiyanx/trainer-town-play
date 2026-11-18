@@ -310,6 +310,7 @@
   };
   TT.sfx = {};
   for (const k in fx) TT.sfx[k] = () => { if (ac && !TT.muted) try { fx[k](ac.currentTime + 0.01); } catch (e) { } };
+  TT.sfx.up = k => { if (ac && !TT.muted) try { const t = ac.currentTime + 0.01, f = 392 * Math.pow(2, k * 1.25); voice(sfxBus, 'square', f, t, 0.08, 0.07, { slide: f * 1.12 }); voice(sfxBus, 'triangle', f * 2, t, 0.1, 0.06); } catch (e) { } };          // a tick whose pitch climbs with k (0…1): the power taps in battle
   const MOVE = { fire: 'fire', water: 'water', grass: 'leaf', flying: 'wind', psychic: 'psy', ghost: 'psy', electric: 'zap' };
   TT.sfx.move = type => (TT.sfx[MOVE[type]] || TT.sfx.whoosh)();
   // creature voices: a short synthetic call, different per species

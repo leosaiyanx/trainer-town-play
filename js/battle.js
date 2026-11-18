@@ -338,16 +338,47 @@
   const hard = () => !!(TT.S && TT.S.hard) && !st.watch, easyOn = () => !!(TT.S && TT.S.easy);
   const tier = () => { const f = TT.S.flags; return (f.city ? 1 : 0) + (f.world ? 1 : 0) + (f.tunnel ? 1 : 0) + (TT.S.wishes ? 1 : 0); };
   const critP = side => side === 'foe' ? (easyOn() ? 0 : 0.03 + tier() * 0.012 + (hard() ? 0.05 : 0)) : 0.07 + tier() * 0.01;
-  // Timing taps (not in Easy mode): a ring closes on a circle. Tap as they meet for a stronger hit, or, in Challenge, to brace against the foe's hit.
-  function timing(label, col) {
+  // Power taps (not in Easy mode): tap anywhere, as fast as you like, to fill a power bar. Every tap helps and nothing can be missed.
+  // kind 'atk' powers up your Pokémon's attack; kind 'def' (Challenge only) raises a shield before some of the foe's hits. Resolves with how full the bar got, 0…1.
+  function charge(kind, o, cols) {
     return new Promise(res => {
-      let el = $('tapRing'); if (!el) { el = document.createElement('div'); el.id = 'tapRing'; el.innerHTML = '<i></i><b></b><span></span>'; $('battle').appendChild(el); }
-      const ring = el.querySelector('i'), txt = el.querySelector('span'); el.style.setProperty('--tc', col); txt.textContent = label; el.className = 'on';
-      const dur = hard() ? 0.72 : 0.9, t0 = performance.now(); let done = false, raf = 0;
-      const end = k => { if (done) return; done = true; cancelAnimationFrame(raf); el.removeEventListener('pointerdown', tap); txt.textContent = k > 1.2 ? 'Perfect!' : k > 1 ? 'Good!' : k < 0 ? 'Too late!' : 'Missed!'; el.className = 'on ' + (k > 1.2 ? 'perfect' : k > 1 ? 'good' : 'miss'); if (k > 1) TT.sfx.star(); setTimeout(() => { el.className = ''; res(k > 1.2 ? 2 : k > 1 ? 1 : 0); }, 330); };
-      const tap = e => { e.preventDefault(); e.stopPropagation(); const q = (performance.now() - t0) / 1000 / dur, off = Math.abs(q - 1); end(off < 0.11 ? 1.3 : off < 0.27 ? 1.1 : 0.5); };
-      const frame = () => { const q = (performance.now() - t0) / 1000 / dur; ring.style.transform = 'scale(' + Math.max(0.55, 2.7 - 1.7 * q) + ')'; if (q > 1.32) end(-1); else raf = requestAnimationFrame(frame); };
-      el.addEventListener('pointerdown', tap); frame();
+      fxInit();
+      let el = $('tapRing'); if (!el) { el = document.createElement('div'); el.id = 'tapRing'; el.innerHTML = '<span></span><div class="bar"><i></i></div><em></em>'; $('battle').appendChild(el); }
+      const def = kind === 'def', txt = el.querySelector('span'), bar = el.querySelector('.bar i'), tm = el.querySelector('em');
+      const need = def ? 6 : hard() ? 8 : 6, span = def ? 1.3 : 1.6, wait0 = 1.5;          // taps for a full bar, seconds allowed from the first tap, seconds to wait for a first tap
+      const x = o.position.x, z = o.position.z, h = o.userData.h || 1, y = mid(o), rad = Math.max(0.5, h * 0.7);
+      const sh = def ? P(TT.scene, 'sph', glowT(0x6ad8ff, 0), [x, y, z], rad) : null, ring = P(TT.scene, RING, glowT(cols[1] || cols[0], 0), [x, 0.07, z], 0.3, [1.57, 0, 0]);
+      el.style.setProperty('--tc', def ? '#6ad8ff' : '#ffd23a'); txt.textContent = def ? 'Tap fast to shield!' : 'Tap fast!'; bar.style.width = '0%'; tm.style.transform = 'scaleX(1)'; el.className = 'on';
+      let n = 0, t1 = 0, t0 = performance.now(), last = t0, done = false, raf = 0, acc = 0;
+      const end = () => {
+        if (done) return; done = true; cancelAnimationFrame(raf); el.removeEventListener('pointerdown', tap); removeEventListener('keydown', key, true);
+        const f = Math.min(1, n / need), full = f >= 1;
+        if (full) { TT.sfx.star(); flash(def ? '#c8f0ff' : '#fff2b0', 0.45); B.shake = Math.max(B.shake, 0.5); fxBurst(34, x, y, z, { v: 5, life: 0.5, s: 0.2, s1: 0.03, cols, a: 1, g: 3 }); }
+        txt.textContent = full ? (def ? 'FULL SHIELD!' : 'MAX POWER!') : f >= 0.5 ? 'Great!' : n ? 'Nice!' : ''; el.className = 'on end' + (full ? ' max' : '');
+        const s0 = ring.scale.x;
+        run(n ? 0.42 : 0.05, q => { ring.scale.setScalar(s0 + q * 1.2); ring.material.opacity *= 0.8; if (sh) sh.material.opacity = (0.15 + 0.4 * f) * (1 - q * q); }).then(() => { TT.scene.remove(ring); if (sh) TT.scene.remove(sh); el.className = ''; el.querySelectorAll('u').forEach(u => u.remove()); res(f); });
+      };
+      const hit = (px, py) => {
+        if (done) return; if (!n) t1 = performance.now(); n++; const f = Math.min(1, n / need);
+        bar.style.width = f * 100 + '%'; txt.textContent = def ? 'Shield up!' : f < 0.5 ? 'Power up!' : 'More! More!';
+        TT.sfx.up(f); B.shake = Math.max(B.shake, 0.1 + f * 0.2);
+        fxBurst(6 + n, x, y - h * 0.2, z, { v: 1.4 + f * 2.2, up: 2.2, life: 0.5, s: 0.15 + f * 0.08, s1: 0.03, cols, a: 1, r: rad * 0.7, hemi: 1 });
+        if (px != null) { const u = document.createElement('u'); u.style.left = px + 'px'; u.style.top = py + 'px'; el.appendChild(u); setTimeout(() => u.remove(), 420); }
+        if (n >= need) end();
+      };
+      const tap = e => { e.preventDefault(); e.stopPropagation(); const r = el.getBoundingClientRect(); hit(e.clientX - r.left, e.clientY - r.top); };
+      const key = e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) hit(); } };
+      const frame = () => {
+        const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
+        if (TT.paused) { t0 += dt * 1000; if (t1) t1 += dt * 1000; raf = requestAnimationFrame(frame); return; }
+        const f = Math.min(1, n / need), left = t1 ? 1 - (now - t1) / 1000 / span : 1; tm.style.transform = 'scaleX(' + Math.max(0, left) + ')';
+        ring.scale.setScalar(0.3 + f * rad * 1.6 + Math.sin(now * 0.02) * 0.04); ring.material.opacity = n ? 0.35 + f * 0.5 : 0;
+        if (sh) { sh.scale.setScalar(rad * (0.5 + f * 0.75)); sh.material.opacity = n ? 0.15 + f * 0.4 : 0; }
+        acc += dt * (n ? 20 + 70 * f : 0) * FX.q;                                   // the glow around the Pokémon thickens as the bar fills
+        for (; acc >= 1; acc--) { const a = Math.random() * 6.283, r = rad * (0.5 + Math.random() * 0.5); fxAdd(x + Math.cos(a) * r, 0.1, z + Math.sin(a) * r, 0, 2 + f * 2.5, 0, 0.45, 0.16, 0.04, cols[(Math.random() * cols.length) | 0], 0xffffff, 0.95); }
+        if (t1 ? left <= 0 : now - t0 > wait0 * 1000) end(); else raf = requestAnimationFrame(frame);
+      };
+      el.addEventListener('pointerdown', tap); addEventListener('keydown', key, true); frame();
     });
   }
   // ---------------- moves that are not attacks ----------------
@@ -407,6 +438,7 @@
     const pool = hit.length ? hit : mv, my = TT.DEX[st.me.sp][1], best = pool.slice().sort((a, b) => b[2] * TT.eff(b[1], my) - a[2] * TT.eff(a[1], my))[0];
     return Math.random() < TT.clamp(0.2 + tier() * 0.13 + (hard() ? 0.25 : 0) - (easyOn() ? 0.2 : 0), 0, 0.92) ? best : TT.pick(pool); };
   // test hook: play one move's visuals in the current battle without changing anything, e.g. TT.Battle.fxTest('fire', 1.5)
+  B.chargeTest = kind => st ? charge(kind || 'atk', st.obj.me, typeCols(TT.DEX[st.me.sp][1])) : null;
   B.fxTest = (type, pw, foe) => st ? animAtk(foe ? st.obj.foe : st.obj.me, foe ? st.obj.me : st.obj.foe, type, 12, 1, () => { }, pw) : null;
   async function attack(att, def, mv, ao, dobj, mult, who) {
     const as = ao === st.obj.me ? 'me' : ao === st.obj.foe ? 'foe' : null, ds = dobj === st.obj.me ? 'me' : dobj === st.obj.foe ? 'foe' : null;
@@ -667,7 +699,7 @@
         if (S.balls <= 0) { await say('No Poké Balls left! Find more around town.', 1.3); foeTurn = false; }
         else if (await throwBall()) { result = 'caught'; await gainXp(st.me, st.foe.lvl * 6 + 4); break; }
       } else {
-        let tb = 1; if (!easyOn() && !act.mv[4]) { setMsg('Tap as the ring closes!'); const k = await timing('Tap!', '#ffd23a'); tb = k === 2 ? 1.3 : k === 1 ? 1.12 : 1; }
+        let tb = 1; if (!easyOn() && !act.mv[4]) { setMsg('Tap fast to power up ' + TT.monName(st.me) + '!'); tb = 1 + 0.3 * await charge('atk', st.obj.me, typeCols(act.mv[1])); }
         await attack(st.me, st.foe, act.mv, st.obj.me, st.obj.foe, (st.easy ? (hard() ? 1.15 : 1.5) : 1) * tb);
         if (st.foe.hp <= 0) { if (await foeDown()) { result = 'win'; break; } foeTurn = false; }
         else await checkRage();
@@ -682,8 +714,9 @@
         } else if (hard() && st.foe.boss && !st.wind && st.foe.hp < fmx * 0.25) {                                       // Challenge: a boss finds a second wind
           st.wind = 1; st.foe.hp += Math.round(fmx * 0.2); bars(); TT.cry(st.foe.sp, 0.6); B.shake = 0.8; flash('#ffe0c0', 0.5); await arrowsFx(st.obj.foe, 1, 0xff6a3a); await say(TT.monName(st.foe) + ' found a second wind!', 1.1);
         } else {
-          if (hard()) { setMsg('Brace! Tap as the ring closes!'); const k = await timing('Brace!', '#6ad8ff'); mult *= k === 2 ? 0.7 : k === 1 ? 0.85 : 1; }
-          if (!(st.foe.boss && ++st.bt % (hard() ? 2 : 3) === 0 && await bossSig(st.foe, st.obj.foe, st.obj.me, st.me, mult)))
+          const sig = st.foe.boss && ++st.bt % (hard() ? 2 : 3) === 0; st.br = (st.br || 0) + 1;
+          if (hard() && (st.foe.boss ? sig || st.br === 1 : st.br % 2 === 1)) { setMsg(TT.monName(st.foe) + ' is winding up! Tap fast to shield ' + TT.monName(st.me) + '!'); mult *= 1 - 0.3 * await charge('def', st.obj.me, [0xffffff, 0x6ad8ff, 0xa8e8ff]); }          // Challenge: a shield against every other hit; against a boss, the first hit and every special-move turn
+          if (!(sig && await bossSig(st.foe, st.obj.foe, st.obj.me, st.me, mult)))
             await attack(st.foe, st.me, foeMove(), st.obj.foe, st.obj.me, mult);
         }
         if (st.me.hp <= 0) {
