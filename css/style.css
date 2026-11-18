@@ -273,3 +273,4 @@ small.pct{display:block;font-weight:800;font-size:13px;margin-top:2px}
 .kgoal{margin:8px 0 0;font-weight:800;font-size:15px;background:#fff8dc;border-radius:10px;padding:5px 10px}
 @media (max-width:560px){.kareas{grid-template-columns:repeat(2,1fr)}.kh b{font-size:19px}}
 .mvrow{display:block;width:100%;text-align:left;background:#fff;border:2px dashed #9fb0c8;border-radius:12px;padding:6px 12px;margin:-4px 0 10px;font-weight:700;font-size:14px;color:#23324a}.mvrow b{color:#c2410c}
+#bmenu button.mega{color:#23324a;text-shadow:0 1px 0 rgba(255,255,255,.6)}

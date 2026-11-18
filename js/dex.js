@@ -658,7 +658,7 @@
   // a tail that curls round on itself (Squirtle), or a big fluffy swirl (Wartortle)
   const curlTail = (tl, c, n, r0, s0, c2) => { P(tl, 'sph', c, [0, 0.03, -0.02], s0 * 0.9); for (let i = 0; i < n; i++) { const a = i * 0.8, R = r0 * (1 - i / (n + 2)); P(tl, 'sph', c2 != null && i % 2 ? c2 : c, [0, r0 + 0.02 - Math.cos(a) * R, -r0 - 0.03 - Math.sin(a) * R], s0 * (1 - i * 0.085)); } };
   // Pikachu: a chubby pear-shaped body in one piece, big cheeks, long black-tipped ears, the lightning-bolt tail.
-  B.pikachu = () => crit({ c: 0xffdc32, noBody: 1, b: [0.23, 0.26, 0.2], by: 0.36, hy: 0.75, hz: 0.03, hr: 0.25, hs: [0.262, 0.228, 0.238], cheek: 1, legs: 2, legX: 0.6, foot: [0.085, 0.05, 0.16], arms: 1, earX: 0.5, earY: 0.6, tail: 'bolt', er: 0.155, ex: 0.108, ey: 0.03, ez: 0.218, eyeTurn: 0.3, tailY: 0.8,
+  const pika = m => crit({ scale: m ? 1.16 : undefined, c: 0xffdc32, noBody: 1, b: [0.23, 0.26, 0.2], by: 0.36, hy: 0.75, hz: 0.03, hr: 0.25, hs: [0.262, 0.228, 0.238], cheek: 1, legs: 2, legX: 0.6, foot: [0.085, 0.05, 0.16], arms: 1, earX: 0.5, earY: 0.6, tail: 'bolt', er: 0.155, ex: 0.108, ey: 0.03, ez: 0.218, eyeTurn: 0.3, tailY: 0.8,
     x: (g, h, body, f, ud) => {
       const Y = 0xffdc32;
       TB(body, [[0.04, 0.12, 0.11, Y], [0.1, 0.205, 0.185, Y], [0.2, 0.25, 0.225, Y], [0.32, 0.252, 0.222, Y], [0.44, 0.215, 0.19, Y], [0.54, 0.17, 0.155, Y], [0.62, 0.13, 0.125, Y]], 12);
@@ -670,7 +670,20 @@
       }
       P(f, 'sph', BK, [0, -0.014, 0.247], [0.018, 0.012, 0.01]);
       P(body, 'box', 0x9a6a2a, [0, 0.47, -0.168], [0.21, 0.04, 0.05], [0.25, 0, 0]); P(body, 'box', 0x9a6a2a, [0, 0.34, -0.2], [0.25, 0.04, 0.05], [0.1, 0, 0]);     // back stripes
+      if (m) {          // Mega Pikachu (our own invention for LJ): still Pikachu, only charged up
+        const CY = TT.glow(0x6ad8ff), YG = TT.glow(0xfff27a);
+        for (let i = 0; i < 9; i++) { const a = i / 9 * 6.283; P(body, 'cone', i % 2 ? 0xfff6a0 : Y, [Math.sin(a) * 0.17, 0.6, Math.cos(a) * 0.15 + 0.02], [0.06, 0.22, 0.04], turnTip(a, 1.95)); }       // a ruff of lightning round the neck
+        for (const a of [-0.45, 0, 0.45]) P(h, 'cone', Y, [a * 0.12, 0.24, -0.02], [0.045, 0.22, 0.04], [-0.3, 0, -a]);                                                                    // a spiky tuft
+        for (const s of [1, -1]) {
+          P(f, 'sph', YG, [s * 0.19, -0.078, 0.176], [0.078, 0.078, 0.03], [0, s * 0.8, 0]);                                              // cheeks glowing with charge
+          const e = ud.ears.find(q => q.userData.s === s); if (e) P(e, 'cone', BK, [0, 0.62, 0], [0.03, 0.24, 0.02]);                    // taller ear tips
+          P(body, 'box', CY, [s * 0.215, 0.36, 0.06], [0.02, 0.2, 0.03], [0, 0, s * 0.45]); P(body, 'box', CY, [s * 0.2, 0.24, 0.1], [0.02, 0.14, 0.03], [0, 0, -s * 0.5]);       // blue streaks of lightning
+        }
+        P(ud.tail, 'box', Y, [0, 0.78, -0.34], [0.045, 0.14, 0.16], [-0.6, 0, 0]); P(ud.tail, 'box', CY, [0, 0.4, -0.2], [0.05, 0.3, 0.025], [0.5, 0, 0]);                           // an extra prong on the tail and a blue streak down it
+        for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.5; P(body, 'sphS', CY, [Math.cos(a) * 0.42, 0.25 + i * 0.16, Math.sin(a) * 0.42], 0.035); }
+      }
     } });
+  B.pikachu = () => pika(0); B.megapikachu = () => pika(1);
   const sprigFace = (h, f, hr) => {
     P(f, 'sph', 0xf2a0b8, [0, -hr * 0.16, hr * 0.97], [0.026, 0.018, 0.014]);
     P(f, 'sph', 0x8a3a4a, [0, -hr * 0.36, hr * 0.9], [0.04, 0.028, 0.02]); for (const s of [1, -1]) P(f, 'cone', WH, [s * 0.022, -hr * 0.31, hr * 0.94], [0.008, 0.022, 0.008], [Math.PI, 0, 0]);       // open mouth with two tiny fangs
@@ -1187,7 +1200,7 @@
           if (!m) { P(body, 'cyl', GUN, [s * 0.2, 0.82, 0.02], [0.075, 0.42, 0.075], [1.2, 0, 0]); P(body, 'cyl', MUZ, [s * 0.2, 0.9, 0.22], [0.05, 0.04, 0.05], [1.2, 0, 0]); }
           else { const a = ud.arms.find(q => q.userData.s === s); P(a, 'cyl', GUN, [s * 0.09, -0.2, 0.12], [0.08, 0.3, 0.08], [1.1, 0, 0]); P(a, 'cyl', MUZ, [s * 0.09, -0.27, 0.26], [0.055, 0.04, 0.055], [1.1, 0, 0]); }
         }
-        if (m) { P(body, 'cyl', GUN, [0, 1.0, -0.06], [0.13, 0.7, 0.13], [1.15, 0, 0]); P(body, 'cyl', MUZ, [0, 1.14, 0.27], [0.09, 0.05, 0.09], [1.15, 0, 0]); P(body, 'cyl', 0x8a5a30, [0, 0.86, -0.36], [0.17, 0.12, 0.17], [1.15, 0, 0]); }
+        if (m) { P(body, 'cyl', GUN, [0, 1.42, -0.06], [0.13, 0.66, 0.13], [1.38, 0, 0]); P(body, 'cyl', MUZ, [0, 1.48, 0.27], [0.09, 0.05, 0.09], [1.38, 0, 0]); P(body, 'cyl', 0x8a5a30, [0, 1.3, -0.36], [0.17, 0.2, 0.17], [1.0, 0, 0]); }          // the great cannon rides over its head
       } }); };
   B.blastoise = () => blastoise(0); B.megablastoise = () => blastoise(1);
   // Venusaur: the bud has opened into a great pink flower on a thick trunk. The Mega form's flower is bigger, with a second bloom on its forehead.
@@ -1237,8 +1250,6 @@
       TB(ud.tail, RG(BR, [[0, 0.024], [0.3, 0.022, 0.022, 0, 0.1], [0.6, 0.02, 0.02, 0, 0.35], [0.8, 0.018, 0.018, 0, 0.65]]), 6, null, [-1.0, 0, 0]);
       P(ud.tail, 'box', YL, [0, 1.02, -0.3], [0.05, 0.26, 0.2], [0.5, 0, 0]); P(ud.tail, 'box', YL, [0, 1.2, -0.24], [0.05, 0.2, 0.14], [-0.6, 0, 0]);
     } }); };
-  // Mega Pikachu (our own invention for LJ): still Pikachu, only charged up. Taller ears, a ruff of lightning, crackling blue streaks and a double-forked tail.
-  B.megapikachu = () => { const g = B.pikachu(); return g; };
   // the Eternal Dragon: a huge green serpent with antlers, whiskers and red eyes
   B.shenron = () => serpent({ c: 0x3aa84a, belly: 0xf2e6a8, bellyUp: 1, n: 18, r0: 0.34, taper: 0.5, hr: 0.36, hs: [0.3, 0.27, 0.5], float: 0.45, top: 1.7, scale: 1.3, wave: [0.22, 0.1], path: k => [Math.sin(k * 8) * 0.6, 0.85 * Math.pow(1 - k, 1.2) + 0.42 * Math.sin(k * 5), 0.5 - k * 3.6], eyeS: 'slit', eye: 0xe01818, er: 0.17, ex: 0.16, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
     seg: (sg, i, r) => { if (i > 0 && i < 16) P(sg, 'cone', 0x2a7a36, [0, r * 0.95, -r * 0.2], [r * 0.22, r * 0.6, r * 0.1], [-0.6, 0, 0]); if (i === 4 || i === 11) for (const s of [1, -1]) { P(sg, TT.capsule(0.05, 0.3), 0x3aa84a, [s * r * 1.3, -r * 0.3, 0], null, [0, 0, s * 1.2]); P(sg, 'sph', 0xf2e6a8, [s * (r * 1.3 + 0.24), -r * 0.5, 0], 0.07); } },
@@ -1333,7 +1344,9 @@
     return k.filter(v => keep.indexOf(v) >= 0);
   };
   TT.MOVE_FX = { evade: 'harder to hit', para: 'may stop the foe', atkdn: "weakens the foe's hits", defdn: 'makes the foe softer', atkup: 'hits harder', guard: 'blocks the next hit', heal: 'heals itself' };
-  TT.monName = m => D[m.sp][0];
+  // Mega Evolution: which Pokémon can do it, the model to switch to and what it is called. (Meowscarada's and Pikachu's are our own inventions.)
+  TT.MEGA = { charizard: ['megacharizard', 'Mega Charizard X'], blastoise: ['megablastoise', 'Mega Blastoise'], venusaur: ['megavenusaur', 'Mega Venusaur'], meowscarada: ['megameowscarada', 'Mega Meowscarada'], pikachu: ['megapikachu', 'Mega Pikachu'] };
+  TT.monName = m => TT.Battle && TT.Battle.megaMon === m && TT.MEGA[m.sp] ? TT.MEGA[m.sp][1] : D[m.sp][0];
   TT.xpNeed = m => 14 + m.lvl * 10;
 
   // ---- portraits (rendered once with a tiny offscreen renderer, cached) ----

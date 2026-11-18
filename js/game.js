@@ -186,7 +186,7 @@
     if (TEST.solo) { cast.length = 0; for (const k of TEST.solo.split(',')) cast.push([k, null, k]); }       // test: one character, close up, in a chosen pose
     const g = new THREE.Group(), list = [];
     for (const [ch, sp0, id] of cast) {
-      const mon = TEST.mons && TT.DEX[ch], sp = sp0 && TT.DEX[sp0] ? sp0 : STARTER[ch] || 'pikachu', h = mon ? TT.creature(ch) : TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), p = mon ? new THREE.Group() : TT.creature(sp);
+      const mon = TEST.mons && (TT.DEX[ch] || /^mega/.test(ch)), sp = sp0 && TT.DEX[sp0] ? sp0 : STARTER[ch] || 'pikachu', h = mon ? TT.creature(ch) : TT.human(TT.PEOPLE[ch] || TT.PEOPLE.ash), p = mon ? new THREE.Group() : TT.creature(sp);
       const sh = new THREE.Mesh(TT.G.disc, shadowMat); sh.rotation.x = -Math.PI / 2; sh.position.y = 0.035; sh.scale.setScalar(0.45); sh.visible = quality < 2; blobs.push(sh);
       g.add(h); g.add(p); g.add(sh); list.push({ h, p, sh, ch, sp, id, mon, wave: rand(1.5, 4), gt: 0 });
     }
@@ -490,6 +490,12 @@
   }
   async function prof() {
     const N = 'Professor Oak', f = S.flags;
+    if (f.profDone && !f.keystone && S.party[0].lvl >= 15) {          // the Key Stone: Mega Evolution, for trainers whose partner has grown strong
+      await TT.say([[N, 'Ah, there you are! I have been studying something amazing.'], [N, 'This is a Key Stone. When a trainer and a Pokémon trust each other, it unlocks Mega Evolution!']]);
+      f.keystone = 1; TT.sfx.star(); save(); hud();
+      await TT.say([['', 'You got the Key Stone!'], [N, 'In a battle, tap Mega Evolve. Your Pokémon becomes much stronger until the battle ends.'], [N, 'It works once in every battle. Charizard, Blastoise, Venusaur, Meowscarada and Pikachu can all do it.']]);
+      return;
+    }
     if (!f.profMet) {
       f.profMet = 1; S.balls += 5; TT.sfx.pick();
       await TT.say([[N, 'Ah, ' + NAMES[S.ch] + '! You made it.'], [N, 'I have a mission for you: catch 3 different kinds of Pokémon in the tall grass.'], [N, 'Here are 5 Poké Balls to get you started!'], [N, 'Tip: battle a wild Pokémon until its HP is low, THEN throw a ball.']]);
@@ -856,6 +862,7 @@
     let q, g = null; const f = SV.flags || {}, at = (x, z, n) => ({ x, z, n });
     if (!f.profMet) { q = '➜ Visit Professor Oak at the Lab (top of town)'; g = at(3.5, -21.5, "Professor Oak's Lab"); }
     else if (!f.profDone) { if (SV.caught.length >= 3) { q = '➜ Go show Professor Oak!'; g = at(3.5, -21.5, "Professor Oak's Lab"); } else { q = '➜ Catch 3 kinds of Pokémon in the tall grass (' + SV.caught.length + '/3)'; g = at(-40, 30, 'the West Meadow grass'); } }
+    else if (!f.keystone && SV.party && SV.party[0] && SV.party[0].lvl >= 15) { q = '➜ Professor Oak has a surprise for you at the Lab!'; g = at(3.5, -21.5, "Professor Oak's Lab"); }
     else if (!f.city) { q = '➜ Talk to Officer Gus at the north gate to enter the City'; g = at(3.2, -50.5, 'the north gate'); }
     else if ((SV.egg && SV.egg.have)) { q = '➜ Warm the egg by the campfire'; g = at(W.FIRE.x, W.FIRE.z + 2, 'the campfire'); }
     else if (!f.gym) { q = '➜ Challenge the City Gym at the far end of the avenue'; g = at(0, -159.5, 'the City Gym'); }
@@ -897,7 +904,7 @@
     let h = '<h3>My Team <button id="pClose">✕</button></h3>';
     S.party.forEach((m, i) => {
       const ty = TT.DEX[m.sp][1], k = m.hp / TT.maxHp(m);
-      h += '<button class="mon' + (i ? '' : ' lead') + '" data-i="' + i + '"><img src="' + TT.monPortrait(m.sp) + '"><div class="inf"><b>' + TT.monName(m) + '</b><span class="tag" style="background:' + hex(TT.TYPE_COL[ty]) + '">' + ty + '</span> &nbsp;Lv ' + m.lvl +
+      h += '<button class="mon' + (i ? '' : ' lead') + '" data-i="' + i + '"><img src="' + TT.monPortrait(m.sp) + '"><div class="inf"><b>' + TT.monName(m) + '</b><span class="tag" style="background:' + hex(TT.TYPE_COL[ty]) + '">' + ty + '</span> &nbsp;Lv ' + m.lvl + (S.flags.keystone && TT.MEGA[m.sp] ? ' &nbsp;<span class="tag" style="background:linear-gradient(90deg,#ff7ab0,#ffb23a,#6ab8ff)">✨ Mega</span>' : '') +
         '<div class="hp"><div style="width:' + k * 100 + '%;background:' + (k > 0.5 ? '#4cd964' : k > 0.22 ? '#f2c230' : '#e8402a') + '"></div></div></div><em>' + (i ? 'Make partner' : 'Partner') + '</em></button>' +
         '<button class="mvrow" data-m="' + i + '">⚔ ' + TT.moves(m).map(v => v[0]).join(' · ') + (TT.known(m).length > 4 ? ' <b>(' + TT.known(m).length + ' learned — tap to choose)</b>' : '') + '</button>';
     });

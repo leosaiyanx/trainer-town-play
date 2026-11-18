@@ -97,6 +97,7 @@
       const ft = TT.DEX[st.foe.sp][1];
       TT.moves(st.me).forEach(mv => { if (mv[4]) { add('✦ ' + mv[0] + '<small>' + TT.MOVE_FX[mv[4]] + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }); return; }
         const e = TT.eff(mv[1], ft); add((e > 1 ? '★ ' : '') + mv[0] + '<small>' + mv[1] + (e > 1 ? ' · strong here!' : e < 1 ? ' · weak here' : '') + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }, false, e > 1 ? 'best' : e < 1 ? 'weak' : ''); });
+      if (TT.S.flags.keystone && TT.MEGA[st.me.sp] && !st.megaUsed) add('✨ Mega Evolve<small>once each battle</small>', 'linear-gradient(90deg,#ff7ab0,#ffd23a,#6ad8ff,#9a7aff)', { t: 'mega' }, false, 'mega');
       if (st.wild && !st.noCatch) add('Poké Ball<small>× ' + TT.S.balls + '</small>', '#e8402a', { t: 'ball' });
       if (TT.S.party.filter(m => m.hp > 0).length > 1) add('Swap', '', { t: 'swap' }, true);
       add('Run', '', { t: 'run' }, true);
@@ -334,7 +335,7 @@
   // ---------------- moves that are not attacks ----------------
   // What a trick has done to each side's Pokémon lasts while that Pokémon stays out: ev = turns of dodging, para = turns of paralysis, atk / def = multipliers, guard = blocks the next hit.
   const modOf = side => { const M = st.mod || (st.mod = {}), cur = side === 'me' ? st.me : st.foe; if (!M[side] || M[side].m !== cur) M[side] = { m: cur, ev: 0, para: 0, atk: 1, def: 1, guard: 0 }; return M[side]; };
-  const megaK = m => m && m.megaOn ? 1.3 : 1, megaD = m => m && m.megaOn ? 1.25 : 1;          // a Mega-Evolved Pokémon hits harder and takes less
+  const megaK = m => m && m === B.megaMon ? 1.3 : 1, megaD = m => m && m === B.megaMon ? 1.25 : 1;          // a Mega-Evolved Pokémon hits harder and takes less
   async function dodgeFx(o) {          // a blur of after-images
     fxInit(); const x0 = o.position.x, y = mid(o), z = o.position.z; TT.sfx.whoosh();
     await run(0.42, q => { o.position.x = x0 + Math.sin(q * 19) * 0.55 * (1 - q); for (let i = 0; i < 3; i++) fxAdd(o.position.x + jit(0.2), y + jit(0.4), z + jit(0.2), 0, 0, 0, 0.22, 0.7, 0.3, 0xffffff, 0xcfe8ff, 0.35); });
@@ -361,6 +362,26 @@
     else if (k === 'atkup') { if (am) am.atk = Math.min(1.8, am.atk * 1.35); await arrowsFx(ao, 1, 0xff8a3a); await say(an + ' powered up!', 0.9); }
     else if (k === 'guard') { if (am) am.guard = 1; await shieldFx(ao); await say(an + ' is ready to block the next hit!', 0.9); }
     else if (k === 'heal') { const mx = mxOf(att), h = Math.max(0, Math.min(mx - att.hp, Math.round(mx * 0.45))); att.hp += h; bars(); await arrowsFx(ao, 1, 0x7ae87a); await say(h ? an + ' healed itself!' : an + ' is already full of energy.', 0.9); }
+  }
+  // ---------------- Mega Evolution ----------------
+  // Once per battle, with the Key Stone: light gathers, the Pokémon spins inside a shining shell, and bursts out in its Mega form. It hits harder and takes less until it leaves the battle.
+  const RAINBOW = [0xff6a9a, 0xffd23a, 0x6ad8ff, 0x9a6aff, 0x7ae87a, 0xffffff];
+  async function megaEvolve() {
+    const m = st.me, M = TT.MEGA[m.sp], old = st.obj.me, x = old.position.x, z = old.position.z, y = mid(old), nm = TT.monName(m); st.megaUsed = true; fxInit();
+    gesture('cheer', 2.2); focus(-0.6, 0.4); await say('The Key Stone is shining!', 0.8);
+    const glow = P(TT.scene, 'sph', glowT(0xffffff, 0), [x, y, z], 0.3), R = (old.userData.h || 1) * 0.85; TT.sfx.evo();
+    await run(1.4, (q, dt) => {
+      let n = 190 * dt * FX.q; for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, e = Math.random() * 3.14, r = 2.4; fxAdd(x + Math.sin(e) * Math.cos(a) * r, y + Math.cos(e) * r * 0.8, z + Math.sin(e) * Math.sin(a) * r, -Math.sin(e) * Math.cos(a) * r / 0.38, -Math.cos(e) * r * 0.8 / 0.38, -Math.sin(e) * Math.sin(a) * r / 0.38, 0.38, 0.24, 0.05, RAINBOW[(Math.random() * 6) | 0], 0xffffff, 0.95); }
+      glow.scale.setScalar(R * (0.3 + q * 1.2)); glow.material.opacity = Math.min(1, q * 1.2); setS(old, 1 + q * 0.12); old.rotation.y = old.userData.ry + q * q * 14;
+    });
+    flash('#ffffff', 0.95); B.shake = 0.9; TT.hitStop = 0.14;
+    const o = TT.creature(M[0]); o.userData.sp = m.sp; o.userData.s0 = o.scale.x; o.userData.ry = old.userData.ry; o.position.set(x, 0, z); o.rotation.y = o.userData.ry;
+    TT.scene.remove(old); TT.dispose(old); TT.scene.add(o); st.obj.me = o; B.megaMon = m; bars(); TT.cry(m.sp, 0.8);
+    fxBurst(80, x, y, z, { v: 7.5, life: 0.8, s: 0.3, s1: 0.05, cols: RAINBOW, a: 1, d: 1.6 });
+    const rings = [0, 1, 2].map(i => P(TT.scene, RING, glowT(RAINBOW[i * 2], 0.9), [x, 0.08 + i * 0.5, z], 0.3, [1.57, 0, 0]));
+    await run(0.6, q => { glow.scale.setScalar(R * 1.5 * (1 + q * 1.2)); glow.material.opacity = 1 - q; setS(o, 1.25 - 0.25 * q); rings.forEach((r, i) => { r.scale.setScalar(0.3 + q * (2.2 + i * 0.6)); r.material.opacity = 0.9 * (1 - q); }); });
+    TT.scene.remove(glow); kill(rings); setS(o, 1);
+    await say(nm + ' Mega Evolved into ' + M[1] + '!', 1.7); focus(0, 0);
   }
   // which move the other side uses: mostly attacks, now and then a trick that would actually help
   const foeMove = () => { const mv = TT.moves(st.foe), hit = mv.filter(v => !v[4]), M = modOf('foe'), tr = mv.filter(v => v[4] && !(v[4] === 'guard' && M.guard) && !(v[4] === 'heal' && st.foe.hp > mxOf(st.foe) * 0.6) && !(v[4] === 'para' && modOf('me').para) && !(v[4] === 'evade' && M.ev) && !(v[4] === 'atkup' && M.atk > 1.3));
@@ -600,6 +621,7 @@
     };
     const checkRage = async () => { if (st.foe.boss && !st.foe.raged && st.foe.hp > 0 && st.foe.hp < mxOf(st.foe) / 2) await rage(st.obj.foe, st.foe); };
     while (!result) {
+      if (B.megaMon && B.megaMon !== st.me) B.megaMon = null;          // a Mega form ends when that Pokémon leaves the battle
       const act = st.assists.length ? { t: 'assist' } : await choose(); let foeTurn = true;
       if (act.t === 'assist') {            // a helper attack (a friend, Gohan or Goku): a free bonus hit
         const a = st.assists.shift(); foeTurn = false; $('bmenu').classList.add('off');
@@ -608,6 +630,7 @@
           await attack({ sp: a.sp, lvl: a.lvl }, st.foe, a.mv, o, st.obj.foe, st.easy ? 1.5 : 1, a.n);
           if (st.foe.hp <= 0) { if (await foeDown()) { result = 'win'; break; } } else await checkRage();
         }
+      } else if (act.t === 'mega') { await megaEvolve(); foeTurn = false;
       } else if (act.t === 'run') {
         if (!st.wild) { await say("You can't run from " + opts.trainer + '!', 1); foeTurn = false; }
         else { await say('You got away safely!', 0.9); result = 'run'; break; }
@@ -656,7 +679,7 @@
     (st.allyObjs || []).forEach(o => { TT.scene.remove(o); TT.dispose(o); });
     if (st.ssAura) kill(st.ssAura.list);
     st.extras.forEach(o => { TT.scene.remove(o); TT.dispose(o); });
-    st = null; B.active = false; FX.p.length = 0; if (fxPts) fxPts.geometry.setDrawRange(0, 0); cam.ov = null; W.applyStage(null); W.ARENA = W.STAGES.meadow;
+    st = null; B.active = false; B.megaMon = null; FX.p.length = 0; if (fxPts) fxPts.geometry.setDrawRange(0, 0); cam.ov = null; W.applyStage(null); W.ARENA = W.STAGES.meadow;
   }
 
   // ---- network: owner side receives joins and helper attacks; watcher side receives the event stream ----
