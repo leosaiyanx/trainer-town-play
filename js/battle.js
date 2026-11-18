@@ -338,14 +338,14 @@
   const hard = () => !!(TT.S && TT.S.hard) && !st.watch, easyOn = () => !!(TT.S && TT.S.easy);
   const tier = () => { const f = TT.S.flags; return (f.city ? 1 : 0) + (f.world ? 1 : 0) + (f.tunnel ? 1 : 0) + (TT.S.wishes ? 1 : 0); };
   const critP = side => side === 'foe' ? (easyOn() ? 0 : 0.03 + tier() * 0.012 + (hard() ? 0.05 : 0)) : 0.07 + tier() * 0.01;
-  // Power taps (not in Easy mode): tap anywhere, as fast as you like, to fill a power bar. Every tap helps and nothing can be missed.
+  // Power taps (every battle level; Easy needs the fewest taps): tap anywhere, as fast as you like, to fill a power bar. Every tap helps and nothing can be missed.
   // kind 'atk' powers up your Pokémon's attack; kind 'def' (Challenge only) raises a shield before some of the foe's hits. Resolves with how full the bar got, 0…1.
   function charge(kind, o, cols) {
     return new Promise(res => {
       fxInit();
       let el = $('tapRing'); if (!el) { el = document.createElement('div'); el.id = 'tapRing'; el.innerHTML = '<span></span><div class="bar"><i></i></div><em></em>'; $('battle').appendChild(el); }
       const def = kind === 'def', txt = el.querySelector('span'), bar = el.querySelector('.bar i'), tm = el.querySelector('em');
-      const need = def ? 6 : hard() ? 8 : 6, span = def ? 1.3 : 1.6, wait0 = 1.5;          // taps for a full bar, seconds allowed from the first tap, seconds to wait for a first tap
+      const need = def ? 6 : hard() ? 8 : easyOn() ? 5 : 6, span = def ? 1.3 : 1.6, wait0 = 1.5;          // taps for a full bar, seconds allowed from the first tap, seconds to wait for a first tap
       const x = o.position.x, z = o.position.z, h = o.userData.h || 1, y = mid(o), rad = Math.max(0.5, h * 0.7);
       const sh = def ? P(TT.scene, 'sph', glowT(0x6ad8ff, 0), [x, y, z], rad) : null, ring = P(TT.scene, RING, glowT(cols[1] || cols[0], 0), [x, 0.07, z], 0.3, [1.57, 0, 0]);
       el.style.setProperty('--tc', def ? '#6ad8ff' : '#ffd23a'); txt.textContent = def ? 'Tap fast to shield!' : 'Tap fast!'; bar.style.width = '0%'; tm.style.transform = 'scaleX(1)'; el.className = 'on';
@@ -699,7 +699,7 @@
         if (S.balls <= 0) { await say('No Poké Balls left! Find more around town.', 1.3); foeTurn = false; }
         else if (await throwBall()) { result = 'caught'; await gainXp(st.me, st.foe.lvl * 6 + 4); break; }
       } else {
-        let tb = 1; if (!easyOn() && !act.mv[4]) { setMsg('Tap fast to power up ' + TT.monName(st.me) + '!'); tb = 1 + 0.3 * await charge('atk', st.obj.me, typeCols(act.mv[1])); }
+        let tb = 1; if (!act.mv[4]) { setMsg('Tap fast to power up ' + TT.monName(st.me) + '!'); tb = 1 + 0.3 * await charge('atk', st.obj.me, typeCols(act.mv[1])); }
         await attack(st.me, st.foe, act.mv, st.obj.me, st.obj.foe, (st.easy ? (hard() ? 1.15 : 1.5) : 1) * tb);
         if (st.foe.hp <= 0) { if (await foeDown()) { result = 'win'; break; } foeTurn = false; }
         else await checkRage();
