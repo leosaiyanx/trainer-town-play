@@ -95,7 +95,8 @@
       };
       // a star marks the moves that work best against this foe
       const ft = TT.DEX[st.foe.sp][1];
-      TT.moves(st.me).forEach(mv => { const e = TT.eff(mv[1], ft); add((e > 1 ? '★ ' : '') + mv[0] + '<small>' + mv[1] + (e > 1 ? ' · strong here!' : e < 1 ? ' · weak here' : '') + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }, false, e > 1 ? 'best' : e < 1 ? 'weak' : ''); });
+      TT.moves(st.me).forEach(mv => { if (mv[4]) { add('✦ ' + mv[0] + '<small>' + TT.MOVE_FX[mv[4]] + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }); return; }
+        const e = TT.eff(mv[1], ft); add((e > 1 ? '★ ' : '') + mv[0] + '<small>' + mv[1] + (e > 1 ? ' · strong here!' : e < 1 ? ' · weak here' : '') + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }, false, e > 1 ? 'best' : e < 1 ? 'weak' : ''); });
       if (st.wild && !st.noCatch) add('Poké Ball<small>× ' + TT.S.balls + '</small>', '#e8402a', { t: 'ball' });
       if (TT.S.party.filter(m => m.hp > 0).length > 1) add('Swap', '', { t: 'swap' }, true);
       add('Run', '', { t: 'run' }, true);
@@ -330,15 +331,55 @@
     }
     focus(0, 0);
   }
+  // ---------------- moves that are not attacks ----------------
+  // What a trick has done to each side's Pokémon lasts while that Pokémon stays out: ev = turns of dodging, para = turns of paralysis, atk / def = multipliers, guard = blocks the next hit.
+  const modOf = side => { const M = st.mod || (st.mod = {}), cur = side === 'me' ? st.me : st.foe; if (!M[side] || M[side].m !== cur) M[side] = { m: cur, ev: 0, para: 0, atk: 1, def: 1, guard: 0 }; return M[side]; };
+  const megaK = m => m && m.megaOn ? 1.3 : 1, megaD = m => m && m.megaOn ? 1.25 : 1;          // a Mega-Evolved Pokémon hits harder and takes less
+  async function dodgeFx(o) {          // a blur of after-images
+    fxInit(); const x0 = o.position.x, y = mid(o), z = o.position.z; TT.sfx.whoosh();
+    await run(0.42, q => { o.position.x = x0 + Math.sin(q * 19) * 0.55 * (1 - q); for (let i = 0; i < 3; i++) fxAdd(o.position.x + jit(0.2), y + jit(0.4), z + jit(0.2), 0, 0, 0, 0.22, 0.7, 0.3, 0xffffff, 0xcfe8ff, 0.35); });
+    o.position.x = x0;
+  }
+  async function zapFx(o) { fxInit(); const x = o.position.x, y = mid(o), z = o.position.z; TT.sfx.move('electric'); await run(0.4, q => { o.position.x = x + Math.sin(q * 60) * 0.05; fxBurst(4, x, y, z, { v: 3.5, life: 0.25, s: 0.12, s1: 0.03, cols: VOLT, a: 1, g: 5, r: 0.4 }); }); o.position.x = x; }
+  async function arrowsFx(o, dir, col) {          // light streaming up (stronger) or down (weaker) around a Pokémon
+    fxInit(); const x = o.position.x, z = o.position.z, h = (o.userData.h || 1); const ring = P(TT.scene, RING, glowT(col, 0.8), [x, 0.06, z], 0.4, [1.57, 0, 0]);
+    await run(0.6, (q, dt) => { ring.scale.setScalar(0.4 + q * 1.1); ring.material.opacity = 0.8 * (1 - q); let n = 90 * dt * FX.q; for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, r = 0.35 + Math.random() * 0.35; fxAdd(x + Math.cos(a) * r, dir > 0 ? 0.1 : h * 1.1, z + Math.sin(a) * r, 0, dir * 2.6, 0, 0.5, 0.2, 0.06, col, 0xffffff, 0.95); } });
+    TT.scene.remove(ring);
+  }
+  async function shieldFx(o) {
+    fxInit(); const x = o.position.x, y = mid(o), z = o.position.z, r = (o.userData.h || 1) * 0.75, sh = P(TT.scene, 'sph', glowT(0x7ae8b0, 0.5), [x, y, z], r); TT.sfx.blip();
+    fxBurst(16, x, y, z, { v: 2.5, life: 0.4, s: 0.16, s1: 0.04, cols: [0xffffff, 0x9af0c0], a: 1 });
+    await run(0.5, q => { sh.scale.setScalar(r * (0.7 + 0.45 * Math.sin(Math.min(1, q * 2) * 1.57))); sh.material.opacity = 0.55 * (1 - q * q); });
+    TT.scene.remove(sh);
+  }
+  async function trick(k, type, am, dm, ao, dobj, att, an, dn) {
+    TT.sfx.move(type);
+    if (k === 'evade') { if (am) am.ev = 3; await dodgeFx(ao); await say(an + ' is moving too fast to see!', 0.9); }
+    else if (k === 'para') { if (dm) dm.para = 3; await zapFx(dobj); await say(dn + ' is paralysed! It might not be able to move.', 1); }
+    else if (k === 'atkdn') { if (dm) dm.atk = Math.max(0.5, dm.atk * 0.75); await arrowsFx(dobj, -1, 0x6ab0ff); await say(dn + "'s attacks got weaker!", 0.9); }
+    else if (k === 'defdn') { if (dm) dm.def = Math.min(1.7, dm.def * 1.3); await arrowsFx(dobj, -1, 0xc080ff); await say(dn + "'s guard dropped!", 0.9); }
+    else if (k === 'atkup') { if (am) am.atk = Math.min(1.8, am.atk * 1.35); await arrowsFx(ao, 1, 0xff8a3a); await say(an + ' powered up!', 0.9); }
+    else if (k === 'guard') { if (am) am.guard = 1; await shieldFx(ao); await say(an + ' is ready to block the next hit!', 0.9); }
+    else if (k === 'heal') { const mx = mxOf(att), h = Math.max(0, Math.min(mx - att.hp, Math.round(mx * 0.45))); att.hp += h; bars(); await arrowsFx(ao, 1, 0x7ae87a); await say(h ? an + ' healed itself!' : an + ' is already full of energy.', 0.9); }
+  }
+  // which move the other side uses: mostly attacks, now and then a trick that would actually help
+  const foeMove = () => { const mv = TT.moves(st.foe), hit = mv.filter(v => !v[4]), M = modOf('foe'), tr = mv.filter(v => v[4] && !(v[4] === 'guard' && M.guard) && !(v[4] === 'heal' && st.foe.hp > mxOf(st.foe) * 0.6) && !(v[4] === 'para' && modOf('me').para) && !(v[4] === 'evade' && M.ev) && !(v[4] === 'atkup' && M.atk > 1.3));
+    return tr.length && hit.length && Math.random() < (st.easy ? 0.1 : 0.2) ? TT.pick(tr) : TT.pick(hit.length ? hit : mv); };
   // test hook: play one move's visuals in the current battle without changing anything, e.g. TT.Battle.fxTest('fire', 1.5)
   B.fxTest = (type, pw, foe) => st ? animAtk(foe ? st.obj.foe : st.obj.me, foe ? st.obj.me : st.obj.foe, type, 12, 1, () => { }, pw) : null;
   async function attack(att, def, mv, ao, dobj, mult, who) {
+    const as = ao === st.obj.me ? 'me' : ao === st.obj.foe ? 'foe' : null, ds = dobj === st.obj.me ? 'me' : dobj === st.obj.foe ? 'foe' : null;
+    const am = as && !st.watch ? modOf(as) : null, dm = ds && !st.watch ? modOf(ds) : null, an = (who ? who + "'s " : '') + TT.monName(att), dn = TT.monName(def);
+    if (am && am.para > 0) { am.para--; if (Math.random() < 0.4) { await zapFx(ao); await say(an + " is paralysed! It can't move!", 0.9); return; } }
     if (ao === st.obj.me) gesture('point', 0.9);
-    await say((who ? who + "'s " : '') + TT.monName(att) + ' used ' + mv[0] + '!', 0.5);
+    await say(an + ' used ' + mv[0] + '!', 0.5);
+    if (mv[4]) return trick(mv[4], mv[1], am, dm, ao, dobj, att, an, dn);
+    if (dm && dm.guard) { dm.guard = 0; await shieldFx(dobj); await say(dn + ' blocked it!', 0.8); return; }
+    if (dm && dm.ev > 0) { dm.ev--; if (Math.random() < 0.45) { await dodgeFx(dobj); await say(dn + ' dodged it!', 0.8); return; } }
     const eff = TT.eff(mv[1], TT.DEX[def.sp][1]);
     // Easy mode (a switch in the menu, per child): your side hits harder and takes less
     const ez = TT.S && TT.S.easy && !st.watch ? (dobj === st.obj.foe ? 1.4 : dobj === st.obj.me ? 0.65 : 1) : 1;
-    const dmg = Math.max(1, Math.floor(mv[2] * TT.stat(att, 3) / TT.stat(def, 4) * 0.3 * (mult || 1) * eff * ez * TT.rand(0.85, 1)));
+    const dmg = Math.max(1, Math.floor(mv[2] * TT.stat(att, 3) / TT.stat(def, 4) * 0.3 * (mult || 1) * eff * ez * (am ? am.atk : 1) * (dm ? dm.def : 1) * megaK(att) / megaD(def) * TT.rand(0.85, 1)));
     const hp = Math.max(0, def.hp - dmg);
     const pw = TT.clamp(mv[2] / 55, 0.75, 1.7) * (att.sup && att.sup[0] === mv[0] ? 1.15 : 1);          // stronger moves look bigger
     emit('atk', { s: sideOf(ao), ty: mv[1], dmg, hp, eff, pw });
@@ -473,7 +514,7 @@
       glow.material.opacity = Math.min(1, q * 1.2) * (0.6 + 0.4 * pulse); glow.scale.setScalar(0.5 + q * 0.7);
       sp.forEach((p, i) => { const a = i * 0.45 + q * 9, r = 1.8 * (1 - q) + 0.2; p.position.set(x + Math.cos(a) * r, 0.2 + (i % 4) * 0.4, z + Math.sin(a) * r); });
     });
-    const hpK = m.hp / TT.maxHp(m); m.sp = ev[0]; m.hp = Math.max(1, Math.round(TT.maxHp(m) * Math.max(hpK, 0.5)));
+    const hpK = m.hp / TT.maxHp(m); m.sp = ev[0]; delete m.use; m.hp = Math.max(1, Math.round(TT.maxHp(m) * Math.max(hpK, 0.5)));
     flash('#ffffff', 0.9);
     o = await place(-1, m); bars(); TT.sfx.caught(); B.shake = 0.3;
     await TT.tween(0.6, q => { glow.scale.setScalar(1.2 + q * 2.5); glow.material.opacity = 1 - q; setS(o, 0.6 + 0.4 * ease(q) + Math.sin(q * 3.14) * 0.15); sp.forEach((p, i) => { const a = i * 0.45; p.position.set(x + Math.cos(a) * q * 2.4, 0.7 + Math.sin(a * 2) * q, z + Math.sin(a) * q * 2.4); p.scale.setScalar(0.1 * (1 - q)); }); });
@@ -587,7 +628,7 @@
       if (foeTurn) {
         const mult = (st.easy ? 0.35 : 0.7) * st.rageMul;
         if (!(st.foe.boss && ++st.bt % 3 === 0 && await bossSig(st.foe, st.obj.foe, st.obj.me, st.me, mult)))
-          await attack(st.foe, st.me, TT.pick(TT.moves(st.foe)), st.obj.foe, st.obj.me, mult);
+          await attack(st.foe, st.me, foeMove(), st.obj.foe, st.obj.me, mult);
         if (st.me.hp <= 0) {
           await faint(st.obj.me, -1); await say(TT.monName(st.me) + ' fainted!', 1);
           const nx = S.party.find(m => m.hp > 0);

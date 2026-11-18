@@ -898,7 +898,8 @@
     S.party.forEach((m, i) => {
       const ty = TT.DEX[m.sp][1], k = m.hp / TT.maxHp(m);
       h += '<button class="mon' + (i ? '' : ' lead') + '" data-i="' + i + '"><img src="' + TT.monPortrait(m.sp) + '"><div class="inf"><b>' + TT.monName(m) + '</b><span class="tag" style="background:' + hex(TT.TYPE_COL[ty]) + '">' + ty + '</span> &nbsp;Lv ' + m.lvl +
-        '<div class="hp"><div style="width:' + k * 100 + '%;background:' + (k > 0.5 ? '#4cd964' : k > 0.22 ? '#f2c230' : '#e8402a') + '"></div></div></div><em>' + (i ? 'Make partner' : 'Partner') + '</em></button>';
+        '<div class="hp"><div style="width:' + k * 100 + '%;background:' + (k > 0.5 ? '#4cd964' : k > 0.22 ? '#f2c230' : '#e8402a') + '"></div></div></div><em>' + (i ? 'Make partner' : 'Partner') + '</em></button>' +
+        '<button class="mvrow" data-m="' + i + '">⚔ ' + TT.moves(m).map(v => v[0]).join(' · ') + (TT.known(m).length > 4 ? ' <b>(' + TT.known(m).length + ' learned — tap to choose)</b>' : '') + '</button>';
     });
     h += '<p style="font-size:13px;opacity:.7;margin:6px 0 0">Tap a Pokémon to make it your partner. Your partner walks with you and battles first.</p>';
     if (S.box.length) {
@@ -909,6 +910,7 @@
     }
     openPanel(h);
     const done = () => { setFollower(); hud(); save(); TT.sfx.pick(); showTeam(); };
+    document.querySelectorAll('#panelIn .mvrow').forEach(b => b.onclick = () => showMoves(+b.dataset.m));
     document.querySelectorAll('#panelIn .mon').forEach(b => b.onclick = () => { const i = +b.dataset.i; if (i) { const m = S.party.splice(i, 1)[0]; S.party.unshift(m); done(); } });
     document.querySelectorAll('#panelIn .labmon').forEach(b => b.onclick = () => {
       const m = S.box.splice(+b.dataset.b, 1)[0]; m.hp = TT.maxHp(m);
@@ -972,6 +974,21 @@
   }
 
   // ---------- menu, main-menu return ----------
+  // choose which four of a Pokémon's moves it takes into battle
+  function showMoves(i) {
+    const m = S.party[i], known = TT.known(m), cur = TT.moves(m).map(v => v[0]);
+    let h = '<h3>' + TT.monName(m) + "'s moves <button id=\"pClose\">✕</button></h3><p style=\"font-size:14px;opacity:.75;margin:0 0 8px\">Pick up to 4 to use in battle. ✦ moves are tricks, not attacks.</p>";
+    known.forEach((v, k) => { const on = cur.indexOf(v[0]) >= 0; h += '<button class="opt" data-k="' + k + '" style="' + (on ? 'background:#e9f8e4' : 'opacity:.8') + '">' + (on ? '✅ ' : '⬜ ') + (v[4] ? '✦ ' : '') + '<b>' + v[0] + '</b> <span class="tag" style="background:' + hex(TT.TYPE_COL[v[1]] || 0xa8a890) + '">' + v[1] + '</span> <span style="font-weight:600;font-size:14px">' + (v[4] ? TT.MOVE_FX[v[4]] : 'power ' + v[2]) + '</span></button>'; });
+    h += '<button class="opt" id="mvBack">◀ Back to my team</button>';
+    openPanel(h);
+    $('panelIn').querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const v = known[+b.dataset.k], use = TT.moves(m).map(x => x[0]), at = use.indexOf(v[0]);
+      if (at >= 0) { if (use.length <= 1) { TT.toast('Keep at least one move!'); return; } use.splice(at, 1); }
+      else { if (use.length >= 4) { TT.toast('That is 4 already. Tap one with a ✅ to take it off first.'); return; } use.push(v[0]); }
+      m.use = use; save(); TT.sfx.pick(); showMoves(i);
+    });
+    $('mvBack').onclick = showTeam;
+  }
   function showMenu() {
     const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = '🛟 Easy mode: ' + (S.easy ? 'On — stronger hits, gentler bosses, free healing' : 'Off'); $('mCam').textContent = '🎥 Camera: ' + (S.camFar ? 'Far (see more)' : 'Close (bigger characters)'); };
     openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt" id="mCam"></button><button class="opt" id="mHelp">🧰 Grown-up help (radar, healing, unstick)</button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');

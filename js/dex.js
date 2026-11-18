@@ -612,7 +612,7 @@
       }
     } else if (o.legs === 2) {
       const ly = by * 0.7;
-      for (const s of [1, -1]) { const pv = grp(g, s * b[0] * (o.legX || 0.5), ly, 0); if (o.legT) { const r = o.legT; P(pv, TT.tube([[0.06, r * 1.15, r * 1.2, c, 0], [-ly * 0.45, r * 1.05, r * 1.05, c, 0], [-ly + 0.06, r * 0.9, r * 0.95, c, 0]], 8), WH); } else if (o.legLen) P(pv, TT.capsule(0.055, ly - 0.14), o.shinC != null ? o.shinC : c, [0, -ly / 2 + 0.02, 0]); P(pv, 'sph', lc, [0, -ly + 0.05, 0.05], o.foot || [0.085, 0.055, 0.15]); ud.legs.push(pv); }
+      for (const s of [1, -1]) { const pv = grp(g, s * b[0] * (o.legX || 0.5), ly, 0); if (o.legT) { const r = o.legT, lt = o.shinC != null ? o.shinC : c; P(pv, TT.tube([[0.06, r * 1.15, r * 1.2, lt, 0], [-ly * 0.45, r * 1.05, r * 1.05, lt, 0], [-ly + 0.06, r * 0.9, r * 0.95, lt, 0]], 8), WH); } else if (o.legLen) P(pv, TT.capsule(0.055, ly - 0.14), o.shinC != null ? o.shinC : c, [0, -ly / 2 + 0.02, 0]); P(pv, 'sph', lc, [0, -ly + 0.05, 0.05], o.foot || [0.085, 0.055, 0.15]); ud.legs.push(pv); }
     }
     if (o.arms) for (const s of [1, -1]) { const pv = grp(body, s * b[0] * 0.86, by + b[1] * 0.3, b[2] * 0.25); pv.userData.s = s; const ac = o.armC != null ? o.armC : c; if (o.armT) { const l = o.armT[0], r = o.armT[1]; P(pv, TT.tube([[0.03, r, r, ac, 0], [-l * 0.55, r * 0.95, r * 0.95, ac, 0], [-l, r * 0.82, r * 0.82, ac, 0]], 7), WH, null, null, [-0.5, 0, s * 0.35]); } else P(pv, 'sph', ac, [s * 0.02, -0.07, 0.03], [0.05, 0.115, 0.05], [-0.5, 0, s * 0.35]); ud.arms.push(pv); }
     const tl = ud.tail = grp(body, 0, by * (o.tailY || 1), -b[2] * 0.88), tc = o.tailC != null ? o.tailC : c;
@@ -802,12 +802,12 @@
   // Charmander and Charmeleon: a lizard standing upright with a cream belly, clawed feet and a thick tail that carries a flame.
   function lizard(o) {
     const C = o.c, K = o.k, by = 0.38 * K, ly = by * 0.7;
-    return crit({ c: C, noBody: 1, b: [0.2 * K, 0.27 * K, 0.19 * K], by, hy: 0.82 * K + (o.neck || 0), hz: 0.06, hr: o.hr, hs: o.hs, snout: 1, legs: 2, legT: 0.075 * K, legX: 0.62, foot: [0.095, 0.05, 0.16], arms: 1, armT: [0.2 * K, 0.045], eyeS: o.eyeS, eye: o.eye, er: 0.17, ex: 0.11, ey: 0.05, ez: 0.19, eyeTurn: 0.5, tailY: 0.5,
+    return crit({ c: C, noBody: 1, b: [0.2 * K, 0.27 * K, 0.19 * K], by, hy: 0.82 * K + (o.neck || 0), hz: 0.06, hr: o.hr, hs: o.hs, snout: 1, legs: 2, legT: 0.075 * K, legX: 0.62, foot: [0.095, 0.05, 0.16], arms: 1, armT: [0.2 * K, 0.045], eyeS: o.eyeS, eye: o.eye, er: 0.17, ex: 0.11, ey: 0.05, ez: 0.19, eyeTurn: 0.5, tailY: 0.5, scale: o.scale,
       x: (g, h, body, f, ud) => {
         const R = RG(C, [[0.1, 0.1, 0.09], [0.18, 0.2, 0.18], [0.3, 0.235, 0.21], [0.42, 0.22, 0.195], [0.54, 0.17, 0.155], [0.66, 0.115, 0.11]], K);
-        TB(body, R, 12); SHELL(body, R, CREAM, 0.95, Math.PI / 2, 1.025, 8);
+        TB(body, R, 12); SHELL(body, R, o.belly != null ? o.belly : CREAM, 0.95, Math.PI / 2, 1.025, 8);
         TB(ud.tail, RG(C, [[0, 0.1], [0.12, 0.088, 0.088, 0, 0.01], [0.26, 0.066, 0.066, 0, 0.05], [0.38, 0.046, 0.046, 0, 0.13], [0.47, 0.03, 0.03, 0, 0.22]], K), 8, [0, 0, 0.03], [-1.25, 0, 0]);
-        const F = o.fl, fl = ud.flame = grp(ud.tail, 0, 0.36 * K, -0.34 * K); P(fl, 'cone', TT.glow(0xff7a1a), [0, 0.13 * F, 0], [0.1 * F, 0.3 * F, 0.1 * F]); P(fl, 'cone', TT.glow(0xffe060), [0, 0.09 * F, 0], [0.055 * F, 0.18 * F, 0.055 * F]);
+        const F = o.fl, fl = ud.flame = grp(ud.tail, 0, 0.36 * K, -0.34 * K); P(fl, 'cone', TT.glow(o.flame ? o.flame[0] : 0xff7a1a), [0, 0.13 * F, 0], [0.1 * F, 0.3 * F, 0.1 * F]); P(fl, 'cone', TT.glow(o.flame ? o.flame[1] : 0xffe060), [0, 0.09 * F, 0], [0.055 * F, 0.18 * F, 0.055 * F]);
         for (const pv of ud.legs) for (const dx of [-0.05, 0, 0.05]) P(pv, 'cone', WH, [dx, -ly + 0.03, 0.2], [0.018, 0.045, 0.018], [1.57, 0, 0]);       // claws
         o.x(h, f, body, ud);
       } });
@@ -817,7 +817,7 @@
   // Squirtle and Wartortle: a turtle on two legs. The front is a cream plate, the back a brown shell with a white rim.
   function turtle(o) {
     const C = o.c, K = o.k, PLATE = 0xf8dc8a;
-    return crit({ c: C, noBody: 1, b: [0.2 * K, 0.25 * K, 0.18 * K], by: 0.36 * K, hy: 0.79 * K, hz: 0.05, hr: 0.24, hs: [0.245, 0.225, 0.235], legs: 2, legT: 0.07 * K, legX: 0.66, foot: [0.085, 0.05, 0.13], arms: 1, armT: [0.19 * K, 0.05], eyeS: 'big', eye: o.eye, er: 0.18, ex: 0.11, ey: 0.05, eyeTurn: 0.45, tailY: 0.5,
+    return crit({ c: C, noBody: 1, b: [0.2 * K, 0.25 * K, 0.18 * K], by: 0.36 * K, hy: 0.79 * K, hz: 0.05, hr: 0.24, hs: [0.245, 0.225, 0.235], legs: 2, legT: 0.07 * K, legX: 0.66, foot: [0.085, 0.05, 0.13], arms: 1, armT: [0.19 * K, 0.05], eyeS: o.eyeS || 'big', eye: o.eye, er: 0.18, ex: 0.11, ey: 0.05, eyeTurn: 0.45, tailY: 0.5, scale: o.scale,
       x: (g, h, body, f, ud) => {
         TB(body, RG(PLATE, [[0.1, 0.11, 0.1], [0.18, 0.2, 0.16], [0.32, 0.235, 0.18], [0.46, 0.215, 0.17], [0.58, 0.15, 0.13], [0.65, 0.09, 0.08]], K), 12);
         P(body, 'sph', 0xf4f6fa, [0, 0.37 * K, -0.045 * K], [0.262 * K, 0.292 * K, 0.15 * K]);      // the shell's white rim
@@ -831,7 +831,7 @@
   // Bulbasaur and Ivysaur: a squat four-legged body with a wide head; a green bulb on the back that becomes a pink bud among big leaves.
   function bulb(o) {
     const C = o.c, K = o.k, SPOT = o.spot;
-    return crit({ c: C, noBody: 1, b: [0.22 * K, 0.19 * K, 0.3 * K], by: 0.29 * K, hy: 0.43 * K, hz: 0.3 * K, hr: 0.22 * K, hs: [0.25 * K, 0.188 * K, 0.215 * K], legs: 4, legT: 0.068 * K, ear: 'cat', earY: 0.45, earX: 0.62, eyeS: 'big', eye: 0xc02a2a, er: 0.19, ex: 0.115 * K, ey: 0.03, ez: 0.17 * K, eyeTurn: 0.55,
+    return crit({ c: C, noBody: 1, b: [0.22 * K, 0.19 * K, 0.3 * K], by: 0.29 * K, hy: 0.43 * K, hz: 0.3 * K, hr: 0.22 * K, hs: [0.25 * K, 0.188 * K, 0.215 * K], legs: 4, legT: 0.068 * K, ear: 'cat', earY: 0.45, earX: 0.62, eyeS: 'big', eye: 0xc02a2a, er: 0.19, ex: 0.115 * K, ey: 0.03, ez: 0.17 * K, eyeTurn: 0.55, scale: o.scale,
       x: (g, h, body, f, ud) => {
         TB(body, RG(C, [[-0.3, 0.08, 0.08], [-0.22, 0.19, 0.16], [-0.06, 0.228, 0.188], [0.1, 0.222, 0.182], [0.22, 0.17, 0.15], [0.3, 0.1, 0.1]], K), 10, [0, 0.3 * K, 0], [Math.PI / 2, 0, 0]);
         for (const q of [[0.17, 0.38, 0.12], [-0.19, 0.33, 0.0], [0.2, 0.28, -0.14]]) P(body, 'sph', SPOT, [q[0] * K, q[1] * K, q[2] * K], [0.05, 0.045, 0.05]);
@@ -906,9 +906,9 @@
     } }); };
   // name, type, hp, atk, def, moves [name,type,power,level], evo [to, level]
   const D = TT.DEX = {
-    pikachu: ['Pikachu', 'electric', 35, 55, 40, [['Thunder Shock', 'electric', 40, 1], ['Quick Attack', 'normal', 35, 1], ['Iron Tail', 'normal', 65, 6], ['Thunderbolt', 'electric', 70, 8]]],
-    sprigatito: ['Sprigatito', 'grass', 40, 61, 54, [['Leafage', 'grass', 40, 1], ['Scratch', 'normal', 35, 1], ['Magical Leaf', 'grass', 60, 7], ['Bite', 'dark', 50, 9]], ['floragato', 8]],
-    floragato: ['Floragato', 'grass', 61, 80, 63, [['Magical Leaf', 'grass', 60, 1], ['Slash', 'normal', 55, 1], ['Seed Bomb', 'grass', 75, 10], ['Bite', 'dark', 50, 1]]],
+    pikachu: ['Pikachu', 'electric', 35, 55, 40, [['Thunder Shock', 'electric', 40, 1], ['Quick Attack', 'normal', 35, 1], ['Thunder Wave', 'electric', 0, 4, 'para'], ['Iron Tail', 'normal', 65, 6], ['Thunderbolt', 'electric', 70, 8], ['Double Team', 'normal', 0, 10, 'evade'], ['Electro Ball', 'electric', 80, 14], ['Thunder', 'electric', 95, 22]]],
+    sprigatito: ['Sprigatito', 'grass', 40, 61, 54, [['Leafage', 'grass', 40, 1], ['Scratch', 'normal', 35, 1], ['Tail Whip', 'normal', 0, 4, 'defdn'], ['Magical Leaf', 'grass', 60, 7], ['Bite', 'dark', 50, 9]], ['floragato', 8]],
+    floragato: ['Floragato', 'grass', 61, 80, 63, [['Magical Leaf', 'grass', 60, 1], ['Slash', 'normal', 55, 1], ['Bite', 'dark', 50, 1], ['Seed Bomb', 'grass', 75, 10], ['Double Team', 'normal', 0, 14, 'evade'], ['Night Slash', 'dark', 75, 20]]],
     meowth: ['Meowth', 'normal', 40, 45, 35, [['Scratch', 'normal', 35, 1], ['Bite', 'dark', 40, 1]]],
     pumpkaboo: ['Pumpkaboo', 'ghost', 49, 50, 45, [['Shadow Sneak', 'ghost', 35, 1], ['Razor Leaf', 'grass', 40, 1]], ['gourgeist', 99]],
     gourgeist: ['Gourgeist', 'ghost', 60, 62, 55, [['Shadow Ball', 'ghost', 50, 1], ['Seed Bomb', 'grass', 50, 1]]],
@@ -921,8 +921,8 @@
     oddish: ['Oddish', 'grass', 45, 50, 55, [['Absorb', 'grass', 35, 1], ['Razor Leaf', 'grass', 50, 5]]],
     psyduck: ['Psyduck', 'water', 50, 52, 48, [['Water Gun', 'water', 40, 1], ['Scratch', 'normal', 35, 1], ['Confusion', 'psychic', 50, 7]]],
     eevee: ['Eevee', 'normal', 55, 55, 50, [['Tackle', 'normal', 35, 1], ['Swift', 'normal', 55, 4], ['Bite', 'dark', 50, 7]]],
-    charmander: ['Charmander', 'fire', 39, 52, 43, [['Scratch', 'normal', 35, 1], ['Ember', 'fire', 45, 1], ['Flamethrower', 'fire', 75, 10]]],
-    squirtle: ['Squirtle', 'water', 44, 48, 65, [['Tackle', 'normal', 35, 1], ['Water Gun', 'water', 45, 1], ['Bubble Beam', 'water', 65, 9]]],
+    charmander: ['Charmander', 'fire', 39, 52, 43, [['Scratch', 'normal', 35, 1], ['Ember', 'fire', 45, 1], ['Growl', 'normal', 0, 3, 'atkdn'], ['Flamethrower', 'fire', 75, 10]]],
+    squirtle: ['Squirtle', 'water', 44, 48, 65, [['Tackle', 'normal', 35, 1], ['Water Gun', 'water', 45, 1], ['Tail Whip', 'normal', 0, 3, 'defdn'], ['Bubble Beam', 'water', 65, 9], ['Protect', 'normal', 0, 11, 'guard']]],
     growlithe: ['Growlithe', 'fire', 55, 70, 45, [['Bite', 'dark', 45, 1], ['Ember', 'fire', 45, 1], ['Flame Wheel', 'fire', 65, 9]]],
     jigglypuff: ['Jigglypuff', 'normal', 95, 45, 25, [['Pound', 'normal', 40, 1], ['Disarming Voice', 'psychic', 45, 1], ['Body Slam', 'normal', 70, 10]]],
     machop: ['Machop', 'fighting', 70, 80, 50, [['Karate Chop', 'fighting', 50, 1], ['Low Kick', 'fighting', 45, 1], ['Cross Chop', 'fighting', 75, 11]]],
@@ -930,7 +930,7 @@
     fuecoco: ['Fuecoco', 'fire', 67, 60, 59, [['Ember', 'fire', 45, 1], ['Bite', 'dark', 45, 1], ['Incinerate', 'fire', 65, 9]]],
     quaxly: ['Quaxly', 'water', 55, 65, 45, [['Water Gun', 'water', 45, 1], ['Wing Attack', 'flying', 50, 1], ['Aqua Cutter', 'water', 70, 10]]],
     lugia: ['Lugia', 'flying', 106, 100, 130, [['Aeroblast', 'flying', 80, 1], ['Hydro Pump', 'water', 80, 1]]],
-    bulbasaur: ['Bulbasaur', 'grass', 45, 49, 49, [['Tackle', 'normal', 35, 1], ['Vine Whip', 'grass', 45, 1], ['Razor Leaf', 'grass', 60, 8]]]
+    bulbasaur: ['Bulbasaur', 'grass', 45, 49, 49, [['Tackle', 'normal', 35, 1], ['Vine Whip', 'grass', 45, 1], ['Growl', 'normal', 0, 3, 'atkdn'], ['Razor Leaf', 'grass', 60, 8], ['Growth', 'normal', 0, 11, 'atkup']]]
   };
   TT.TYPE_COL = { normal: 0xa8a890, fire: 0xf08030, water: 0x4a90e8, grass: 0x5ab84a, electric: 0xf2c230, flying: 0x8aa0f0, bug: 0x98b020, psychic: 0xf06090, ghost: 0x7058a0, dark: 0x5a4a48, fighting: 0xc03028 };
   const SE = { fire: ['grass', 'bug'], water: ['fire'], grass: ['water'], electric: ['water', 'flying'], flying: ['grass', 'bug'], bug: ['grass', 'psychic', 'dark'], ghost: ['psychic', 'ghost'], dark: ['psychic', 'ghost'], fighting: ['normal', 'dark'] };
@@ -956,12 +956,20 @@
     snorlax: ['Snorlax', 'normal', 110, 80, 55, [['Headbutt', 'normal', 60, 1], ['Body Slam', 'normal', 75, 1]]],
     rayquaza: ['Rayquaza', 'dragon', 105, 120, 90, [['Air Slash', 'flying', 70, 1], ['Dragon Pulse', 'dragon', 80, 1]]],
     mecha: ['Mecha-Meowth', 'steel', 100, 80, 70, [['Metal Claw', 'steel', 55, 1], ['Rocket Punch', 'fighting', 60, 1]]],
-    charmeleon: ['Charmeleon', 'fire', 58, 64, 58, [['Ember', 'fire', 45, 1], ['Slash', 'normal', 55, 1], ['Flamethrower', 'fire', 75, 1], ['Dragon Rage', 'dragon', 60, 1]]],
-    wartortle: ['Wartortle', 'water', 59, 63, 80, [['Water Gun', 'water', 45, 1], ['Bite', 'dark', 50, 1], ['Bubble Beam', 'water', 65, 1], ['Aqua Tail', 'water', 75, 1]]],
-    ivysaur: ['Ivysaur', 'grass', 60, 62, 63, [['Tackle', 'normal', 35, 1], ['Vine Whip', 'grass', 45, 1], ['Razor Leaf', 'grass', 60, 1], ['Seed Bomb', 'grass', 75, 1]]],
+    charmeleon: ['Charmeleon', 'fire', 58, 64, 58, [['Ember', 'fire', 45, 1], ['Slash', 'normal', 55, 1], ['Leer', 'normal', 0, 1, 'defdn'], ['Flamethrower', 'fire', 75, 1], ['Dragon Rage', 'dragon', 60, 1], ['Fire Fang', 'fire', 65, 20]]],
+    wartortle: ['Wartortle', 'water', 59, 63, 80, [['Water Gun', 'water', 45, 1], ['Bite', 'dark', 50, 1], ['Protect', 'normal', 0, 1, 'guard'], ['Bubble Beam', 'water', 65, 1], ['Aqua Tail', 'water', 75, 1]]],
+    ivysaur: ['Ivysaur', 'grass', 60, 62, 63, [['Tackle', 'normal', 35, 1], ['Vine Whip', 'grass', 45, 1], ['Growth', 'normal', 0, 1, 'atkup'], ['Razor Leaf', 'grass', 60, 1], ['Seed Bomb', 'grass', 75, 1], ['Synthesis', 'grass', 0, 20, 'heal']]],
     machoke: ['Machoke', 'fighting', 80, 100, 70, [['Karate Chop', 'fighting', 50, 1], ['Low Kick', 'fighting', 45, 1], ['Seismic Toss', 'fighting', 60, 1], ['Cross Chop', 'fighting', 75, 1]]],
     pidgeot: ['Pidgeot', 'flying', 83, 80, 75, [['Quick Attack', 'normal', 40, 1], ['Wing Attack', 'flying', 60, 1], ['Gust', 'flying', 40, 1], ['Air Slash', 'flying', 75, 1]]]
   });
+  Object.assign(D, {
+    charizard: ['Charizard', 'fire', 78, 96, 78, [['Slash', 'normal', 55, 1], ['Leer', 'normal', 0, 1, 'defdn'], ['Flamethrower', 'fire', 75, 1], ['Dragon Claw', 'dragon', 80, 1], ['Air Slash', 'flying', 75, 32], ['Swords Dance', 'normal', 0, 34, 'atkup'], ['Fire Blast', 'fire', 100, 38]]],
+    blastoise: ['Blastoise', 'water', 79, 90, 105, [['Bite', 'dark', 50, 1], ['Protect', 'normal', 0, 1, 'guard'], ['Bubble Beam', 'water', 65, 1], ['Aqua Tail', 'water', 75, 1], ['Skull Bash', 'normal', 85, 32], ['Hydro Pump', 'water', 100, 36]]],
+    venusaur: ['Venusaur', 'grass', 80, 92, 90, [['Vine Whip', 'grass', 45, 1], ['Growth', 'normal', 0, 1, 'atkup'], ['Razor Leaf', 'grass', 60, 1], ['Seed Bomb', 'grass', 75, 1], ['Synthesis', 'grass', 0, 1, 'heal'], ['Petal Dance', 'grass', 90, 32], ['Solar Beam', 'grass', 105, 38]]],
+    meowscarada: ['Meowscarada', 'grass', 76, 110, 70, [['Slash', 'normal', 55, 1], ['Magical Leaf', 'grass', 60, 1], ['Double Team', 'normal', 0, 1, 'evade'], ['Seed Bomb', 'grass', 75, 1], ['Night Slash', 'dark', 75, 1], ['Flower Trick', 'grass', 95, 32]]],
+    raichu: ['Raichu', 'electric', 60, 90, 60, [['Thunder Shock', 'electric', 40, 1], ['Thunder Wave', 'electric', 0, 1, 'para'], ['Thunder Punch', 'electric', 70, 1], ['Double Team', 'normal', 0, 10, 'evade'], ['Thunderbolt', 'electric', 75, 12], ['Thunder', 'electric', 95, 24]]]
+  });
+  for (const [a, b, l] of [['charmeleon', 'charizard', 30], ['wartortle', 'blastoise', 30], ['ivysaur', 'venusaur', 30], ['floragato', 'meowscarada', 30]]) D[a][6] = [b, l];
   for (const [a, b, l] of [['charmander', 'charmeleon', 14], ['squirtle', 'wartortle', 14], ['bulbasaur', 'ivysaur', 14], ['machop', 'machoke', 16], ['pidgeotto', 'pidgeot', 18]]) D[a][6] = [b, l];
   Object.assign(TT.TYPE_COL, { ice: 0x7ad0e8 });
   SE.ice = ['grass', 'flying', 'dragon']; NV.ice = ['fire', 'water', 'ice', 'steel']; SE.fire.push('ice'); SE.rock.push('ice'); SE.fighting.push('ice');
@@ -1147,6 +1155,90 @@
   B.articuno = () => legendBird({ kind: 'ice', c: 0x6fb8f0, belly: 0xdcefff, wing2: 0x4a8fd8, crest: 0x2a5ad0, beak: 0x9a9aa8, beakL: 0.13, leg: 0x8a8a98, eye: 0x9a2a2a });
   B.zapdos = () => legendBird({ kind: 'zap', c: 0xf5cf2a, belly: 0xf8e27a, wing2: 0x23232b, crest: 0xf5cf2a, beak: 0xf0a040, beakL: 0.24, leg: 0xc8903a, eye: 0x23232b });
   B.moltres = () => legendBird({ kind: 'fire', c: 0xf5a030, belly: 0xffd870, wing2: 0xf06a20, crest: 0xff7a1a, beak: 0xb07040, beakL: 0.17, leg: 0xb07040, eye: 0x23232b });
+  // ---------- final evolutions (and, with m = 1, their Mega forms) ----------
+  // Charizard: Charmeleon grown into a winged dragon. Mega Charizard X is black with a blue belly, blue flames and spiked shoulders.
+  const charizard = m => { const C = m ? 0x2c2c38 : 0xf58a2a, WIN = m ? 0x6ab0f0 : 0x2a8a94;
+    return lizard({ c: C, k: 1.32, neck: 0.24, hr: 0.2, hs: [0.185, 0.175, 0.24], eyeS: 'slit', eye: m ? 0xe02a2a : 0x2a6a9a, fl: 1.6, belly: m ? 0x6ab0f0 : CREAM, flame: m ? [0x3a8aff, 0xbfe4ff] : null, scale: m ? 1.3 : 1.2,
+      x: (h, f, body, ud) => {
+        ud.slowWings = 1; ud.wings = [];
+        for (const s of [1, -1]) {
+          P(h, 'cone', C, [s * 0.085, 0.17, -0.2], [0.05, 0.36, 0.05], [-1.9, 0, -s * 0.2]);                                  // two horns
+          P(f, 'cone', WH, [s * 0.05, -0.15, 0.24], [0.012, 0.035, 0.012], [Math.PI, 0, 0]);
+          const w = grp(body, s * 0.2, 0.8, -0.2); w.userData.s = s; ud.wings.push(w);
+          // a pointed wing: widest near the wrist, its lower edge sagging toward the body; the inside is a second, slightly smaller skin in the wing colour
+          const span = [[0, 0.16, 0], [0.3, 0.36, -0.12], [0.62, 0.4, -0.2], [0.9, 0.26, -0.16], [1.12, 0.03, -0.04]];
+          P(w, TT.tube(span.map(r => [r[0], r[1], 0.022, C, 0, s * r[2], 0]), 10), WH, null, null, [0, 0, -s * 0.95]);
+          P(w, TT.tube(span.slice(0, 4).map(r => [r[0] + 0.03, r[1] * 0.84, 0.014, WIN, 0, s * r[2], 0.016]), 10), WH, null, null, [0, 0, -s * 0.95]);
+          P(w, TT.capsule(0.032, 1.1), C, [s * 0.5, 0.42, 0], null, [0, 0, -s * 0.72]); P(w, 'cone', WH, [s * 0.93, 0.68, 0], [0.03, 0.1, 0.03], [0, 0, -s * 0.9]);
+          if (m) { P(body, 'cone', 0x6ab0f0, [s * 0.3, 1.0, -0.02], [0.05, 0.24, 0.05], [0, 0, -s * 0.9]); P(f, 'cone', TT.glow(0x3a8aff), [s * 0.13, -0.12, 0.2], [0.045, 0.22, 0.035], [0.6, 0, -s * 1.3]); }     // shoulder spikes; blue fire at the corners of the mouth
+        }
+        P(f, 'box', 0x7a2a1a, [0, -0.11, 0.228], [0.1, 0.012, 0.012]);
+        TB(body, RG(C, [[0.78, 0.13, 0.12], [0.95, 0.105, 0.1], [1.1, 0.095, 0.09]]), 9);                                         // the long neck
+      } }); };
+  B.charizard = () => charizard(0); B.megacharizard = () => charizard(1);
+  // Blastoise: a heavy turtle with two water cannons in its shell. The Mega form carries one huge cannon on its back and one on each arm.
+  const blastoise = m => { const C = m ? 0x4a74c0 : 0x5a8ad8, GUN = 0xc8ccd6, MUZ = 0x3a3a46;
+    return turtle({ c: C, k: 1.28, eye: 0x7a3a2a, eyeS: 'slit', scale: m ? 1.3 : 1.2,
+      x: (h, f, body, ud) => {
+        P(ud.tail, 'cone', C, [0, 0.03, -0.08], [0.1, 0.26, 0.09], [-1.8, 0, 0]);
+        for (const s of [1, -1]) {
+          P(h, 'cone', C, [s * 0.19, 0.17, -0.03], [0.06, 0.16, 0.035], [0, 0, -s * 0.55]);                                   // small ears
+          P(f, 'cone', WH, [s * 0.05, -0.125, 0.215], [0.012, 0.03, 0.012], [Math.PI, 0, 0]);
+          if (!m) { P(body, 'cyl', GUN, [s * 0.2, 0.82, 0.02], [0.075, 0.42, 0.075], [1.2, 0, 0]); P(body, 'cyl', MUZ, [s * 0.2, 0.9, 0.22], [0.05, 0.04, 0.05], [1.2, 0, 0]); }
+          else { const a = ud.arms.find(q => q.userData.s === s); P(a, 'cyl', GUN, [s * 0.09, -0.2, 0.12], [0.08, 0.3, 0.08], [1.1, 0, 0]); P(a, 'cyl', MUZ, [s * 0.09, -0.27, 0.26], [0.055, 0.04, 0.055], [1.1, 0, 0]); }
+        }
+        if (m) { P(body, 'cyl', GUN, [0, 1.0, -0.06], [0.13, 0.7, 0.13], [1.15, 0, 0]); P(body, 'cyl', MUZ, [0, 1.14, 0.27], [0.09, 0.05, 0.09], [1.15, 0, 0]); P(body, 'cyl', 0x8a5a30, [0, 0.86, -0.36], [0.17, 0.12, 0.17], [1.15, 0, 0]); }
+      } }); };
+  B.blastoise = () => blastoise(0); B.megablastoise = () => blastoise(1);
+  // Venusaur: the bud has opened into a great pink flower on a thick trunk. The Mega form's flower is bigger, with a second bloom on its forehead.
+  const venusaur = m => bulb({ c: 0x5aa8a4, k: 1.42, spot: 0x3a8088, mouth: 0x2a5a5a, scale: m ? 1.25 : 1.15,
+    x: (h, f, body) => {
+      const cy = 0.7, FS = m ? 1.25 : 1;
+      P(body, 'cyl', 0x8a6a3a, [0, cy + 0.1, -0.08], [0.11, 0.3, 0.11]);                                                          // the trunk
+      for (let i = 0; i < 4; i++) { const a = i / 4 * 6.283 + 0.785; P(body, 'sph', 0x3a984a, [Math.sin(a) * 0.3, cy, -0.08 + Math.cos(a) * 0.3], [0.17, 0.045, 0.34], turnTip(a, 0.3)); }       // big leaves
+      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; P(body, 'sph', i % 2 ? 0xf06a8a : 0xe8507a, [Math.sin(a) * 0.24 * FS, cy + 0.3, -0.08 + Math.cos(a) * 0.24 * FS], [0.15 * FS, 0.035, 0.24 * FS], turnTip(a, -0.25)); }      // petals
+      P(body, 'sph', 0xffd84a, [0, cy + 0.33, -0.08], [0.11 * FS, 0.07, 0.11 * FS]);
+      for (const s of [1, -1]) P(f, 'cone', WH, [s * 0.1, -0.19, 0.3], [0.016, 0.045, 0.016], [Math.PI, 0, 0]);
+      if (m) { for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; P(h, 'sph', 0xf06a8a, [Math.sin(a) * 0.07, 0.27, 0.12 + Math.cos(a) * 0.07], [0.05, 0.015, 0.075], turnTip(a, -0.2)); } P(h, 'sph', 0xffd84a, [0, 0.28, 0.12], 0.035); }
+    } });
+  B.venusaur = () => venusaur(0); B.megavenusaur = () => venusaur(1);
+  // Meowscarada: Floragato grown tall, wrapped in a cloak of leaves with a flower at its collar. The Mega form (our own invention, since the real games have none)
+  // keeps the same cat and adds a longer petal-edged cloak, a crown of blossoms and a flower on its tail.
+  const meowscarada = m => { const PALE = 0xcdeab2, DARK = m ? 0x256a34 : 0x2f7a3a, PINK = 0xe85a8a, YEL = 0xffd84a;
+    return crit({ c: PALE, noBody: 1, mask: 'flora', maskC: DARK, b: [0.16, 0.3, 0.14], by: 0.78, hy: 1.32, hz: 0.03, hr: 0.21, hs: [0.215, 0.195, 0.2], legs: 2, legT: 0.045, legX: 0.5, shinC: DARK, legC: DARK, foot: [0.07, 0.045, 0.13],
+      arms: 1, armT: [0.42, 0.04], armC: DARK, ear: 'cat', earC: DARK, earIn: 0xdff0c8, earX: 0.64, earY: 0.55, eyeS: 'big', eye: 0xd0408a, er: 0.19, ex: 0.09, ey: 0.03, ez: 0.19, eyeTurn: 0.3, tail: 'thin', tailC: DARK, tailTip: PINK, tailY: 0.62, scale: m ? 1.2 : 1.1,
+      x: (g, h, body, f, ud) => {
+        sprigFace(h, f, 0.21);
+        TB(body, RG(DARK, [[0.44, 0.07, 0.07], [0.54, 0.13, 0.11], [0.72, 0.14, 0.115], [0.92, 0.13, 0.11], [1.08, 0.105, 0.09], [1.2, 0.07, 0.07]]), 10);
+        P(body, 'sph', PALE, [0, 0.98, 0.075], [0.085, 0.13, 0.05]); P(body, 'cone', PALE, [0, 0.8, 0.1], [0.07, 0.24, 0.035], [Math.PI, 0, 0]);                                    // pale chest fur
+        const L = m ? 0.32 : 0.48;                                                                                                // the cloak: an open shell round the back, from the shoulders down
+        P(body, TT.tube([[1.14, 0.17, 0.15, DARK, 0], [0.9, 0.24, 0.21, DARK, 0], [L + 0.1, 0.33, 0.29, DARK, 0], [L, 0.36, 0.31, m ? PINK : DARK, 0]], 12, [3.4, 6.02]), WH);
+        for (let i = 0; i < 7; i++) { const a = 3.5 + i * 0.4; P(body, 'cone', m ? PINK : DARK, [Math.cos(a) * 0.36, L - 0.04, Math.sin(a) * 0.31], [0.07, 0.16, 0.03], [Math.PI, 0, 0]); }      // its jagged hem
+        for (const pv of ud.arms) pv.position.set(pv.userData.s * 0.15, 1.08, 0.02);
+        const flower = (px, py, pz, r) => { for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283; P(body, 'sph', i % 2 ? PINK : 0xf28ab0, [px + Math.cos(a) * r, py + Math.sin(a) * r, pz], [r * 0.75, r * 0.75, r * 0.25]); } P(body, 'sph', YEL, [px, py, pz + r * 0.2], r * 0.5); };
+        flower(0.09, 1.14, 0.13, 0.055);                                                                                          // the flower at its collar
+        for (const s of [1, -1]) { P(h, 'cone', WH, [s * 0.2, -0.07, 0.04], [0.035, 0.15, 0.03], [0, 0, -s * 1.9]); P(h, 'cone', WH, [s * 0.19, -0.12, 0.02], [0.03, 0.12, 0.028], [0, 0, -s * 2.3]); }
+        if (m) { for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.42; P(h, 'sph', i % 2 ? 0xf28ab0 : PINK, [Math.sin(a) * 0.17, 0.15 + Math.cos(a) * 0.08, 0.1], [0.045, 0.045, 0.02]); P(h, 'sph', YEL, [Math.sin(a) * 0.17, 0.15 + Math.cos(a) * 0.08, 0.115], 0.018); }      // a crown of blossoms
+          flower(-0.12, 0.9, 0.14, 0.04); P(ud.tail, 'sph', PINK, [0, 0.5, -0.32], [0.09, 0.09, 0.04]); P(ud.tail, 'sph', YEL, [0, 0.5, -0.3], 0.03); }
+      } }); };
+  B.meowscarada = () => meowscarada(0); B.megameowscarada = () => meowscarada(1);
+  // Raichu: Pikachu's bigger, orange cousin with curled ears, a cream belly and a long tail ending in a lightning bolt. (A wild catch only: Ash's Pikachu never evolves.)
+  B.raichu = () => { const O = 0xf2a030, BR = 0x7a4a22, YL = 0xffe060; return crit({ c: O, noBody: 1, b: [0.24, 0.3, 0.21], by: 0.42, hy: 0.88, hz: 0.03, hr: 0.25, hs: [0.262, 0.23, 0.24], cheek: 1, legs: 2, legX: 0.6, legC: BR, foot: [0.1, 0.05, 0.2], arms: 1, armT: [0.2, 0.05], er: 0.15, ex: 0.105, ey: 0.03, ez: 0.218, eyeTurn: 0.3, tailY: 0.6, scale: 1.12,
+    x: (g, h, body, f, ud) => {
+      const R = RG(O, [[0.04, 0.13, 0.12], [0.12, 0.22, 0.2], [0.24, 0.27, 0.24], [0.4, 0.265, 0.235], [0.54, 0.21, 0.19], [0.68, 0.15, 0.14]]);
+      TB(body, R, 12); SHELL(body, R.slice(0, 5), 0xfff0c8, 0.8, Math.PI / 2, 1.02, 8);
+      for (const s of [1, -1]) {
+        P(f, 'sph', YL, [s * 0.19, -0.078, 0.168], [0.062, 0.062, 0.03], [0, s * 0.8, 0]);
+        const e = grp(h, s * 0.15, 0.12, 0); e.userData.s = s; e.userData.rz = -s * 1.05; e.rotation.z = e.userData.rz; ud.ears.push(e);
+        TB(e, RG(BR, [[0, 0.05, 0.035], [0.12, 0.085, 0.04], [0.26, 0.075, 0.035], [0.36, 0.045, 0.025]]), 8); P(e, 'cone', YL, [0, 0.17, 0.03], [0.05, 0.26, 0.014]); P(e, 'sph', BR, [s * 0.03, 0.38, 0], [0.06, 0.05, 0.03]);
+        P(f, 'box', 0x7a3a2a, [s * 0.024, -0.07, 0.24], [0.048, 0.011, 0.01], [0, 0, s * 0.45]);
+      }
+      P(f, 'sph', BK, [0, -0.014, 0.247], [0.018, 0.012, 0.01]);
+      TB(ud.tail, RG(BR, [[0, 0.024], [0.3, 0.022, 0.022, 0, 0.1], [0.6, 0.02, 0.02, 0, 0.35], [0.8, 0.018, 0.018, 0, 0.65]]), 6, null, [-1.0, 0, 0]);
+      P(ud.tail, 'box', YL, [0, 1.02, -0.3], [0.05, 0.26, 0.2], [0.5, 0, 0]); P(ud.tail, 'box', YL, [0, 1.2, -0.24], [0.05, 0.2, 0.14], [-0.6, 0, 0]);
+    } }); };
+  // Mega Pikachu (our own invention for LJ): still Pikachu, only charged up. Taller ears, a ruff of lightning, crackling blue streaks and a double-forked tail.
+  B.megapikachu = () => { const g = B.pikachu(); return g; };
   // the Eternal Dragon: a huge green serpent with antlers, whiskers and red eyes
   B.shenron = () => serpent({ c: 0x3aa84a, belly: 0xf2e6a8, bellyUp: 1, n: 18, r0: 0.34, taper: 0.5, hr: 0.36, hs: [0.3, 0.27, 0.5], float: 0.45, top: 1.7, scale: 1.3, wave: [0.22, 0.1], path: k => [Math.sin(k * 8) * 0.6, 0.85 * Math.pow(1 - k, 1.2) + 0.42 * Math.sin(k * 5), 0.5 - k * 3.6], eyeS: 'slit', eye: 0xe01818, er: 0.17, ex: 0.16, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
     seg: (sg, i, r) => { if (i > 0 && i < 16) P(sg, 'cone', 0x2a7a36, [0, r * 0.95, -r * 0.2], [r * 0.22, r * 0.6, r * 0.1], [-0.6, 0, 0]); if (i === 4 || i === 11) for (const s of [1, -1]) { P(sg, TT.capsule(0.05, 0.3), 0x3aa84a, [s * r * 1.3, -r * 0.3, 0], null, [0, 0, s * 1.2]); P(sg, 'sph', 0xf2e6a8, [s * (r * 1.3 + 0.24), -r * 0.5, 0], 0.07); } },
@@ -1231,7 +1323,16 @@
   TT.mon = (sp, lvl) => { const m = { sp, lvl, xp: 0, hp: 0 }; m.hp = TT.maxHp(m); return m; };
   TT.maxHp = m => Math.floor(D[m.sp][2] * (0.5 + m.lvl * 0.08)) + 8;
   TT.stat = (m, i) => D[m.sp][i] * (1 + m.lvl * 0.1);
-  TT.moves = m => { const a = D[m.sp][5].filter(v => v[3] <= m.lvl).slice(m.sup ? -3 : -4); return m.sup ? a.concat([[m.sup[0], m.sup[1], m.sup[2], 1]]) : a; };
+  TT.known = m => { const a = D[m.sp][5].filter(v => v[3] <= m.lvl); return m.sup ? a.concat([[m.sup[0], m.sup[1], m.sup[2], 1]]) : a; };          // every move it has learned so far
+  TT.moves = m => {
+    const k = TT.known(m);
+    if (m.use) { const u = k.filter(v => m.use.indexOf(v[0]) >= 0).slice(0, 4); if (u.length) return u; }
+    if (k.length <= 4) return k;
+    const hit = k.filter(v => !v[4]), trick = k.filter(v => v[4]), keep = hit.slice(trick.length ? -3 : -4).concat(trick.slice(-1));
+    if (m.sup && !keep.some(v => v[0] === m.sup[0])) keep[0] = k[k.length - 1];
+    return k.filter(v => keep.indexOf(v) >= 0);
+  };
+  TT.MOVE_FX = { evade: 'harder to hit', para: 'may stop the foe', atkdn: "weakens the foe's hits", defdn: 'makes the foe softer', atkup: 'hits harder', guard: 'blocks the next hit', heal: 'heals itself' };
   TT.monName = m => D[m.sp][0];
   TT.xpNeed = m => 14 + m.lvl * 10;
 

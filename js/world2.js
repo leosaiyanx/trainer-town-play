@@ -57,7 +57,7 @@
   W.zones.push(
     { name: 'Riverbank', x: 120, z: -62, r: 12, n: 4, lv: [9, 12], pool: ['poliwag', 'poliwag', 'magikarp', 'magikarp', 'psyduck', 'squirtle'], rare: ['dratini', 0.15] },
     { name: 'Windy Meadow', x: 100, z: -142, r: 15, n: 4, lv: [9, 12], pool: ['ponyta', 'ponyta', 'pidgeotto', 'eevee', 'growlithe', 'rattata'] },
-    { name: 'Whisper Forest', x: 190, z: -48, r: 14, n: 4, lv: [10, 13], pool: ['oddish', 'caterpie', 'bulbasaur', 'eevee', 'pikachu', 'butterfree'], rare: ['abra', 0.15] },
+    { name: 'Whisper Forest', x: 190, z: -48, r: 14, n: 4, lv: [10, 13], pool: ['oddish', 'caterpie', 'bulbasaur', 'eevee', 'pikachu', 'butterfree', 'raichu'], rare: ['abra', 0.15] },
     { name: 'Rocky Slope', x: 180, z: -130, r: 11, n: 4, lv: [10, 13], pool: ['geodude', 'geodude', 'machop', 'ponyta', 'magnemite'] });
   W.NPCS.push(
     ['guard2', 'guard', 'Officer Gail', 51.5, -95.5, 0, ["The Wide World is past this gate.", "Only trainers who beat the City Gym can go through."]],
