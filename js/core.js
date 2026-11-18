@@ -386,7 +386,18 @@
     dragon: { bpm: 176, style: 5, lv: 0.07, bright: 7, wave: ['sawtooth', 'square'], ch: 'Em Em C D Em Em C B Am Am Em Em C D B B', lead:
       'E5 . E5 . G5 . F#5 E5 | B5 - A5 . G5 . F#5 . | C5 . E5 . G5 . C6 . | D6 - C6 . B5 . A5 . | E6 . D6 . B5 . G5 . | A5 . B5 . E5 - - . | G5 . A5 . C6 . B5 . | D#5 . F#5 . B5 - - . | ' +
       'A5 . C6 . E6 - D6 C6 | B5 . A5 . E5 - - . | G5 . B5 . E6 - D6 B5 | D6 - B5 . E5 . . . | C6 . B5 . A5 . G5 . | F#5 . G5 . A5 . D6 . | D#6 - - . B5 - - . | F#5 . A5 . B5 . D#6 .' },
-    rocket: { bpm: 138, style: 2, lv: 0.055, ch: 'Dm Dm Bb A', lead: 'D5 . F5 . A5 . G#5 A5 | D6 . C6 . A5 . F5 . | Bb5 . D6 . F6 . D6 . | A5 . C#6 . E6 . A6 .' }
+    rocket: { bpm: 138, style: 2, lv: 0.055, ch: 'Dm Dm Bb A', lead: 'D5 . F5 . A5 . G#5 A5 | D6 . C6 . A5 . F5 . | Bb5 . D6 . F6 . D6 . | A5 . C#6 . E6 . A6 .' },
+    // the Cloud Peaks (calm and airy) and Sunset Island (sunny and bouncy)
+    peaks: { bpm: 96, style: 3, lv: 0.055, ch: 'F C Dm Bb F C Bb C', lead:
+      'A5 - - C6 F6 - - . | E6 - - C6 G5 - - . | F5 - A5 . D6 - - . | D6 - - Bb5 F5 - - . | A5 - - C6 F6 - A6 . | G6 - - E6 C6 - - . | D6 - Bb5 . F5 - G5 . | G5 - - E5 C5 - - .' },
+    island: { bpm: 126, style: 1, lv: 0.055, ch: 'C F G C Am F G G', lead:
+      'E5 . G5 . C6 . G5 E5 | F5 . A5 . C6 - A5 . | G5 . B5 . D6 . B5 G5 | E6 - C6 . G5 - - . | A5 . C6 . E6 . C6 A5 | F5 . A5 . C6 - D6 . | D6 . B5 . G5 . B5 . | D6 - - . G5 - - .' },
+    // the Sky Fortress: a low, sneaky march. And Giovanni's own battle theme: heavy and fast, in a minor key.
+    fortress: { bpm: 104, style: 4, lv: 0.055, ch: 'Cm Cm Ab G Cm Cm Fm G', lead:
+      'C5 . . Eb5 G5 . F5 . | Eb5 . D5 . C5 - - . | Ab4 . C5 . Eb5 . Ab5 . | G5 - F5 . D5 - - . | C5 . . Eb5 G5 . Bb5 . | Ab5 . G5 . Eb5 - - . | F5 . Ab5 . C6 . Ab5 . | G5 . B4 . D5 - - .' },
+    giovanni: { bpm: 178, style: 5, lv: 0.07, bright: 7, wave: ['sawtooth', 'square'], ch: 'Cm Cm Ab Bb Cm Cm Ab G Fm Fm Cm Cm Ab Bb G G', lead:
+      'C5 . C5 . Eb5 . D5 C5 | G5 - F5 . Eb5 . D5 . | Ab4 . C5 . Eb5 . Ab5 . | Bb5 - Ab5 . G5 . F5 . | C6 . Bb5 . G5 . Eb5 . | F5 . G5 . C5 - - . | Eb5 . F5 . Ab5 . G5 . | B4 . D5 . G5 - - . | ' +
+      'F5 . Ab5 . C6 - Bb5 Ab5 | G5 . F5 . C5 - - . | Eb5 . G5 . C6 - Bb5 G5 | Bb5 - G5 . C5 . . . | Ab5 . G5 . F5 . Eb5 . | D5 . Eb5 . F5 . Bb5 . | B5 - - . G5 - - . | D5 . F5 . G5 . B5 .' }
   };
   for (const k in TUNES) { const tn = TUNES[k], p = parse(tn.lead); tn.ev = p.ev; tn.len = p.len; tn.ch = tn.ch.split(' ').map(c => CH[c]); }
 
