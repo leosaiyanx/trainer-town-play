@@ -306,7 +306,7 @@
     r.position.set(e.x, W.gy(e.x, e.z) + (e.lift || 0), e.z); r.rotation.y = e.h;
     const dx = e.x - cam.x, dz = e.z - cam.z, d = mode === 'play' ? Math.hypot(e.x - player.x, e.z - player.z) : Math.hypot(e.x, e.z - SHOW_Z);
     // only what the camera can see (plus a margin) is shown and animated; everything else costs nothing at all
-    r.visible = !e.hidden && (mode === 'play' && !TT.Battle.active ? Math.abs(dx) < viewX && dz > -viewZ && dz < viewS : d < 48); r.matrixWorldAutoUpdate = r.visible;
+    r.visible = !e.hidden && (mode === 'play' ? !TT.Battle.active && Math.abs(dx) < viewX && dz > -viewZ && dz < viewS : d < 48);          // during a battle nobody out in the world is drawn: the battle has its own copies r.matrixWorldAutoUpdate = r.visible;
     if (!r.visible) return;
     const near = d < 26 && quality > 0, u = m.userData;
     if (u.ols && u.olOn !== near) { u.olOn = near; for (const o of u.ols) o.visible = near; }
@@ -1351,6 +1351,7 @@
   function update(dt) {
     W.update(t, camera, mode === 'play' && !TT.Battle.active ? player.x : null, player.z);
     W.showAreas(player.x, player.z, TT.Battle.active || !!flight, mode !== 'play');
+    { const far = TT.Battle.active ? 240 : 900; if (camera.far !== far) { camera.far = far; camera.updateProjectionMatrix(); } }          // a battle's camera looks level across the world: stop it drawing the far-off town behind the stage
     TT.uTime.value = t;
     { const fx = Math.round(TT.Battle.active ? W.ARENA.x : mode === 'play' ? cam.x : 0), fz = Math.round(TT.Battle.active ? W.ARENA.z : mode === 'play' ? cam.z : 0); sun.position.set(fx + 18, 38, fz + 24); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld(); }
     for (const a of actors) { if (a.userData.human) TT.animHuman(a, t, 0); else TT.animCreature(a, t, 0); }

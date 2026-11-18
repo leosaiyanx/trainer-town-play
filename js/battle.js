@@ -107,7 +107,7 @@
 
   // ---------------- glowing particles ----------------
   // Every spark, flame, droplet and puff of smoke in a battle lives in one buffer and is drawn in one go, so an attack can throw out hundreds of them.
-  const FX = { max: 340, p: [], q: (navigator.deviceMemory || 8) <= 4 ? 0.62 : 1 };
+  const MEM = navigator.deviceMemory || 8, FX = { max: 340, p: [], q: MEM <= 2 ? 0.4 : MEM <= 4 ? 0.62 : 1, cap: MEM <= 2 ? 110 : MEM <= 4 ? 160 : 220 };          // slower devices: fewer and smaller particles (measured on the kids' tablets)
   let fxPts = null, fxPos, fxCol, fxSize; const _fc = new THREE.Color(), jit = v => (Math.random() * 2 - 1) * v;
   function fxInit() {
     if (!fxPts) {
@@ -115,8 +115,8 @@
       g.setAttribute('position', new THREE.BufferAttribute(fxPos, 3)); g.setAttribute('col', new THREE.BufferAttribute(fxCol, 4)); g.setAttribute('size', new THREE.BufferAttribute(fxSize, 1)); g.setDrawRange(0, 0);
       // a soft round dot with a white-hot middle; a negative alpha means "no hot middle" (smoke, dust)
       // glowing particles add their light to what is behind them; smoke and dust cover it instead. One blend mode does both: colour is sent already multiplied by alpha.
-      fxPts = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms: { scale: { value: 500 } }, transparent: true, depthWrite: false, premultipliedAlpha: true, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
-        vertexShader: 'attribute float size; attribute vec4 col; varying vec4 vC; uniform float scale; void main(){ vC = col; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = min(220.0, size * scale / -mv.z); gl_Position = projectionMatrix * mv; }',
+      fxPts = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms: { scale: { value: 500 }, cap: { value: FX.cap } }, transparent: true, depthWrite: false, premultipliedAlpha: true, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+        vertexShader: 'attribute float size; attribute vec4 col; varying vec4 vC; uniform float scale; uniform float cap; void main(){ vC = col; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = min(cap, size * scale / -mv.z); gl_Position = projectionMatrix * mv; }',
         fragmentShader: 'varying vec4 vC; void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float glow = step(0.0, vC.a); float a = abs(vC.a) * smoothstep(1.0, 0.25, d); vec3 c = mix(vC.rgb, vec3(1.0), smoothstep(0.65, 0.0, d) * 0.55 * glow); gl_FragColor = vec4(c * a, a * mix(1.0, 0.3, glow)); }' }));
       fxPts.frustumCulled = false; fxPts.renderOrder = 9;
     }
@@ -178,10 +178,11 @@
       const segs = []; for (let i = 0; i < 20; i++) segs.push(P(TT.scene, 'box', TT.glow(i % 2 ? 0xfff27a : 0xffffff), [0, 0, 0], [0.5, i < 10 ? 0.14 : 0.07, 0.1]));
       const zig = (pts, off) => { for (let i = 0; i < 10; i++) { const a = pts[i], b = pts[i + 1], m = segs[off + i]; m.visible = Math.random() > 0.1; m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); m.rotation.set(0, 0, Math.atan2(b[1] - a[1], b[0] - a[0])); m.scale.x = Math.hypot(b[0] - a[0], b[1] - a[1]); } };
       const path = (w, f) => { const pts = []; for (let i = 0; i <= 10; i++) pts.push(f(i / 10, i && i < 10 ? rand(-w, w) : 0)); return pts; };
-      await run(0.36, (q, dt) => { lunge(q); zig(path(0.45, lerp), 0); zig(path(0.8, lerp), 10); const k = Math.random(), pt = lerp(k); fxBurst(5 * pw, pt[0], pt[1], pt[2], { v: 4, life: 0.25, s: 0.12, s1: 0.03, cols: VOLT, a: 1, g: 5 }); });
+      const fork = MEM > 2; if (!fork) for (let i = 10; i < 20; i++) segs[i].visible = false;
+      await run(0.36, (q, dt) => { lunge(q); zig(path(0.45, lerp), 0); if (fork) zig(path(0.8, lerp), 10); const k = Math.random(), pt = lerp(k); fxBurst(5 * pw, pt[0], pt[1], pt[2], { v: 4, life: 0.25, s: 0.12, s1: 0.03, cols: VOLT, a: 1, g: 5 }); });
       flash('#fff6b0', 0.6); B.shake = Math.max(B.shake, 0.5);
       const sky = (k, w) => [x1 + w, 10 - k * (10 - y1), z1];
-      await run(0.24, () => { zig(path(0.5, sky), 0); zig(path(0.9, sky), 10); fxBurst(8 * pw, x1, y1, z1, { v: 6, life: 0.3, s: 0.14, s1: 0.03, cols: VOLT, a: 1, g: 8 }); });
+      await run(0.24, () => { zig(path(0.5, sky), 0); if (fork) zig(path(0.9, sky), 10); fxBurst(8 * pw, x1, y1, z1, { v: 6, life: 0.3, s: 0.14, s1: 0.03, cols: VOLT, a: 1, g: 8 }); });
       kill(segs);
     } else if (type === 'grass' || type === 'bug') {   // razor leaves spinning in a sparkling green wind
       const ps = []; for (let i = 0; i < 11; i++) { const m = P(TT.scene, 'sph', TT.glow(i % 2 ? 0x7ad85a : 0x4aa84a), [x0, y0, z], [0.26, 0.035, 0.12]); m.visible = false; ps.push(m); }
@@ -615,6 +616,7 @@
     st = { noCatch: !!opts.noCatch, foes: opts.foes, fi: 0, wild: !!opts.wild, easy: !!opts.easy, obj: {}, extras: [], humans: [], assists: [], trainers: [], trainer: opts.trainer || '', people: opts.people || [], allies: (opts.allies || []).map(a => Object.assign({}, a)), stage, rageMul: 1, bt: 0, turn: 0, allyObjs: [] };
     if (S.hard) for (const m of st.foes) { if (m.up) continue; m.up = 1; if (m.boss) { m.mx = Math.round(m.mx * 1.25); m.hp = m.mx; } else { m.lvl += st.wild ? 1 : 2; m.hp = TT.maxHp(m); } }          // Challenge: tougher foes
     st.foe = st.foes[0]; st.me = S.party.find(m => m.hp > 0);
+    fxInit(); fxAdd(A().x, 1, A().z, 0, 0, 0, 0.3, 0.05, 0.05, 0xffffff, null, 0.02);          // one faint speck: makes the graphics chip get the particle shader ready now
     B.active = true; camK = 0; cam.f = cam.tf = 0; cam.z = cam.tz = 0;
     st.me_h = addHuman(S.ch, -4.7, -0.9, 1.25);
     st.people.forEach((k, i) => st.trainers.push(addHuman(k, 4.3 + i * 1.5, 0.1 - i * 1.9, -1.25)));
