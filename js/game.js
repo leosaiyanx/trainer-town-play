@@ -104,6 +104,8 @@
       if (q.get('lvl')) S.party.forEach(m => { m.lvl = +q.get('lvl'); m.hp = TT.maxHp(m); });
       if (q.get('party')) S.party = q.get('party').split(',').map(k => TT.mon(k, 5));
       if (q.get('far')) S.camFar = +q.get('far');
+      if (q.get('hard')) { S.hard = +q.get('hard'); S.easy = 0; }
+      if (q.get('ride')) setTimeout(() => rideTo(q.get('ride')), 1500);
       if (q.get('fx')) { let on = 0; setInterval(() => { if (on || !TT.Battle.active || !/^What will/.test($('bmsg').textContent)) return; on = 1; const o = TT.tween, k = +(q.get('fxs') || 6); TT.tween = (d, f) => o(d * k, f); (async () => { for (;;) { await TT.Battle.fxTest(q.get('fx'), 1.5); } })(); }, 200); }      // test: loop one move's effect in slow motion
       if (q.get('duo')) { duoForce = q.get('duo'); duoWait = 1.2; }
       if (q.get('walk')) setTimeout(() => { input.keys[q.get('walk')] = 1; }, 900);
@@ -123,7 +125,7 @@
   }
 
   function newSave(ch) { return { v: 1, ch, party: [TT.mon(STARTER[ch], 5)], box: [], balls: 3, stars: [], egg: { have: false, warm: 0 }, flags: {}, rocket: 0, caught: [] }; }
-  function save() { if (!S) return; S.ts = Date.now(); S.nm = pname; if (mode === 'play' && !TT.Battle.active) S.pos = [Math.round(player.x * 10) / 10, Math.round(player.z * 10) / 10]; try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { } cloudDirty = true; }
+  function save() { if (!S) return; S.ts = Date.now(); S.nm = pname; if (mode === 'play' && !TT.Battle.active && !flight) S.pos = [Math.round(player.x * 10) / 10, Math.round(player.z * 10) / 10]; try { localStorage.setItem(slot, JSON.stringify(S)); } catch (e) { } cloudDirty = true; }
   // ---- online saves (only when js/config.js has a database address and a family code is set) ----
   const CLOUD = String(window.TT_CLOUD || '').replace(/\/$/, '');
   const cloudUrl = () => CLOUD && Net.room ? CLOUD + '/saves/' + Net.room + '/' + encodeURIComponent(slot) + '.json' : '';
@@ -428,6 +430,58 @@
       blast: [[[T, "Looks like Team Rocket's blasting off agaaaain!"]], [[T, "We're blasting off agaaaain!"]], [[T, 'Up, up and away we go agaaaain!']], [[T, 'See you next time, twerp! Whoaaaa!']], [[T, 'Not the sky agaaaain!']]],
     };
   })();
+
+  // ---------- riding a flying Pokémon through the Sky Pass ----------
+  // With a big flying Pokémon on the team (or a lift from Goku's Rayquaza or Gohan's Lugia), the trainer climbs on and steers it up the valley: round the spires, through the golden rings.
+  const FLYERS = ['charizard', 'pidgeot', 'articuno', 'zapdos', 'moltres', 'lugia', 'rayquaza', 'dragonair'];
+  let flight = null; const RINGG = new THREE.TorusGeometry(1, 0.09, 6, 30);
+  const flyMount = () => { const m = S.party.find(q => q.hp > 0 && FLYERS.indexOf(q.sp) >= 0); return m ? m.sp : S.flags.goku ? 'rayquaza' : S.flags.gohan ? 'lugia' : null; };
+  async function rideTo(k) {
+    const sp = flyMount(), SK = W.SKY; if (busy || !SPAWN[k] || !sp) return; closePanel(); busy = flying = true; stopInput(); setDest(null); duoEnd();
+    TT.sfx.whoosh(); poof(player.x, player.z); await TT.wipeTo(1, 0.45, 1, 0xf4fbff);
+    // the mount: a holder that banks, and inside it the Pokémon tipped forward into a flying pose
+    const hold = new THREE.Group(), tip = new THREE.Group(), mon = TT.creature(sp), ud = mon.userData, serp = ud.kind === 'serpent', sc = TT.clamp(3.0 / (ud.h || 1.5), 1.1, 2.4), tip0 = serp ? 0 : ud.kind === 'float' ? 0.5 : 1.05;
+    mon.scale.multiplyScalar(sc); if (!serp) mon.position.y = -(ud.h || 1.5) * sc * 0.42; tip.rotation.x = tip0; tip.add(mon); hold.add(tip); hold.rotation.y = Math.PI; scene.add(hold);
+    const rings = SK.rings.map(r => ({ o: P(scene, RINGG, TT.glow(0xffd23a), [r[0], r[1], r[2]], 2.4), x: r[0], y: r[1], z: r[2], done: 0 }));
+    flight = { k, sp, hold, tip, tip0, mon, rings, x: SK.cx(SK.z0), camx: SK.cx(SK.z0), y: 11, z: SK.z0, vx: 0, vy: 0, v: 13, got: 0, bumps: 0, seat: serp ? 0.55 : 0.5, end: 0 };
+    follower.hidden = true; comps.forEach(c => { c.hidden = true; }); player.root.userData.model.userData.idleForce = 17; areaNow = 'sky';
+    $('quest').textContent = '🪽 Steer with the stick. Fly through the golden rings!';
+    flightTick(0); TT.cry(sp); TT.music('world'); TT.wipeTo(0, 0.5, 1, 0xf4fbff);
+  }
+  function flightTick(dt) {
+    const F = flight, SK = W.SKY, k = input.keys; if (F.end > 1) return;
+    const ix = TT.clamp(input.x + (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0), -1, 1), iy = TT.clamp(-input.y + (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), -1, 1);
+    F.vx += (ix * 9.5 - F.vx) * Math.min(1, dt * 4.5); F.vy += (iy * 7 - F.vy) * Math.min(1, dt * 4.5); F.v += (13 - F.v) * Math.min(1, dt * 1.2);
+    F.x += F.vx * dt; F.y = TT.clamp(F.y + F.vy * dt, SK.lo, SK.hi); F.z -= F.v * dt;
+    const c = SK.cx(F.z), dx = F.x - c; if (Math.abs(dx) > SK.half) { F.x = c + Math.sign(dx) * SK.half; F.vx *= -0.3; }
+    for (const o of SK.peaks) {            // a spire in the way: bounce off it and lose some speed (nobody gets hurt)
+      if (Math.abs(o.z - F.z) > o.r + 2 || F.y > o.h + 0.5) continue;
+      const rr = o.r * (1 - F.y / (o.h + 4)) + 1.1, d = Math.hypot(F.x - o.x, F.z - o.z);
+      if (d < rr) { const s = F.x >= o.x ? 1 : -1; F.x = o.x + s * rr; F.vx = s * 7; if (F.v > 8) { F.bumps++; TT.sfx.hit(); F.shake = 0.35; } F.v = 6; }
+    }
+    for (const r of F.rings) {
+      if (r.done === 1) { r.o.scale.multiplyScalar(Math.max(0, 1 - dt * 7)); continue; }
+      r.o.rotation.z += dt * 1.6;
+      if (!r.done && F.z < r.z) { if (Math.hypot(F.x - r.x, F.y - r.y) < 2.6) { r.done = 1; F.got++; TT.sfx.star(); $('quest').textContent = '🪽 Rings: ' + F.got + ' of ' + F.rings.length; } else r.done = 2; }
+    }
+    F.hold.position.set(F.x, F.y, F.z); F.hold.rotation.z = F.vx * 0.045; F.tip.rotation.x = F.tip0 - F.vy * 0.035; TT.animCreature(F.mon, t, 1);
+    player.x = cam.x = F.x; player.z = cam.z = F.z + 0.1; player.lift = F.y + F.seat; player.h = Math.PI; player.mv = 0;
+    if (F.z <= SK.z1 && !F.end) { F.end = 1; rideEnd(); }
+  }
+  function flightCam(dt) {            // from behind and above, looking up the valley
+    const F = flight, SK = W.SKY, c = SK.cx(F.z), port = camera.aspect < 1 ? 1.35 : 1; F.camx += (F.x - F.camx) * Math.min(1, dt * 3.5); F.shake = Math.max(0, (F.shake || 0) - dt);
+    camera.position.set(F.camx * 0.8 + c * 0.2 + (F.shake ? rand(-0.3, 0.3) : 0), F.y * 0.55 + 9.5 * port, F.z + 13 * port); camera.lookAt(F.x * 0.85 + c * 0.15, F.y * 0.8 + 1.2, F.z - 15);
+  }
+  async function rideEnd() {
+    const F = flight, k = F.k, p = SPAWN[k]; await TT.wipeTo(1, 0.45, 1, 0xf4fbff); F.end = 2;
+    scene.remove(F.hold); TT.dispose(F.mon); F.rings.forEach(r => scene.remove(r.o)); flight = null;
+    player.root.userData.model.userData.idleForce = null; follower.hidden = false; comps.forEach(c => { c.hidden = false; });
+    player.x = cam.x = p[0]; player.z = cam.z = p[1]; player.lift = 0; camY = W.gy(p[0], p[1]); vel.x = vel.z = 0; follower.x = p[0] + 1; follower.z = p[1] + 0.8; comps.forEach((c, i) => { c.x = p[0] - 1 - i; c.z = p[1] + 1.5; });
+    areaNow = k; arrive(k); TT.music(TT.areaMusic());
+    const n = F.got, all = F.rings.length, prize = n >= all ? 5 : n >= all / 2 ? 2 : 0; S.balls += prize; S.bestRings = Math.max(S.bestRings || 0, n);
+    await TT.wait(0.2); TT.wipeTo(0, 0.45, 1, 0xf4fbff); poof(p[0], p[1]); TT.sfx.pick();
+    TT.toast('🪽 You flew through ' + n + ' of ' + all + ' rings!' + (prize ? ' You won ' + prize + ' Poké Balls!' : '')); busy = flying = false; hud(); save();
+  }
 
   // ---------- the Dragon Radar and grown-up help ----------
   // Bulma gives the real radar after the first wish. Dad always has one, and a grown-up can lend it to a child for a while (from Dad mode, or from the menu on the child's own device).
@@ -932,16 +986,17 @@
     };
   }
   function showMap() {
-    const here = areaKey(player.x, player.z), f = S.flags;
-    const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? '📍 You are here' : 'Tap Fly to jump there') + '</small>' + pbar(areaProgress(key).pct) + '<span class="prow">' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' : '') + '<button class="seemap">🗺 Map</button></span></div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
+    const here = areaKey(player.x, player.z), f = S.flags, mount = flyMount();
+    const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? '📍 You are here' : 'Tap Fly to jump there') + '</small>' + pbar(areaProgress(key).pct) + '<span class="prow">' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' + (mount ? '<button class="fly ride" data-ride="' + key + '">🪽 Ride ' + TT.DEX[mount][0] + '</button>' : '') : '') + '<button class="seemap">🗺 Map</button></span></div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
     const keys = ['town', 'city', 'world', 'volcano'], all = Math.round(keys.reduce((a, k) => a + areaProgress(k).pct, 0) / keys.length);
     let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="whole"><b>My whole adventure</b>' + pbar(all) + '</div><div class="mapgrid">' + card('town', '🏡', 'Trainer Town', true) + card('city', '🏙️', 'The City', f.city, 'Ask Officer Gus at the gate') +
       card('world', '🌍', 'The Wide World', f.world, 'Beat the City Gym first') + card('volcano', '🌋', 'The Volcano', f.tunnel, 'Find the tunnel in the Wide World') + '</div><div class="stars">';
     for (let i = 1; i <= 7; i++) h += '<i class="' + (S.stars.indexOf(i) >= 0 ? 'got' : '') + '">' + '★'.repeat(i > 4 ? 1 : i) + (i > 4 ? i : '') + '</i>';
     h += '</div><p style="text-align:center;font-weight:700;margin:4px 0 10px">Dragon Balls: ' + S.stars.length + ' / 7</p><p style="text-align:center;margin:0"><button id="pReset" style="background:none;text-decoration:underline;font-size:13px;opacity:.6">Start this character over</button></p>';
     openPanel(h);
-    document.querySelectorAll('[data-a]').forEach(el => el.onclick = e => { if (e.target.dataset && e.target.dataset.fly) return; showAreaMap(el.dataset.a); });
+    document.querySelectorAll('[data-a]').forEach(el => el.onclick = e => { if (e.target.dataset && (e.target.dataset.fly || e.target.dataset.ride)) return; showAreaMap(el.dataset.a); });
     document.querySelectorAll('[data-fly]').forEach(bt => bt.onclick = e => { e.stopPropagation(); flyTo(bt.dataset.fly); });
+    document.querySelectorAll('[data-ride]').forEach(bt => bt.onclick = e => { e.stopPropagation(); rideTo(bt.dataset.ride); });
     $('pReset').onclick = () => { if (confirm('Erase ' + pname + "'s saved game and start over?")) { localStorage.removeItem(slot); const u = cloudUrl(); if (u) fetch(u, { method: 'DELETE', keepalive: true }).catch(() => { }); setTimeout(() => location.reload(), 300); } };
   }
   const SPAWN = { town: [0, 8], city: [0, -80], world: [80, -100], volcano: [333, -100] };
@@ -997,14 +1052,14 @@
     $('mvBack').onclick = showTeam;
   }
   function showMenu() {
-    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = '🛟 Easy mode: ' + (S.easy ? 'On — stronger hits, gentler bosses, free healing' : 'Off'); $('mCam').textContent = '🎥 Camera: ' + (S.camFar ? 'Far (see more)' : 'Close (bigger characters)'); };
+    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = S.easy ? '🛟 Battles: Easy — stronger hits, gentler bosses, free healing' : S.hard ? '🔥 Battles: Challenge — smarter, tougher foes, timing taps, more XP' : '⚔ Battles: Normal'; $('mCam').textContent = '🎥 Camera: ' + (S.camFar ? 'Far (see more)' : 'Close (bigger characters)'); };
     openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt" id="mCam"></button><button class="opt" id="mHelp">🧰 Grown-up help (radar, healing, unstick)</button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
     lab();
     $('mResume').onclick = closePanel;
     $('mSound').onclick = () => { TT.setMuted(!TT.muted); lab(); };
     $('mVoice').onclick = () => { TT.setVoice(!TT.voiceOn); lab(); if (TT.voiceOn) TT.cry(S.party[0].sp); };
     $('mMini').onclick = () => { setMini(!miniOn); lab(); };
-    $('mEasy').onclick = () => { S.easy = S.easy ? 0 : 1; if (S.easy) S.party.forEach(m => m.hp = TT.maxHp(m)); save(); lab(); TT.sfx.pick(); };
+    $('mEasy').onclick = () => { if (S.easy) { S.easy = 0; S.hard = 0; } else if (S.hard) { S.hard = 0; S.easy = 1; S.party.forEach(m => m.hp = TT.maxHp(m)); } else S.hard = 1; save(); lab(); TT.sfx.pick(); };          // Easy → Normal → Challenge → Easy
     $('mCam').onclick = () => { S.camFar = S.camFar ? 0 : 1; save(); lab(); TT.sfx.blip(); };
     $('mHelp').onclick = showHelp;
     $('mTitle').onclick = toTitle;
@@ -1242,7 +1297,7 @@
   // ---------- main update ----------
   function update(dt) {
     W.update(t, camera, mode === 'play' && !TT.Battle.active ? player.x : null, player.z);
-    W.showAreas(player.x, player.z, TT.Battle.active, mode !== 'play');
+    W.showAreas(player.x, player.z, TT.Battle.active || !!flight, mode !== 'play');
     TT.uTime.value = t;
     { const fx = Math.round(TT.Battle.active ? W.ARENA.x : mode === 'play' ? cam.x : 0), fz = Math.round(TT.Battle.active ? W.ARENA.z : mode === 'play' ? cam.z : 0); sun.position.set(fx + 18, 38, fz + 24); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld(); }
     for (const a of actors) { if (a.userData.human) TT.animHuman(a, t, 0); else TT.animCreature(a, t, 0); }
@@ -1263,6 +1318,7 @@
     if (show) { const on = mode !== 'play' && !TT.Battle.active; if (show.g.visible !== on) show.g.visible = show.g.matrixWorldAutoUpdate = on; }
     if (mode !== 'play') { if (show) updateShow(dt); W.updateMotes(t, 0, SHOW_Z, 0); return; }
 
+    if (flight) flightTick(dt);
     const idle = !busy && !panelOpen && !TT.dialogOpen;
     if (idle) {
       playT += dt; battleCd -= dt;
@@ -1355,8 +1411,9 @@
       camera.position.set(cam.x, camY + camTy + ch, cam.z - 1 + cb); camera.lookAt(cam.x, camY + camTy, cam.z - 1);
       // how much ground this view shows: only people and Pokémon inside it are drawn and animated
       { const h = ch + camTy, lo = Math.max(0.12, camP - 0.349), far = Math.min(62, h / Math.tan(lo)); viewZ = far - cb + 8; viewS = cb - h / Math.tan(camP + 0.349) + 5; viewX = Math.min(72, h / Math.sin(lo)) * 0.42 * camera.aspect + 5; }
+      if (flight) flightCam(dt);
       // area music and a little title card when you arrive somewhere new
-      const ak = areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World', volcano: '🌋 The Volcano' }[ak]); areaNow = ak; arrive(ak); }
+      const ak = flight ? areaNow : areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World', volcano: '🌋 The Volcano' }[ak]); areaNow = ak; arrive(ak); }
       if (!busy && !TT.dialogOpen) { const m = TT.areaMusic(); if (TT.musicName() !== m) TT.music(m); }
       { const want = summoning ? 'summon' : ak === 'volcano' ? 'volcArea' : null; if (W.stageNow !== want) W.applyStage(want); }
       for (const b of ballObjs) { b.o.rotation.y = t * 1.6; b.o.position.y = W.gy(b.d.x, b.d.z) + 0.6 + Math.sin(t * 2.4 + b.d.n) * 0.12; }

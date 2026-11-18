@@ -274,3 +274,12 @@ small.pct{display:block;font-weight:800;font-size:13px;margin-top:2px}
 @media (max-width:560px){.kareas{grid-template-columns:repeat(2,1fr)}.kh b{font-size:19px}}
 .mvrow{display:block;width:100%;text-align:left;background:#fff;border:2px dashed #9fb0c8;border-radius:12px;padding:6px 12px;margin:-4px 0 10px;font-weight:700;font-size:14px;color:#23324a}.mvrow b{color:#c2410c}
 #bmenu button.mega{color:#23324a;text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.fly.ride{background:#ffe9a8}
+#tapRing{position:absolute;inset:0;display:none;z-index:6;touch-action:none}
+#tapRing.on{display:block}
+#tapRing b,#tapRing i{position:absolute;left:50%;top:44%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;box-sizing:border-box}
+#tapRing b{border:8px solid #fff;box-shadow:0 0 0 4px #23324a,inset 0 0 0 4px #23324a;background:rgba(255,255,255,.18)}
+#tapRing i{border:9px solid var(--tc,#ffd23a);box-shadow:0 0 18px var(--tc,#ffd23a)}
+#tapRing span{position:absolute;left:0;right:0;top:calc(44% + 76px);text-align:center;font:900 30px/1 Fredoka,system-ui,sans-serif;color:#fff;text-shadow:0 3px 0 #23324a,0 0 10px rgba(0,0,0,.4)}
+#tapRing.perfect b{background:rgba(255,220,60,.75)}#tapRing.good b{background:rgba(120,230,140,.6)}#tapRing.miss b{background:rgba(120,130,150,.5)}
+#tapRing.perfect i,#tapRing.good i,#tapRing.miss i{display:none}

@@ -332,6 +332,23 @@
     }
     focus(0, 0);
   }
+  // ---------------- how hard a battle is ----------------
+  // Each child picks Easy, Normal or Challenge in the menu. On top of that every battle gets a little sharper the further the story has gone (tier 0–4).
+  const hard = () => !!(TT.S && TT.S.hard) && !st.watch, easyOn = () => !!(TT.S && TT.S.easy);
+  const tier = () => { const f = TT.S.flags; return (f.city ? 1 : 0) + (f.world ? 1 : 0) + (f.tunnel ? 1 : 0) + (TT.S.wishes ? 1 : 0); };
+  const critP = side => side === 'foe' ? (easyOn() ? 0 : 0.03 + tier() * 0.012 + (hard() ? 0.05 : 0)) : 0.07 + tier() * 0.01;
+  // Timing taps (not in Easy mode): a ring closes on a circle. Tap as they meet for a stronger hit, or, in Challenge, to brace against the foe's hit.
+  function timing(label, col) {
+    return new Promise(res => {
+      let el = $('tapRing'); if (!el) { el = document.createElement('div'); el.id = 'tapRing'; el.innerHTML = '<i></i><b></b><span></span>'; $('battle').appendChild(el); }
+      const ring = el.querySelector('i'), txt = el.querySelector('span'); el.style.setProperty('--tc', col); txt.textContent = label; el.className = 'on';
+      const dur = hard() ? 0.72 : 0.9, t0 = performance.now(); let done = false, raf = 0;
+      const end = k => { if (done) return; done = true; cancelAnimationFrame(raf); el.removeEventListener('pointerdown', tap); txt.textContent = k > 1.2 ? 'Perfect!' : k > 1 ? 'Good!' : k < 0 ? 'Too late!' : 'Missed!'; el.className = 'on ' + (k > 1.2 ? 'perfect' : k > 1 ? 'good' : 'miss'); if (k > 1) TT.sfx.star(); setTimeout(() => { el.className = ''; res(k > 1.2 ? 2 : k > 1 ? 1 : 0); }, 330); };
+      const tap = e => { e.preventDefault(); e.stopPropagation(); const q = (performance.now() - t0) / 1000 / dur, off = Math.abs(q - 1); end(off < 0.11 ? 1.3 : off < 0.27 ? 1.1 : 0.5); };
+      const frame = () => { const q = (performance.now() - t0) / 1000 / dur; ring.style.transform = 'scale(' + Math.max(0.55, 2.7 - 1.7 * q) + ')'; if (q > 1.32) end(-1); else raf = requestAnimationFrame(frame); };
+      el.addEventListener('pointerdown', tap); frame();
+    });
+  }
   // ---------------- moves that are not attacks ----------------
   // What a trick has done to each side's Pokémon lasts while that Pokémon stays out: ev = turns of dodging, para = turns of paralysis, atk / def = multipliers, guard = blocks the next hit.
   const modOf = side => { const M = st.mod || (st.mod = {}), cur = side === 'me' ? st.me : st.foe; if (!M[side] || M[side].m !== cur) M[side] = { m: cur, ev: 0, para: 0, atk: 1, def: 1, guard: 0 }; return M[side]; };
@@ -385,7 +402,9 @@
   }
   // which move the other side uses: mostly attacks, now and then a trick that would actually help
   const foeMove = () => { const mv = TT.moves(st.foe), hit = mv.filter(v => !v[4]), M = modOf('foe'), tr = mv.filter(v => v[4] && !(v[4] === 'guard' && M.guard) && !(v[4] === 'heal' && st.foe.hp > mxOf(st.foe) * 0.6) && !(v[4] === 'para' && modOf('me').para) && !(v[4] === 'evade' && M.ev) && !(v[4] === 'atkup' && M.atk > 1.3));
-    return tr.length && hit.length && Math.random() < (st.easy ? 0.1 : 0.2) ? TT.pick(tr) : TT.pick(hit.length ? hit : mv); };
+    if (tr.length && hit.length && Math.random() < (easyOn() ? 0.06 : 0.12 + tier() * 0.03 + (hard() ? 0.1 : 0))) return TT.pick(tr);
+    const pool = hit.length ? hit : mv, my = TT.DEX[st.me.sp][1], best = pool.slice().sort((a, b) => b[2] * TT.eff(b[1], my) - a[2] * TT.eff(a[1], my))[0];
+    return Math.random() < TT.clamp(0.2 + tier() * 0.13 + (hard() ? 0.25 : 0) - (easyOn() ? 0.2 : 0), 0, 0.92) ? best : TT.pick(pool); };
   // test hook: play one move's visuals in the current battle without changing anything, e.g. TT.Battle.fxTest('fire', 1.5)
   B.fxTest = (type, pw, foe) => st ? animAtk(foe ? st.obj.foe : st.obj.me, foe ? st.obj.me : st.obj.foe, type, 12, 1, () => { }, pw) : null;
   async function attack(att, def, mv, ao, dobj, mult, who) {
@@ -397,14 +416,16 @@
     if (mv[4]) return trick(mv[4], mv[1], am, dm, ao, dobj, att, an, dn);
     if (dm && dm.guard) { dm.guard = 0; await shieldFx(dobj); await say(dn + ' blocked it!', 0.8); return; }
     if (dm && dm.ev > 0) { dm.ev--; if (Math.random() < 0.45) { await dodgeFx(dobj); await say(dn + ' dodged it!', 0.8); return; } }
-    const eff = TT.eff(mv[1], TT.DEX[def.sp][1]);
+    const eff = TT.eff(mv[1], TT.DEX[def.sp][1]), crit = !st.watch && as && Math.random() < critP(as);
     // Easy mode (a switch in the menu, per child): your side hits harder and takes less
     const ez = TT.S && TT.S.easy && !st.watch ? (dobj === st.obj.foe ? 1.4 : dobj === st.obj.me ? 0.65 : 1) : 1;
-    const dmg = Math.max(1, Math.floor(mv[2] * TT.stat(att, 3) / TT.stat(def, 4) * 0.3 * (mult || 1) * eff * ez * (am ? am.atk : 1) * (dm ? dm.def : 1) * megaK(att) / megaD(def) * TT.rand(0.85, 1)));
+    const dmg = Math.max(1, Math.floor(mv[2] * TT.stat(att, 3) / TT.stat(def, 4) * 0.3 * (mult || 1) * eff * ez * (am ? am.atk : 1) * (dm ? dm.def : 1) * megaK(att) / megaD(def) * (crit ? 1.5 : 1) * TT.rand(0.85, 1)));
     const hp = Math.max(0, def.hp - dmg);
-    const pw = TT.clamp(mv[2] / 55, 0.75, 1.7) * (att.sup && att.sup[0] === mv[0] ? 1.15 : 1);          // stronger moves look bigger
+    const pw = TT.clamp(mv[2] / 55, 0.75, 1.7) * (att.sup && att.sup[0] === mv[0] ? 1.15 : 1) * (crit ? 1.25 : 1);          // stronger moves look bigger
     emit('atk', { s: sideOf(ao), ty: mv[1], dmg, hp, eff, pw });
+    if (crit) { flash('#fff2b0', 0.5); B.shake = Math.max(B.shake, 0.6); }
     await animAtk(ao, dobj, mv[1], dmg, eff, () => { def.hp = hp; bars(); }, pw);
+    if (crit) await say(oneOf('crit', ['A critical hit!', 'Right on the weak spot! A critical hit!', 'Wham! A critical hit!']), 0.7);
     if (eff > 1) await say(oneOf('se', ["It's super effective!", 'A super effective hit!', 'That really worked!', 'Super effective! What a hit!']), 0.8); else if (eff < 1) await say(oneOf('nve', ["It's not very effective...", 'That barely tickled...', 'Not very effective. Try another move!']), 0.8);
   }
   async function faint(o, dir) {
@@ -513,7 +534,8 @@
 
   // ---------------- XP, evolution, catching ----------------
   async function gainXp(m, amount) {
-    m.xp += amount; await say(TT.monName(m) + ' got ' + amount + ' XP!', 0.8); bars();
+    if (hard()) amount = Math.round(amount * 1.3);          // Challenge pays better
+    m.xp += amount; await say(TT.monName(m) + ' got ' + amount + ' XP!' + (hard() ? ' (Challenge bonus)' : ''), 0.8); bars();
     while (m.xp >= TT.xpNeed(m)) {
       m.xp -= TT.xpNeed(m); m.lvl++; m.hp = TT.maxHp(m); TT.sfx.level(); bars();
       const o = st.obj.me, x = o.position.x, z = o.position.z, sp = parts(10, [0xffe060, 0xffffff], x, 0, z, 0.09);
@@ -591,6 +613,7 @@
     await TT.wipeTo(1, 0.5, 0);
     TT.camZoom = 1; W.ARENA = W.STAGES[stage]; W.applyStage(stage);
     st = { noCatch: !!opts.noCatch, foes: opts.foes, fi: 0, wild: !!opts.wild, easy: !!opts.easy, obj: {}, extras: [], humans: [], assists: [], trainers: [], trainer: opts.trainer || '', people: opts.people || [], allies: (opts.allies || []).map(a => Object.assign({}, a)), stage, rageMul: 1, bt: 0, turn: 0, allyObjs: [] };
+    if (S.hard) for (const m of st.foes) { if (m.up) continue; m.up = 1; if (m.boss) { m.mx = Math.round(m.mx * 1.25); m.hp = m.mx; } else { m.lvl += st.wild ? 1 : 2; m.hp = TT.maxHp(m); } }          // Challenge: tougher foes
     st.foe = st.foes[0]; st.me = S.party.find(m => m.hp > 0);
     B.active = true; camK = 0; cam.f = cam.tf = 0; cam.z = cam.tz = 0;
     st.me_h = addHuman(S.ch, -4.7, -0.9, 1.25);
@@ -642,16 +665,25 @@
         if (S.balls <= 0) { await say('No Poké Balls left! Find more around town.', 1.3); foeTurn = false; }
         else if (await throwBall()) { result = 'caught'; await gainXp(st.me, st.foe.lvl * 6 + 4); break; }
       } else {
-        await attack(st.me, st.foe, act.mv, st.obj.me, st.obj.foe, st.easy ? 1.5 : 1);
+        let tb = 1; if (!easyOn() && !act.mv[4]) { setMsg('Tap as the ring closes!'); const k = await timing('Tap!', '#ffd23a'); tb = k === 2 ? 1.3 : k === 1 ? 1.12 : 1; }
+        await attack(st.me, st.foe, act.mv, st.obj.me, st.obj.foe, (st.easy ? (hard() ? 1.15 : 1.5) : 1) * tb);
         if (st.foe.hp <= 0) { if (await foeDown()) { result = 'win'; break; } foeTurn = false; }
         else await checkRage();
       }
       // allies take turns joining in: one helps every turn when there are two, every other turn when there is one
       if (act.t !== 'assist' && st.allies.length && st.foe.hp > 0) { st.turn++; const a = st.allies.length > 1 ? st.allies[st.turn % st.allies.length] : st.turn % 2 ? st.allies[0] : null; if (a) st.assists.push(Object.assign({ lvl: st.me.lvl + 4 }, a)); }
       if (foeTurn) {
-        const mult = (st.easy ? 0.35 : 0.7) * st.rageMul;
-        if (!(st.foe.boss && ++st.bt % 3 === 0 && await bossSig(st.foe, st.obj.foe, st.obj.me, st.me, mult)))
-          await attack(st.foe, st.me, foeMove(), st.obj.foe, st.obj.me, mult);
+        let mult = (hard() ? (st.easy ? 0.6 : 0.9) : st.easy ? 0.35 : 0.7) * st.rageMul;
+        const fmx = mxOf(st.foe);
+        if (hard() && !st.wild && !st.foe.boss && !st.potion && st.foe.hp < fmx * 0.3 && Math.random() < 0.6) {            // Challenge: a trainer may use one potion
+          st.potion = 1; st.foe.hp = Math.min(fmx, st.foe.hp + Math.round(fmx * 0.4)); bars(); await arrowsFx(st.obj.foe, 1, 0x7ae87a); await say(st.trainer + ' used a Super Potion!', 1);
+        } else if (hard() && st.foe.boss && !st.wind && st.foe.hp < fmx * 0.25) {                                       // Challenge: a boss finds a second wind
+          st.wind = 1; st.foe.hp += Math.round(fmx * 0.2); bars(); TT.cry(st.foe.sp, 0.6); B.shake = 0.8; flash('#ffe0c0', 0.5); await arrowsFx(st.obj.foe, 1, 0xff6a3a); await say(TT.monName(st.foe) + ' found a second wind!', 1.1);
+        } else {
+          if (hard()) { setMsg('Brace! Tap as the ring closes!'); const k = await timing('Brace!', '#6ad8ff'); mult *= k === 2 ? 0.7 : k === 1 ? 0.85 : 1; }
+          if (!(st.foe.boss && ++st.bt % (hard() ? 2 : 3) === 0 && await bossSig(st.foe, st.obj.foe, st.obj.me, st.me, mult)))
+            await attack(st.foe, st.me, foeMove(), st.obj.foe, st.obj.me, mult);
+        }
         if (st.me.hp <= 0) {
           await faint(st.obj.me, -1); await say(TT.monName(st.me) + ' fainted!', 1);
           const nx = S.party.find(m => m.hp > 0);
