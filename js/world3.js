@@ -71,7 +71,7 @@
     // lava banks: scorched black
     for (let z = V.cz - 75; z < V.cz + 75; z += 0.7) { const lx = W.lavaX(z), g = x.createLinearGradient(X(lx - 7), 0, X(lx + 7), 0); g.addColorStop(0, 'rgba(20,12,10,0)'); g.addColorStop(0.3, 'rgba(20,12,10,.85)'); g.addColorStop(0.7, 'rgba(20,12,10,.85)'); g.addColorStop(1, 'rgba(20,12,10,0)'); x.fillStyle = g; x.fillRect(X(lx - 7), Z(z), 14 * k, 0.7 * k + 1); }
     // tall-grass stand-ins: ash and gravel patches where wild Pokémon live
-    for (const zn of W.zones) if (zn.x > 300) { const g = x.createRadialGradient(X(zn.x), Z(zn.z), zn.r * k * 0.6, X(zn.x), Z(zn.z), zn.r * k * 1.05); g.addColorStop(0, zn.name === 'Ash Field' ? 'rgba(150,84,60,.85)' : 'rgba(120,112,108,.85)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(X(zn.x), Z(zn.z), zn.r * k * 1.06, 0, 7); x.fill(); }
+    for (const zn of W.zones) if (zn.x > 300 && zn.x < 470) { const g = x.createRadialGradient(X(zn.x), Z(zn.z), zn.r * k * 0.6, X(zn.x), Z(zn.z), zn.r * k * 1.05); g.addColorStop(0, zn.name === 'Ash Field' ? 'rgba(150,84,60,.85)' : 'rgba(120,112,108,.85)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(X(zn.x), Z(zn.z), zn.r * k * 1.06, 0, 7); x.fill(); }
     // the altar's stone floor
     { const ax = X(W.ALTAR.x), az = Z(W.ALTAR.z), R = (W.ALTAR.r + 3) * k, g = x.createRadialGradient(ax, az, R * 0.5, ax, az, R); g.addColorStop(0, 'rgba(40,34,52,.9)'); g.addColorStop(1, 'rgba(40,34,52,0)'); x.fillStyle = g; x.fillRect(ax - R, az - R, R * 2, R * 2); }
     W.volcCanvas = c; const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
@@ -143,11 +143,11 @@
       const g = grp(chunk(x, z), x + rand(-1.5, 1.5), 0, z + rand(-1.5, 1.5)), h = rand(4, 9); g.rotation.y = rand(0, 6); P(g, 'cone8', pick(ROCKS), [0, h / 2 - 0.3, 0], [rand(2.6, 4), h, rand(2.6, 4)]); if (i % 3 === 0) P(g, 'rock', pick(ROCKS), [rand(-2, 2), 0.9, rand(1, 2.5)], rand(1.2, 2)); }
     // ---- scenery inside ----
     const clear = (x, z, m) => Math.abs(z + 100) > 3.4 + (m || 0) && Math.abs(x - W.lavaX(z)) > LW + 1.6 + (m || 0) && Math.hypot(x - W.ALTAR.x, z - W.ALTAR.z) > W.ALTAR.r + 2.5 + (m || 0) && Math.hypot(x - 352, z + 88) > 3 && Math.hypot(x - 354, z + 114) > 3;
-    const inZone = (x, z) => W.zones.some(zn => zn.x > 300 && Math.hypot(x - zn.x, z - zn.z) < zn.r + 1);
+    const inZone = (x, z) => W.zones.some(zn => zn.x > 300 && zn.x < 470 && Math.hypot(x - zn.x, z - zn.z) < zn.r + 1);
     for (let i = 0; i < 46; i++) { const x = rand(V.x0 + 2, V.x1 - 2), z = rand(V.z0 + 2, V.z1 - 2); if (!clear(x, z, 1) || inZone(x, z)) continue; if (i % 3 === 0) spire(x, z, rand(0.8, 1.5)); else if (i % 3 === 1) deadTree(x, z, rand(0.9, 1.4)); else boulder(x, z, rand(1.2, 2.2), true); }
     for (let i = 0; i < 120; i++) { const x = rand(V.x0 + 1, V.x1 - 1), z = rand(V.z0 + 1, V.z1 - 1); if (clear(x, z, -1.2)) boulder(x, z, rand(0.25, 0.6)); }
     // gravel tufts where wild Pokémon live (so the kids can see the spots)
-    for (const zn of W.zones) if (zn.x > 300) for (let i = 0; i < 110; i++) { const a = Math.random() * 7, r = Math.sqrt(Math.random()) * (zn.r - 0.5), x = zn.x + Math.cos(a) * r, z = zn.z + Math.sin(a) * r, g = grp(chunk(x, z), x, 0, z), c = zn.name === 'Ash Field' ? pick([0x8a4a36, 0xa85a3a, 0x6a3a2c]) : pick([0x8a8480, 0x6a6460, 0x9a948e]);
+    for (const zn of W.zones) if (zn.x > 300 && zn.x < 470) for (let i = 0; i < 110; i++) { const a = Math.random() * 7, r = Math.sqrt(Math.random()) * (zn.r - 0.5), x = zn.x + Math.cos(a) * r, z = zn.z + Math.sin(a) * r, g = grp(chunk(x, z), x, 0, z), c = zn.name === 'Ash Field' ? pick([0x8a4a36, 0xa85a3a, 0x6a3a2c]) : pick([0x8a8480, 0x6a6460, 0x9a948e]);
       for (let j = 0; j < 3; j++) P(g, 'pyr', c, [rand(-0.2, 0.2), 0.28, rand(-0.2, 0.2)], [0.13, rand(0.45, 0.75), 0.13], [rand(-0.25, 0.25), rand(0, 3), rand(-0.25, 0.25)]); }
     // steam vents
     { const vents = [[344, -92], [366, -112], [372, -84], [412, -70], [418, -132]], puffs = [];

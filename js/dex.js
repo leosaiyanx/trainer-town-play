@@ -506,6 +506,12 @@
     vegeta: { skin: SK[0], hair: BK, hairStyle: 'vegeta', eye: BK, brow: BK, dbz: 2, top: 0xf2f2ee, sleeveC: 0x2a3a9a, inner: 0x2a3a9a, trim: 0xd8a020, glove: WH, lower: 0x2a3a9a, shoes: WH, sole: 0xd8a020, scale: 0.95,
       x: q => { for (const s of [1, -1]) P(q.spine, 'sph', 0xd8a020, [s * 0.2, 0.36, 0], [0.11, 0.06, 0.13]); P(q.spine, 'box', 0xd8a020, [0, 0.1, 0.094], [0.17, 0.09, 0.016]); } },
     bulma: { skin: SK[1], hair: 0x3ac4cc, hairStyle: 'ponytail', eye: 0x2a7ab0, blush: 1, top: 0xf06a8a, skirt: 0xf06a8a, short: 1, trim: WH, sock: WH, shoes: 0x7a4a9a, pack: 0xf2c230, scale: 0.94 },
+    skye: { skin: SK[1], hair: 0xf2d890, hairStyle: 'ponytail', hat: 'cap', hatColor: 0x3a6ab0, blush: 1, top: 0x4a7ac8, trim: 0xf4f8ff, lower: 0x4a5a70, shoes: 0x5a4030, pack: 0xe2382e },
+    // Master Roshi, the Turtle Hermit: bald, white beard, dark glasses, a bright shirt and a turtle shell on his back
+    roshi: { skin: SK[0], hairStyle: 'bald', hair: SK[0], dbz: 1, grin: 1, top: 0xf2a030, trim: 0xe2382e, short: 1, lower: 0x4a8ad0, shorts: 1, shoes: 0x8a5a3a, scale: 0.9,
+      x: q => { for (const s of [1, -1]) { P(q.head, 'box', 0x16161c, [s * 0.078, 0.04, 0.2], [0.115, 0.07, 0.03]); P(q.head, 'cone', WH, [s * 0.05, -0.12, 0.17], [0.045, 0.1, 0.03], [0, 0, s * 1.2]); }
+        P(q.head, 'box', 0x16161c, [0, 0.05, 0.2], [0.06, 0.018, 0.025]); for (const dx of [-0.06, 0, 0.06]) P(q.head, 'cone', WH, [dx, -0.24, 0.12], [0.05, 0.22 - Math.abs(dx), 0.04], [Math.PI, 0, 0]);
+        P(q.spine, 'sph', 0x6a8a3a, [0, 0.28, -0.15], [0.21, 0.25, 0.11]); P(q.spine, 'sph', 0x8aa84a, [0, 0.28, -0.2], [0.15, 0.18, 0.08]); } },
     krillin: { skin: SK[0], hairStyle: 'bald', hair: SK[0], eye: BK, dbz: 1, top: 0xf08a24, inner: 0x2a4ab0, trim: 0x2a4ab0, sleeveC: 0xf08a24, short: 1, cuff: 0x2a4ab0, lower: 0xf08a24, shoes: 0x2a4ab0, sole: 0xd8c070, scale: 0.78,
       x: q => { for (const s of [1, -1]) for (let i = 0; i < 3; i++) P(q.head, 'sph', 0x9a6a4a, [s * 0.035, 0.13 + i * 0.035, 0.185 - i * 0.012], 0.011); } }
   });

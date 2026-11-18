@@ -17,10 +17,10 @@
   let viewX = 30, viewZ = 31, viewS = 11, flying = false, goal = null;
   // Free-roam camera: it always faces north (so the stick stays simple), but its distance and tilt change with what is happening.
   let camD = 13, camP = 0.6, camTy = 1, stillT = 0, talkTo = null; const CAMV = { d: [13, 12], p: [0.59, 0.5] };      // [slower devices, faster devices]: a lower view shows more ground, which the kids' tablets cannot afford (measured: +15–30% drawing), so only faster devices get it
-  const CAM_AREA = { town: [0, 0, 0], city: [0.6, 0.06, 0.03], world: [1.2, 0, 0], volcano: [1.2, -0.01, -0.07] };      // per area: [extra distance, extra tilt on faster devices, extra tilt on slower ones] — the Volcano is cheap to draw so everyone gets the low view there; the City looks down more so buildings don't hide the trainer
+  const CAM_AREA = { town: [0, 0, 0], city: [0.6, 0.06, 0.03], world: [1.2, 0, 0], volcano: [1.2, -0.01, -0.07], peaks: [1.2, 0, -0.03], island: [1.0, -0.01, -0.05] };      // per area: [extra distance, extra tilt on faster devices, extra tilt on slower ones] — the Volcano is cheap to draw so everyone gets the low view there; the City looks down more so buildings don't hide the trainer
   let actKey = '', netShown = -1, eggShown = -1, inB = false;
   let comps = [], snorlaxNpc = null, areaNow = '', camY = 0, runT = 0, lean = 0; const vel = { x: 0, z: 0 };
-  const areaKey = (x, z) => x > 300 ? 'volcano' : x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
+  const areaKey = (x, z) => x > 640 ? 'island' : x > 470 ? 'peaks' : x > 300 ? 'volcano' : x > 54 && (z < -60 || x > 64) ? 'world' : z < -66 ? 'city' : 'town';
   const allies = () => { const a = []; if (S.flags.gohan) a.push({ h: 'gohan', sp: 'lugia', n: 'Gohan', mv: ['Aeroblast', 'flying', 55] }); if (S.flags.goku) a.push({ h: 'goku', sp: 'rayquaza', n: 'Goku', mv: ['Dragon Pulse', 'dragon', 60] }); if (S.flags.vegeta) a.push({ h: 'vegeta', sp: 'mewtwo', n: 'Vegeta', mv: ['Psystrike', 'psychic', 60] }); return a; };
   const stageHere = () => W.stageAt(player.x, player.z);
 
@@ -260,6 +260,7 @@
     if (ak !== 'town' && !f.city) { f.city = 1; ch = true; }
     if ((ak === 'world' || ak === 'volcano') && !f.world) { f.world = 1; ch = true; }
     if (ak === 'volcano' && !f.tunnel) { f.tunnel = 1; ch = true; }
+    if (ak === 'peaks' || ak === 'island') { if (!f.world) f.world = 1; if (!f[ak]) { f[ak] = 1; ch = true; } }
     if (ch) { f.profMet = f.profDone = 1; applyFlags(); hud(); save(); }
   }
   // ---- fair fights: bosses match the whole team, and ease off a little each time you lose to them ----
@@ -486,7 +487,7 @@
   // ---------- the Dragon Radar and grown-up help ----------
   // Bulma gives the real radar after the first wish. Dad always has one, and a grown-up can lend it to a child for a while (from Dad mode, or from the menu on the child's own device).
   const radarOn = () => !!S && !!(S.flags.radar || S.ch === 'dad' || (S.radarUntil || 0) > Date.now());
-  const AREA_NAME = { town: 'Trainer Town', city: 'the City', world: 'the Wide World', volcano: 'the Volcano' };
+  const AREA_NAME = { town: 'Trainer Town', city: 'the City', world: 'the Wide World', volcano: 'the Volcano', peaks: 'the Cloud Peaks', island: 'Sunset Island' };
   function radarSpots() {            // every Dragon Ball this player does not have yet, and where it is
     if (!S) return [];
     if (S.wishes) return (S.scat || []).map(b => ({ n: b.n, x: b.x, z: b.z, t: 'lying near ' + (b.h || 'somewhere') + ' in ' + (AREA_NAME[areaKey(b.x, b.z)] || 'the world') }));
@@ -530,7 +531,7 @@
   async function talk(n) {
     busy = true; talkTo = n; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
     const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
-    if (n.key === 'krillin') await krillin(); else if (n.key === 'bulma') await bulma(); else if (n.key === 'vegeta') await vegetaTalk(); else if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk(); else if (n.key === 'guard2') await gail(n); else if (n.key === 'ranger') await ranger(); else if (n.key === 'goku') await gokuTalk(); else if (n.key === 'hideout') await hideout(); else if (n.key === 'snorlax') await snorlaxTalk();
+    if (n.key === 'skye') await skye(); else if (n.key === 'roshi') await roshi(); else if (n.key === 'krillin') await krillin(); else if (n.key === 'bulma') await bulma(); else if (n.key === 'vegeta') await vegetaTalk(); else if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk(); else if (n.key === 'guard2') await gail(n); else if (n.key === 'ranger') await ranger(); else if (n.key === 'goku') await gokuTalk(); else if (n.key === 'hideout') await hideout(); else if (n.key === 'snorlax') await snorlaxTalk();
     else if (!n.human) {
       await TT.say([[n.name, n.lines[0]]]);
       if (S.party.some(m => m.hp > 0) && await petAsk(n)) {
@@ -607,6 +608,44 @@
     await TT.say([[N, 'Welcome to the Wide World, trainer! Let me patch up your Pokémon.']]);
     S.party.forEach(m => m.hp = TT.maxHp(m)); TT.sfx.heal(); await TT.wait(0.8);
     await TT.say([[N, TT.pick(['All better! Goku trains on the peak past the big bridge.', 'All better! A sleepy Snorlax blocks the way to the peak. You will have to battle it!', 'All better! Team Rocket built a hideout in the south. Be careful!'])]]);
+  }
+  // ---------- the Cloud Peaks and Sunset Island ----------
+  async function skye() {
+    const N = 'Ranger Skye', f = S.flags;
+    await TT.say([[N, 'Brr! Welcome to the Cloud Peaks. Come in and warm up your Pokémon.']]);
+    S.party.forEach(m => m.hp = TT.maxHp(m)); TT.sfx.heal(); await TT.wait(0.8);
+    await TT.say([[N, f.guardian ? 'All warm and rested! Sunset Island is open to you now. Master Roshi lives there.' : TT.pick(['All warm and rested! The Sky Temple is up the path, in the north-east corner.', 'All warm and rested! A great ice bird guards the temple. Only brave trainers get to meet it.'])]]);
+  }
+  async function guardian() {
+    if (busy) return; busy = true; stopInput();
+    if (!S.party.some(m => m.hp > 0)) { busy = false; battleCd = 4; return; }
+    await TT.say([['', 'An icy wind howls through the temple...'], ['', 'The Guardian of the Peaks swoops down!']]);
+    const L = bossL('guardian', 24, 1), foe = TT.Battle.bossMon('articuno', L, bossHp('guardian', 2.0));
+    const r = await TT.Battle.start({ foes: [foe], wild: true, easy: true, stage: 'mountain', allies: allies(), bossTitle: 'Guardian of the Peaks' });
+    if (follower.sp !== S.party[0].sp) setFollower();
+    if (r === 'lose') { lost('guardian'); await whiteOut(); }
+    else if (r === 'run') { player.z += 5; await TT.say([['', 'The Guardian settles back onto the great crystal.']]); }
+    else {
+      if (r === 'caught') { delete foe.boss; delete foe.mx; delete foe.raged; foe.hp = TT.maxHp(foe); addMon(foe); }
+      S.flags.guardian = 1; S.balls += 5; TT.sfx.star();
+      await TT.say([['', r === 'caught' ? 'You caught the Guardian of the Peaks!' : 'The Guardian bows its head. A glowing feather drifts down to you.'], ['', 'You got the Sky Feather! Now you can fly to Sunset Island.']]);
+    }
+    battleCd = 3; hud(); save(); busy = false;
+  }
+  async function roshi() {
+    const N = 'Master Roshi', f = S.flags;
+    if (f.roshi) return TT.say([[N, TT.pick(['Have you tried riding a Pokémon through the Sky Pass? Good for the reflexes, ho ho!', 'The beach is full of water Pokémon. Catch them all!', 'Come back any time. The sea air makes Pokémon strong!'])]]);
+    if (!S.party.some(m => m.hp > 0)) return TT.say([[N, 'Your Pokémon are worn out. Let them rest first, ho ho.']]);
+    await TT.say([[N, 'Ho ho! A visitor! I am Master Roshi, the Turtle Hermit.'], [N, 'I have trained great fighters on this island. Let us see what you and your Pokémon can do!']]);
+    const L = bossL('roshi', 26, 0);
+    const r = await TT.Battle.start({ foes: [TT.mon('poliwhirl', L), TT.mon('machoke', L), TT.Battle.bossMon('blastoise', L + 2, bossHp('roshi', 1.9))], trainer: 'Master Roshi', people: ['roshi'], easy: true, stage: 'pond', allies: allies(), bossTitle: "The Turtle Hermit's partner" });
+    if (follower.sp !== S.party[0].sp) setFollower();
+    if (r !== 'win') { lost('roshi'); S.party.forEach(m => m.hp = TT.maxHp(m)); await TT.say([[N, 'Ho ho. Not yet! Rest, train, and try me again.']]); return; }
+    f.roshi = 1; S.balls += 10; TT.sfx.star(); await TT.say([[N, 'Ho ho ho! Splendid! You are stronger than you look.'], [N, 'Let me teach your partner something special.']]);
+    const lead = S.party[0], ty = TT.DEX[lead.sp][1], sup = TT.SUPER[ty];
+    if (!lead.sup && sup) { lead.sup = [sup, ty, 100]; TT.sfx.level(); TT.toast(TT.monName(lead) + ' learned ' + sup + '!'); await TT.say([['', 'Your partner learned a super move!']]); }
+    else { S.party.forEach(m => { m.lvl = Math.min(99, m.lvl + 3); m.hp = TT.maxHp(m); }); TT.sfx.level(); await TT.say([['', 'Your whole team grew 3 levels!']]); }
+    await TT.say([[N, 'Take these Poké Balls too. Come back any time!']]); hud(); save();
   }
   async function snorlaxTalk() {
     if (!S.party.some(m => m.hp > 0)) return TT.say([['', 'Your Pokémon are too tired. Visit Ranger Rita at the cabin first!']]);
@@ -773,7 +812,7 @@
   }
   // ---------- family progress: every player's game tells the others how far along it is ----------
   // Dad's device remembers the last report from each child, so he can look any time, not only while they play.
-  const AKEYS = ['town', 'city', 'world', 'volcano'];
+  const AKEYS = ['town', 'city', 'world', 'volcano', 'peaks', 'island'];
   const REAL = { Liko: 'Llorianne (Liko)', Ash: 'LJ (Ash)' };      // this family's two original cards
   let fam = {}, famT = 0, famIv = null;
   const famKey = () => 'tt_fam_' + (Net.room || 'home');
@@ -790,7 +829,7 @@
     const k = d.n.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14); if (!k) return;
     const old = fam[k]; if (old && !live && old.ts >= (+d.ts || 0)) return;        // an online copy never replaces something newer
     fam[k] = { n: d.n.replace(/[<>&]/g, '').slice(0, 14), ch: String(d.ch || '').slice(0, 8), sp: TT.DEX[d.sp] ? d.sp : '', lvl: Math.min(99, d.lvl | 0), stars: Math.min(7, d.stars | 0), wishes: Math.min(99, d.wishes | 0), kinds: Math.min(99, d.kinds | 0),
-      pr: d.pr.slice(0, 4).map(v => TT.clamp(v | 0, 0, 100)), whole: TT.clamp(d.whole | 0, 0, 100), goal: String(d.goal || '').replace(/[<>&]/g, '').slice(0, 90), ts: +d.ts || Date.now(), seen: live ? Date.now() : (old && old.seen) || 0 };
+      pr: d.pr.slice(0, 6).map(v => TT.clamp(v | 0, 0, 100)), whole: TT.clamp(d.whole | 0, 0, 100), goal: String(d.goal || '').replace(/[<>&]/g, '').slice(0, 90), ts: +d.ts || Date.now(), seen: live ? Date.now() : (old && old.seen) || 0 };
     famSave();
   }
   const ago = t => { const m = (Date.now() - t) / 60000; return m < 1.5 ? 'just now' : m < 60 ? Math.round(m) + ' minutes ago' : m < 60 * 36 ? Math.round(m / 60) + ' hours ago' : Math.round(m / 1440) + ' days ago'; };
@@ -828,6 +867,8 @@
     if (key === 'town') { add('Help Professor Oak', f.profDone); add('Hatch an egg', f.hatched); add('Beat Team Rocket', f.s1 || SV.rocket > 0); add('Find the hidden Dragon Ball', f.s3); }
     else if (key === 'city') { add('Win the City Gym', f.gym); add('Team up with Gohan', f.gohan); add('Meet Bulma the inventor', f.bulma); }
     else if (key === 'world') { add('Wake up Snorlax', f.snorlax); add('Battle Goku', f.goku); add("Stop Team Rocket's robot", f.hideout); add('Open the Volcano Tunnel', f.tunnel); }
+    else if (key === 'peaks') { add('Fly to the Cloud Peaks', f.peaks); add('Meet the Guardian of the Peaks', f.guardian); }
+    else if (key === 'island') { add('Fly to Sunset Island', f.island); add('Beat Master Roshi', f.roshi); }
     else { add('Beat Vegeta', f.vegeta); add('Call the Dragon and make a wish', SV.wishes > 0); add('Find all 7 Dragon Balls again', SV.wishes > 1 || (SV.wishes > 0 && SV.stars.length >= 7)); }
     items.push({ t: 'Catch every kind of Pokémon here (' + got + ' of ' + kinds.length + ')', done: got >= kinds.length, part: kinds.length ? got / kinds.length : 1 });
     return { pct: Math.round(items.reduce((a, it) => a + (it.done ? 1 : it.part || 0), 0) / items.length * 100), items };
@@ -845,9 +886,10 @@
   }
   async function whiteOut() {
     const a = areaKey(player.x, player.z);
-    S.party.forEach(m => m.hp = TT.maxHp(m)); if (a === 'volcano') { player.x = W.VOL_IN.x + 1; player.z = W.VOL_IN.z; } else if (a === 'world') { player.x = W.RANGER.x + 1.5; player.z = W.RANGER.z + 2; } else if (a === 'city') { player.x = W.NURSE2.x + 1; player.z = W.NURSE2.z + 1.8; } else { player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; } follower.x = player.x + 1; follower.z = player.z + 1; cam.x = player.x; cam.z = player.z;
+    S.party.forEach(m => m.hp = TT.maxHp(m)); if (a === 'peaks' || a === 'island') { player.x = SPAWN[a][0]; player.z = SPAWN[a][1]; } else if (a === 'volcano') { player.x = W.VOL_IN.x + 1; player.z = W.VOL_IN.z; } else if (a === 'world') { player.x = W.RANGER.x + 1.5; player.z = W.RANGER.z + 2; } else if (a === 'city') { player.x = W.NURSE2.x + 1; player.z = W.NURSE2.z + 1.8; } else { player.x = W.CENTER.x; player.z = W.CENTER.z + 2.2; } follower.x = player.x + 1; follower.z = player.z + 1; cam.x = player.x; cam.z = player.z;
     TT.sfx.heal();
-    if (a === 'volcano') await TT.say([['', 'Your Pokémon fainted! Goku carried you back to the tunnel and they rested up.']]);
+    if (a === 'peaks' || a === 'island') await TT.say([['', 'Your Pokémon rested and feel better. Try again!']]);
+    else if (a === 'volcano') await TT.say([['', 'Your Pokémon fainted! Goku carried you back to the tunnel and they rested up.']]);
     else if (a === 'world') await TT.say([['Ranger Rita', 'Oh no, your Pokémon fainted! I brought you back to my cabin and healed them.'], ['Ranger Rita', 'Be careful out there!']]);
     else await TT.say([['Nurse Joy', 'Oh dear, your Pokémon fainted! I carried you back and healed them all up.'], ['Nurse Joy', 'Be careful out there!']]);
   }
@@ -930,6 +972,10 @@
     else if (SV.stars.length >= 7) { q = "➜ Take all 7 Dragon Balls to the altar in the Dragon's Lair"; g = at(W.ALTAR.x - 4.2, W.ALTAR.z, "the Dragon's altar"); }
     else if (!SV.wishes && SV.stars.indexOf(3) < 0) { q = '➜ Something shiny is hiding in the trees behind the town pond...'; g = at(W.STARSPOT.x - 2, W.STARSPOT.z, 'the hiding place'); }
     else if (!SV.wishes && SV.stars.indexOf(1) < 0) q = '➜ Beat Team Rocket when they swoop in, and they might drop something!';
+    else if (SV.wishes && !f.peaks) q = '➜ New lands! Open the World Map and ride a flying Pokémon to the Cloud Peaks';
+    else if (f.peaks && !f.guardian) { q = '➜ Climb to the Sky Temple and meet the Guardian of the Peaks'; g = at(W.TEMPLE.x - 4, W.TEMPLE.z + 4, 'the Sky Temple'); }
+    else if (f.guardian && !f.island) q = '➜ Open the World Map and ride a flying Pokémon to Sunset Island';
+    else if (f.island && !f.roshi) { q = '➜ Challenge Master Roshi at the Kame House'; g = at(W.ROSHI.x + 0.5, W.ROSHI.z + 6.5, 'the Kame House'); }
     else if (SV.wishes && !f.radar) { q = '➜ The Dragon Balls scattered! Ask Bulma in the City for her Dragon Radar'; g = at(14.5, -99.2, 'Bulma'); }
     else if (SV.wishes && SV.scat && SV.scat.length) { let b = SV.scat[0], bd = 1e9; const here = areaKey(player.x, player.z); for (const c of SV.scat) { const d = Math.hypot(c.x - player.x, c.z - player.z) + (areaKey(c.x, c.z) === here ? 0 : 500); if (d < bd) { bd = d; b = c; } } q = '➜ Find the Dragon Balls with the radar (' + SV.stars.length + '/7)'; g = at(b.x, b.z, 'a Dragon Ball near ' + b.h); }
     else q = '★ Keep exploring!';
@@ -988,9 +1034,12 @@
   function showMap() {
     const here = areaKey(player.x, player.z), f = S.flags, mount = flyMount();
     const card = (key, icon, name, open, lockMsg) => open ? '<div class="place go" data-a="' + key + '">' + icon + ' ' + name + '<small>' + (here === key ? '📍 You are here' : 'Tap Fly to jump there') + '</small>' + pbar(areaProgress(key).pct) + '<span class="prow">' + (here !== key ? '<button class="fly" data-fly="' + key + '">✈ Fly here</button>' + (mount ? '<button class="fly ride" data-ride="' + key + '">🪽 Ride ' + TT.DEX[mount][0] + '</button>' : '') : '') + '<button class="seemap">🗺 Map</button></span></div>' : '<div class="place lock">' + icon + ' ' + name + '<small>' + lockMsg + '</small></div>';
-    const keys = ['town', 'city', 'world', 'volcano'], all = Math.round(keys.reduce((a, k) => a + areaProgress(k).pct, 0) / keys.length);
+    const rideCard = (key, icon, name, ok, hint) => '<div class="place lock">' + icon + ' ' + name + '<small>' + hint + '</small>' + (ok ? '<span class="prow"><button class="fly ride" data-ride="' + key + '">🪽 Ride ' + TT.DEX[mount][0] + ' there</button></span>' : '') + '</div>';
+    const keys = AKEYS, all = Math.round(keys.reduce((a, k) => a + areaProgress(k).pct, 0) / keys.length);
     let h = '<h3>World Map <button id="pClose">✕</button></h3><div class="whole"><b>My whole adventure</b>' + pbar(all) + '</div><div class="mapgrid">' + card('town', '🏡', 'Trainer Town', true) + card('city', '🏙️', 'The City', f.city, 'Ask Officer Gus at the gate') +
-      card('world', '🌍', 'The Wide World', f.world, 'Beat the City Gym first') + card('volcano', '🌋', 'The Volcano', f.tunnel, 'Find the tunnel in the Wide World') + '</div><div class="stars">';
+      card('world', '🌍', 'The Wide World', f.world, 'Beat the City Gym first') + card('volcano', '🌋', 'The Volcano', f.tunnel, 'Find the tunnel in the Wide World') +
+      (f.peaks ? card('peaks', '🏔️', 'The Cloud Peaks', true) : rideCard('peaks', '🏔️', 'The Cloud Peaks', f.world && mount, !f.world ? 'Reach the Wide World first' : mount ? 'Only a flying Pokémon can take you there' : 'You need a big flying Pokémon, like Pidgeot or Charizard')) +
+      (f.island ? card('island', '🏝️', 'Sunset Island', true) : rideCard('island', '🏝️', 'Sunset Island', f.guardian && mount, f.guardian ? 'Only a flying Pokémon can take you there' : 'Meet the Guardian of the Cloud Peaks first')) + '</div><div class="stars">';
     for (let i = 1; i <= 7; i++) h += '<i class="' + (S.stars.indexOf(i) >= 0 ? 'got' : '') + '">' + '★'.repeat(i > 4 ? 1 : i) + (i > 4 ? i : '') + '</i>';
     h += '</div><p style="text-align:center;font-weight:700;margin:4px 0 10px">Dragon Balls: ' + S.stars.length + ' / 7</p><p style="text-align:center;margin:0"><button id="pReset" style="background:none;text-decoration:underline;font-size:13px;opacity:.6">Start this character over</button></p>';
     openPanel(h);
@@ -999,7 +1048,7 @@
     document.querySelectorAll('[data-ride]').forEach(bt => bt.onclick = e => { e.stopPropagation(); rideTo(bt.dataset.ride); });
     $('pReset').onclick = () => { if (confirm('Erase ' + pname + "'s saved game and start over?")) { localStorage.removeItem(slot); const u = cloudUrl(); if (u) fetch(u, { method: 'DELETE', keepalive: true }).catch(() => { }); setTimeout(() => location.reload(), 300); } };
   }
-  const SPAWN = { town: [0, 8], city: [0, -80], world: [80, -100], volcano: [333, -100] };
+  const SPAWN = { town: [0, 8], city: [0, -80], world: [80, -100], volcano: [333, -100], peaks: W.PEAKS.spawn, island: W.ISLE.spawn };
   // Fly: your trainer leaps into the sky, clouds close over the screen, and you drop in at the new place.
   async function flyTo(k) {
     if (busy || !SPAWN[k]) return; closePanel(); busy = flying = true; stopInput(); setDest(null);
@@ -1077,7 +1126,7 @@
 
   // ---------- maps ----------
   const css = n => '#' + n.toString(16).padStart(6, '0');
-  const AREAS = { town: { cx: 0, cz: 0, V: 62, span: 160, name: 'Trainer Town' }, city: { cx: 0, cz: -124, V: 60, span: 160, name: 'The City' }, world: { cx: 161, cz: -100, V: 92, span: 200, name: 'The Wide World' }, volcano: { cx: 380, cz: -100, V: 60, span: 150, name: 'The Volcano' } };
+  const AREAS = { town: { cx: 0, cz: 0, V: 62, span: 160, name: 'Trainer Town' }, city: { cx: 0, cz: -124, V: 60, span: 160, name: 'The City' }, world: { cx: 161, cz: -100, V: 92, span: 200, name: 'The Wide World' }, volcano: { cx: 380, cz: -100, V: 60, span: 150, name: 'The Volcano' }, peaks: { cx: 554, cz: -100, V: 60, span: 150, name: 'The Cloud Peaks' }, island: { cx: 714, cz: -100, V: 60, span: 150, name: 'Sunset Island' } };
   for (const k in AREAS) AREAS[k].ms = 512 / AREAS[k].span;
   const areaAt = (x, z) => AREAS[areaKey(x, z)];
   // one 512px picture per area, covering span x span units around the area's centre
@@ -1090,6 +1139,8 @@
       x.drawImage(W.groundCanvas, 0, 0, 512, 512);
       x.fillStyle = '#3fa6ea'; x.beginPath(); x.arc(X(W.POND.x), Z(W.POND.z), W.POND.r * MS, 0, 7); x.fill(); x.strokeStyle = '#cdeeff'; x.lineWidth = 2; x.stroke();
     } else if (a === AREAS.city) x.drawImage(W.cityCanvas, X(-56), Z(-180), 112 * MS, 112 * MS);
+    else if (a === AREAS.peaks) { x.fillStyle = '#dfe9f4'; x.fillRect(0, 0, 512, 512); x.drawImage(W.peaksCanvas, X(W.PEAKS.x0), Z(W.PEAKS.z0), 108 * MS, 108 * MS); }
+    else if (a === AREAS.island) { x.fillStyle = '#3f9ee8'; x.fillRect(0, 0, 512, 512); x.drawImage(W.isleCanvas, X(W.ISLE.cx - 54), Z(W.ISLE.cz - 54), 108 * MS, 108 * MS); }
     else if (a === AREAS.volcano) {
       x.fillStyle = '#4a3a36'; x.fillRect(0, 0, 512, 512); x.drawImage(W.volcCanvas, X(305), Z(-175), 150 * MS, 150 * MS);
       x.strokeStyle = '#ff8a2a'; x.lineWidth = 7 * MS; x.beginPath(); for (let z = -175; z <= -25; z += 2) { const px = X(W.lavaX(z)), pz = Z(z); if (z === -175) x.moveTo(px, pz); else x.lineTo(px, pz); } x.stroke();
@@ -1113,6 +1164,8 @@
       for (const b of W.buildings) roof(b[0], b[1], b[2], b[3], b[6].shop ? css(b[6].shop) : css(b[5]));
       roof(0, -171, 20, 10, '#f08030'); x.fillStyle = '#8a5a3a'; x.fillRect(X(-1.2), Z(-125.2), 2.4 * MS, 2.4 * MS);
     } else if (a === AREAS.volcano) { x.strokeStyle = '#2a2026'; x.lineWidth = 2; x.strokeRect(X(326), Z(-154), 108 * MS, 108 * MS); }
+    else if (a === AREAS.peaks) { roof(W.SKYE.x, W.SKYE.z, 5.6, 4.6, '#e2382e'); x.fillStyle = '#a9b4c8'; x.beginPath(); x.arc(X(W.TEMPLE.x), Z(W.TEMPLE.z), 7 * MS, 0, 7); x.fill(); x.fillStyle = '#9ae0ff'; x.beginPath(); x.arc(X(W.TEMPLE.x), Z(W.TEMPLE.z), 2 * MS, 0, 7); x.fill(); }
+    else if (a === AREAS.island) { roof(W.ROSHI.x, W.ROSHI.z, 7.8, 6.2, '#e2382e'); x.fillStyle = '#a87646'; x.fillRect(X(712.3), Z(-57), 3.4 * MS, 12 * MS); }
     else {
       roof(204, -170, 13, 11, '#9aa0ac'); x.fillStyle = '#e01818'; x.font = 'bold ' + (9 * MS) + 'px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('R', X(204), Z(-170));
       roof(86, -112, 8.8, 7, '#3a8a4a');
@@ -1140,7 +1193,7 @@
     x.save(); x.translate(132, 132); x.rotate(Math.PI - player.h); x.fillStyle = '#fff'; x.strokeStyle = '#23324a'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -15); x.lineTo(11, 11); x.lineTo(0, 5); x.lineTo(-11, 11); x.closePath(); x.fill(); x.stroke(); x.restore();
   }
   function showAreaMap(key) {
-    const a = AREAS[key], places = key === 'city' ? W.CITY_PLACES : key === 'world' ? W.WORLD_PLACES : key === 'volcano' ? W.VOLC_PLACES : W.PLACES, V = a.V, MS = a.ms, hs = a.span / 2;
+    const a = AREAS[key], places = key === 'city' ? W.CITY_PLACES : key === 'world' ? W.WORLD_PLACES : key === 'volcano' ? W.VOLC_PLACES : key === 'peaks' ? W.PEAKS_PLACES : key === 'island' ? W.ISLE_PLACES : W.PLACES, V = a.V, MS = a.ms, hs = a.span / 2;
     const size = Math.max(240, Math.min(window.innerWidth * 0.86, window.innerHeight * 0.58, 560)) | 0;
     openPanel('<h3>' + a.name + ' <button id="pClose">✕</button></h3><canvas id="townMap" width="' + size * 2 + '" height="' + size * 2 + '" style="width:' + size + 'px;height:' + size + 'px"></canvas><div id="mapInfo">Tap a place to learn about it.</div><div class="row"><button id="mGo" disabled>📍 Guide me there</button><button id="mClear" class="alt">Stop guiding</button><button id="mBack" class="alt">World map</button></div>' + todoList(key));
     const c = $('townMap'), x = c.getContext('2d'), k = size * 2 / (V * 2), X = v => (v - a.cx + V) * k, Z = v => (v - a.cz + V) * k, here = areaAt(player.x, player.z) === a; let sel = null, tick = 0;
@@ -1357,6 +1410,7 @@
         if (S.egg.warm >= 100) hatch();
       }
       // hidden dragon ball
+      if (!S.flags.guardian && areaNow === 'peaks' && battleCd <= 0 && dist(W.TEMPLE, player) < 3.4) guardian();
       if (S.stars.indexOf(3) < 0 && !S.wishes && dist(W.STARSPOT, player) < 1.5) { busy = true; giveStar(3).then(() => { busy = false; }); }
       // wild encounters
       if (battleCd <= 0 && !busy) for (const w of wilds) if (Math.hypot(w.x - player.x, w.z - player.z) < 1.25) { wildBattle(w); break; }
@@ -1413,7 +1467,7 @@
       { const h = ch + camTy, lo = Math.max(0.12, camP - 0.349), far = Math.min(62, h / Math.tan(lo)); viewZ = far - cb + 8; viewS = cb - h / Math.tan(camP + 0.349) + 5; viewX = Math.min(72, h / Math.sin(lo)) * 0.42 * camera.aspect + 5; }
       if (flight) flightCam(dt);
       // area music and a little title card when you arrive somewhere new
-      const ak = flight ? areaNow : areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World', volcano: '🌋 The Volcano' }[ak]); areaNow = ak; arrive(ak); }
+      const ak = flight ? areaNow : areaKey(player.x, player.z); if (ak !== areaNow) { if (areaNow) TT.toast({ town: '🏡 Trainer Town', city: '🏙️ The City', world: '🌍 The Wide World', volcano: '🌋 The Volcano', peaks: '🏔️ The Cloud Peaks', island: '🏝️ Sunset Island' }[ak]); areaNow = ak; arrive(ak); }
       if (!busy && !TT.dialogOpen) { const m = TT.areaMusic(); if (TT.musicName() !== m) TT.music(m); }
       { const want = summoning ? 'summon' : ak === 'volcano' ? 'volcArea' : null; if (W.stageNow !== want) W.applyStage(want); }
       for (const b of ballObjs) { b.o.rotation.y = t * 1.6; b.o.position.y = W.gy(b.d.x, b.d.z) + 0.6 + Math.sin(t * 2.4 + b.d.n) * 0.12; }
