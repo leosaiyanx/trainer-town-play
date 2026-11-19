@@ -177,7 +177,7 @@
   // ---------- title screen: the heroes and their partners stand in the plaza, alive ----------
   const SHOW_Z = 15; let show = null, starting = false;
   // test hook: ?solo=ash&pose=walk|run|cheer|talk|point|throw&turn=0.6&dist=3.2 shows one character close up on the title screen
-  const TEST = (() => { const q = new URLSearchParams(location.search), p = q.get('pose') || ''; return { idle: q.get('idle') ? q.get('idle').split(',').map(Number) : null, solo: q.get('solo'), pose: p, mv: p === 'walk' ? 1 : p === 'run' ? 1.4 : 0, gest: ['cheer', 'talk', 'point', 'throw'].indexOf(p) >= 0 ? p : null, turn: +(q.get('turn') || 0), dist: +(q.get('dist') || 3.4), mons: !!q.get('mons'), gap: +(q.get('gap') || 1.2) }; })();
+  const TEST = (() => { const q = new URLSearchParams(location.search), p = q.get('pose') || ''; return { idle: q.get('idle') ? q.get('idle').split(',').map(Number) : null, solo: q.get('solo'), pose: p, mv: p === 'walk' ? 1 : p === 'run' ? 1.4 : 0, gest: ['cheer', 'talk', 'point', 'throw'].indexOf(p) >= 0 ? p : null, turn: +(q.get('turn') || 0), dist: +(q.get('dist') || 3.4), mons: !!q.get('mons'), bare: !!q.get('bare'), gap: +(q.get('gap') || 1.2) }; })();
   const readSave = k => { try { const j = JSON.parse(localStorage.getItem(k)); return j && j.v === 1 && j.party && j.party.length ? j : null; } catch (e) { return null; } };
   const kidKey = name => 'tt1_p_' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
   function buildShow() {
@@ -193,6 +193,7 @@
       g.add(h); g.add(p); g.add(sh); list.push({ h, p, sh, ch, sp, id, mon, wave: rand(1.5, 4), gt: 0 });
     }
     g.position.set(0, 0, SHOW_Z); scene.add(g); show = { g, list };
+    if (TEST.solo && TEST.bare) { $('title').style.visibility = 'hidden'; for (const e of list) if (!e.mon) { e.p.traverse(o => { if (o.isMesh) o.visible = false; }); e.sh.visible = false; } }          // test: &bare=1 shows the characters alone, with no partners and no title in the way
   }
   // a tapped hero cheers and their partner calls out, then the adventure starts
   function pickHero(id, fn) {
