@@ -1039,6 +1039,7 @@
     articuno: ['Articuno', 'ice', 90, 92, 100, [['Ice Beam', 'ice', 80, 1], ['Gust', 'flying', 45, 1], ['Blizzard', 'ice', 95, 1]]],
     zapdos: ['Zapdos', 'electric', 90, 106, 85, [['Thunderbolt', 'electric', 85, 1], ['Drill Peck', 'flying', 75, 1], ['Thunder', 'electric', 95, 1]]],
     moltres: ['Moltres', 'fire', 90, 106, 90, [['Flamethrower', 'fire', 85, 1], ['Air Slash', 'flying', 75, 1], ['Fire Blast', 'fire', 95, 1]]],
+    porunga: ['Porunga', 'dragon', 150, 130, 110, [['Dragon Breath', 'dragon', 75, 1]]],
     shenron: ['Shenron', 'dragon', 122, 122, 100, [['Dragon Breath', 'dragon', 75, 1], ['Thunder', 'electric', 80, 1]]]
   });
   // the Dragon can teach a partner one super move of its own type (a wish)
@@ -1371,6 +1372,10 @@
     seg: (sg, i, r) => { if (i > 0 && i < 16) P(sg, 'cone', 0x2a7a36, [0, r * 0.95, -r * 0.2], [r * 0.22, r * 0.6, r * 0.1], [-0.6, 0, 0]); if (i === 4 || i === 11) for (const s of [1, -1]) { P(sg, TT.capsule(0.05, 0.3), 0x3aa84a, [s * r * 1.3, -r * 0.3, 0], null, [0, 0, s * 1.2]); P(sg, 'sph', 0xf2e6a8, [s * (r * 1.3 + 0.24), -r * 0.5, 0], 0.07); } },
     x: (g, h, body, f) => { P(h, 'sph', 0x3aa84a, [0, -0.02, 0.34], [0.2, 0.15, 0.24]); P(h, 'sph', 0xf2e6a8, [0, -0.16, 0.26], [0.2, 0.08, 0.26]);
       for (const s of [1, -1]) { P(h, 'cone', 0x8a6a3a, [s * 0.13, 0.3, -0.16], [0.045, 0.5, 0.045], [-0.7, 0, -s * 0.35]); P(h, 'cone', 0x8a6a3a, [s * 0.22, 0.42, -0.3], [0.03, 0.22, 0.03], [-0.2, 0, -s * 0.9]); P(h, TT.capsule(0.014, 0.7), 0x3aa84a, [s * 0.3, -0.1, 0.5], null, [1.2, 0, s * 0.7]); P(h, 'cone', 0x2a7a36, [s * 0.26, 0.05, -0.2], [0.06, 0.3, 0.03], [-1.2, 0, s * 1.2]); P(f, 'cone', WH, [s * 0.1, -0.14, 0.5], [0.022, 0.09, 0.022], [Math.PI, 0, 0]); } } });
+  B.porunga = () => serpent({ c: 0x62c452, belly: 0xe4f2a0, bellyUp: 1, n: 18, r0: 0.42, taper: 0.5, hr: 0.36, hs: [0.3, 0.27, 0.5], float: 0.45, top: 1.7, scale: 1.75, wave: [0.22, 0.1], path: k => [Math.sin(k * 8) * 0.6, 0.85 * Math.pow(1 - k, 1.2) + 0.42 * Math.sin(k * 5), 0.5 - k * 3.6], eyeS: 'slit', eye: 0xd21e28, er: 0.17, ex: 0.16, ey: 0.1, ez: 0.3, eyeTurn: 0.7,
+    seg: (sg, i, r) => { if (i > 0 && i < 16) P(sg, 'cone', 0x2f8a4a, [0, r * 0.95, -r * 0.2], [r * 0.22, r * 0.6, r * 0.1], [-0.6, 0, 0]); if (i === 3) { P(sg, 'sph', 0x62c452, [0, 0, 0], [r * 2.3, r * 1.5, r * 1.3]); for (const s of [1, -1]) P(sg, 'sph', 0x62c452, [s * r * 2.4, r * 0.3, 0], [r * 0.95, r * 0.8, r * 0.8]); } if (i === 4 || i === 11) for (const s of [1, -1]) { P(sg, TT.capsule(0.05, 0.3), 0x62c452, [s * r * 1.3, -r * 0.3, 0], null, [0, 0, s * 1.2]); P(sg, 'sph', 0xe4f2a0, [s * (r * 1.3 + 0.24), -r * 0.5, 0], 0.07); } },
+    x: (g, h, body, f) => { P(h, 'sph', 0x62c452, [0, -0.02, 0.34], [0.2, 0.15, 0.24]); P(h, 'sph', 0xe4f2a0, [0, -0.16, 0.26], [0.2, 0.08, 0.26]);
+      for (const s of [1, -1]) { P(h, 'cone', 0x2f8a4a, [s * 0.13, 0.3, -0.16], [0.045, 0.5, 0.045], [-0.7, 0, -s * 0.35]); P(h, 'cone', 0x2f8a4a, [s * 0.22, 0.42, -0.3], [0.03, 0.22, 0.03], [-0.2, 0, -s * 0.9]); P(h, TT.capsule(0.014, 0.7), 0x62c452, [s * 0.3, -0.1, 0.5], null, [1.2, 0, s * 0.7]); P(h, 'cone', 0x2f8a4a, [s * 0.26, 0.05, -0.2], [0.06, 0.3, 0.03], [-1.2, 0, s * 1.2]); P(f, 'cone', WH, [s * 0.1, -0.14, 0.5], [0.022, 0.09, 0.022], [Math.PI, 0, 0]); } } });
 
   TT.creature = sp => { const g = (B[sp] || B.rattata)(); g.userData.sp = sp; return g; };
 

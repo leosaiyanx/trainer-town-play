@@ -97,7 +97,7 @@
       const ft = TT.DEX[st.foe.sp][1];
       TT.moves(st.me).forEach(mv => { if (mv[4]) { add('✦ ' + mv[0] + '<small>' + TT.MOVE_FX[mv[4]] + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }); return; }
         const e = TT.eff(mv[1], ft); add((e > 1 ? '★ ' : '') + mv[0] + '<small>' + mv[1] + (e > 1 ? ' · strong here!' : e < 1 ? ' · weak here' : '') + '</small>', hex(TT.TYPE_COL[mv[1]] || 0xa8a890), { t: 'move', mv }, false, e > 1 ? 'best' : e < 1 ? 'weak' : ''); });
-      if (TT.S.flags.keystone && TT.MEGA[st.me.sp] && !st.megaUsed) add('✨ Mega Evolve<small>once each battle</small>', 'linear-gradient(90deg,#ff7ab0,#ffd23a,#6ad8ff,#9a7aff)', { t: 'mega' }, false, 'mega');
+      if (TT.S.flags.keystone && TT.MEGA[st.me.sp] && (st.megaUsed || 0) < (TT.S.flags.mega2 ? 2 : 1) && B.megaMon !== st.me) add('✨ Mega Evolve<small>' + (TT.S.flags.mega2 ? 'twice' : 'once') + ' each battle</small>', 'linear-gradient(90deg,#ff7ab0,#ffd23a,#6ad8ff,#9a7aff)', { t: 'mega' }, false, 'mega');
       if (st.wild && !st.noCatch) add('Poké Ball<small>× ' + TT.S.balls + '</small>', '#e8402a', { t: 'ball' });
       if (TT.S.party.filter(m => m.hp > 0).length > 1) add('Swap', '', { t: 'swap' }, true);
       add('Run', '', { t: 'run' }, true);
@@ -417,7 +417,7 @@
   // Once per battle, with the Key Stone: light gathers, the Pokémon spins inside a shining shell, and bursts out in its Mega form. It hits harder and takes less until it leaves the battle.
   const RAINBOW = [0xff6a9a, 0xffd23a, 0x6ad8ff, 0x9a6aff, 0x7ae87a, 0xffffff];
   async function megaEvolve() {
-    const m = st.me, M = TT.MEGA[m.sp], old = st.obj.me, x = old.position.x, z = old.position.z, y = mid(old), nm = TT.monName(m); st.megaUsed = true; fxInit();
+    const m = st.me, M = TT.MEGA[m.sp], old = st.obj.me, x = old.position.x, z = old.position.z, y = mid(old), nm = TT.monName(m); st.megaUsed = (st.megaUsed || 0) + 1; fxInit();
     gesture('cheer', 2.2); focus(-0.6, 0.4); await say('The Key Stone is shining!', 0.8);
     const glow = P(TT.scene, 'sph', glowT(0xffffff, 0), [x, y, z], 0.3), R = (old.userData.h || 1) * 0.85; TT.sfx.evo();
     await run(1.4, (q, dt) => {
@@ -666,12 +666,14 @@
     let result = null;
     // a foe ran out of HP: faint, XP, next foe. Returns true when the battle is won.
     const foeDown = async () => {
-      await faint(st.obj.foe, 1); await say((st.foe.boss ? '' : st.wild ? 'The wild ' : "The foe's ") + TT.monName(st.foe) + (st.foe.boss ? ' was defeated!' : ' fainted!'), 0.9);
+      const morph = opts.morph && st.fi < st.foes.length - 1 ? opts.morph[st.fi] : null;          // a foe that changes shape (Frieza's Deoxys) is not swapped out: it glows and comes back different
+      if (morph) flash('#e8d8ff', 0.7);
+      await faint(st.obj.foe, 1); await say(morph ? TT.monName(st.foe) + ' is glowing... it is not finished yet!' : (st.foe.boss ? '' : st.wild ? 'The wild ' : "The foe's ") + TT.monName(st.foe) + (st.foe.boss ? ' was defeated!' : ' fainted!'), 0.9);
       await gainXp(st.me, Math.round((st.foe.lvl * 9 + 6) * (st.wild ? 1 : 1.4) * (st.foe.boss ? 2 : 1)));
       if (++st.fi < st.foes.length) {
         st.foe = st.foes[st.fi]; st.rageMul = 1;
         if (opts.transform && opts.transform.at === st.fi) { await say(opts.trainer + ' is powering up!', 0.6); await powerUp(st.trainers[0], opts.transform.to); if (opts.transform.say) await say(opts.transform.say, 1.4); }
-        bars(); setMsg(opts.trainer + ' sent out ' + TT.monName(st.foe) + '!');
+        bars(); setMsg(morph || opts.trainer + ' sent out ' + TT.monName(st.foe) + '!');
         const o = await place(1, st.foe, !st.foe.boss); if (st.foe.boss) await bossIntro(o, st.foe, opts.bossTitle, opts.bossMusic); else await TT.wait(0.5);
         return false;
       }

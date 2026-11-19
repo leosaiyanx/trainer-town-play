@@ -392,6 +392,14 @@
       'A5 - - C6 F6 - - . | E6 - - C6 G5 - - . | F5 - A5 . D6 - - . | D6 - - Bb5 F5 - - . | A5 - - C6 F6 - A6 . | G6 - - E6 C6 - - . | D6 - Bb5 . F5 - G5 . | G5 - - E5 C5 - - .' },
     island: { bpm: 126, style: 1, lv: 0.055, ch: 'C F G C Am F G G', lead:
       'E5 . G5 . C6 . G5 E5 | F5 . A5 . C6 - A5 . | G5 . B5 . D6 . B5 G5 | E6 - C6 . G5 - - . | A5 . C6 . E6 . C6 A5 | F5 . A5 . C6 - D6 . | D6 . B5 . G5 . B5 . | D6 - - . G5 - - .' },
+    // Chapter 2: floating through space (slow and wide), the green planet Namek (gentle and a little strange), and Frieza (cold and menacing)
+    space: { bpm: 92, style: 3, lv: 0.055, ch: 'Am F C G Am F Dm E', lead:
+      'A5 - - - E6 - - . | C6 - - A5 F5 - - . | E5 - G5 . C6 - - . | D6 - - B5 G5 - - . | A5 - - C6 E6 - A6 . | F6 - - C6 A5 - - . | D6 - F6 . A6 - - . | G#6 - - E6 B5 - - .' },
+    namek: { bpm: 104, style: 0, lv: 0.055, ch: 'D Bm G A D Bm Em A', lead:
+      'F#5 . A5 . D6 - - . | F#6 - D6 . B5 - - . | G5 . B5 . D6 . G6 . | E6 - C#6 . A5 - - . | F#5 . A5 . D6 - F#6 . | D6 - B5 . F#5 - - . | G5 . B5 . E6 - D6 B5 | C#6 - - . A5 - - .' },
+    frieza: { bpm: 168, style: 5, lv: 0.07, bright: 7, wave: ['sawtooth', 'square'], ch: 'Em Em C B Em Em Am B C C Em Em Am B B B', lead:
+      'E5 . . E5 G5 . F#5 E5 | B5 - - . G5 . E5 . | C5 . E5 . G5 . C6 . | B5 - - . F#5 - - . | E6 . D6 . B5 . G5 . | A5 . B5 . E5 - - . | A5 . C6 . E6 . C6 . | B5 . D#6 . F#6 - - . | ' +
+      'G5 . C6 . E6 - D6 C6 | B5 . G5 . E5 - - . | G5 . B5 . E6 - D6 B5 | A5 - G5 . E5 . . . | C6 . B5 . A5 . E5 . | D#5 . F#5 . B5 . D#6 . | F#6 - - . D#6 - - . | B5 . D#6 . F#6 . B6 .' },
     // the Sky Fortress: a low, sneaky march. And Giovanni's own battle theme: heavy and fast, in a minor key.
     fortress: { bpm: 104, style: 4, lv: 0.055, ch: 'Cm Cm Ab G Cm Cm Fm G', lead:
       'C5 . . Eb5 G5 . F5 . | Eb5 . D5 . C5 - - . | Ab4 . C5 . Eb5 . Ab5 . | G5 - F5 . D5 - - . | C5 . . Eb5 G5 . Bb5 . | Ab5 . G5 . Eb5 - - . | F5 . Ab5 . C6 . Ab5 . | G5 . B4 . D5 - - .' },
