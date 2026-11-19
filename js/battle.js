@@ -345,25 +345,26 @@
       fxInit();
       let el = $('tapRing'); if (!el) { el = document.createElement('div'); el.id = 'tapRing'; el.innerHTML = '<span></span><div class="bar"><i></i></div><em></em>'; $('battle').appendChild(el); }
       const def = kind === 'def', txt = el.querySelector('span'), bar = el.querySelector('.bar i'), tm = el.querySelector('em');
+      const LITE = MEM <= 4 ? ' lite' : '';          // on the kids' tablets moving text on top of the 3D picture costs a third of the frame rate, so the bar stays still there: no pulsing words, no tap ripples
       const need = def ? 6 : hard() ? 8 : easyOn() ? 5 : 6, span = def ? 1.3 : 1.6, wait0 = 1.5;          // taps for a full bar, seconds allowed from the first tap, seconds to wait for a first tap
       const x = o.position.x, z = o.position.z, h = o.userData.h || 1, y = mid(o), rad = Math.max(0.5, h * 0.7);
       const sh = def ? P(TT.scene, 'sph', glowT(0x6ad8ff, 0), [x, y, z], rad) : null, ring = P(TT.scene, RING, glowT(cols[1] || cols[0], 0), [x, 0.07, z], 0.3, [1.57, 0, 0]);
-      el.style.setProperty('--tc', def ? '#6ad8ff' : '#ffd23a'); txt.textContent = def ? 'Tap fast to shield!' : 'Tap fast!'; bar.style.width = '0%'; tm.style.transform = 'scaleX(1)'; el.className = 'on';
-      let n = 0, t1 = 0, t0 = performance.now(), last = t0, done = false, raf = 0, acc = 0;
+      el.style.setProperty('--tc', def ? '#6ad8ff' : '#ffd23a'); txt.textContent = def ? 'Tap fast to shield!' : 'Tap fast!'; bar.style.transform = 'scaleX(0)'; tm.style.transform = 'scaleX(1)'; el.className = 'on' + LITE;
+      let n = 0, t1 = 0, t0 = performance.now(), last = t0, done = false, raf = 0, acc = 0, tmV = 1;
       const end = () => {
         if (done) return; done = true; cancelAnimationFrame(raf); el.removeEventListener('pointerdown', tap); removeEventListener('keydown', key, true);
         const f = Math.min(1, n / need), full = f >= 1;
         if (full) { TT.sfx.star(); flash(def ? '#c8f0ff' : '#fff2b0', 0.45); B.shake = Math.max(B.shake, 0.5); fxBurst(34, x, y, z, { v: 5, life: 0.5, s: 0.2, s1: 0.03, cols, a: 1, g: 3 }); }
-        txt.textContent = full ? (def ? 'FULL SHIELD!' : 'MAX POWER!') : f >= 0.5 ? 'Great!' : n ? 'Nice!' : ''; el.className = 'on end' + (full ? ' max' : '');
+        txt.textContent = full ? (def ? 'FULL SHIELD!' : 'MAX POWER!') : f >= 0.5 ? 'Great!' : n ? 'Nice!' : ''; el.className = 'on end' + (full ? ' max' : '') + LITE;
         const s0 = ring.scale.x;
         run(n ? 0.42 : 0.05, q => { ring.scale.setScalar(s0 + q * 1.2); ring.material.opacity *= 0.8; if (sh) sh.material.opacity = (0.15 + 0.4 * f) * (1 - q * q); }).then(() => { TT.scene.remove(ring); if (sh) TT.scene.remove(sh); el.className = ''; el.querySelectorAll('u').forEach(u => u.remove()); res(f); });
       };
       const hit = (px, py) => {
         if (done) return; if (!n) t1 = performance.now(); n++; const f = Math.min(1, n / need);
-        bar.style.width = f * 100 + '%'; txt.textContent = def ? 'Shield up!' : f < 0.5 ? 'Power up!' : 'More! More!';
+        bar.style.transform = 'scaleX(' + f + ')'; txt.textContent = def ? 'Shield up!' : f < 0.5 ? 'Power up!' : 'More! More!';
         TT.sfx.up(f); B.shake = Math.max(B.shake, 0.1 + f * 0.2);
         fxBurst(6 + n, x, y - h * 0.2, z, { v: 1.4 + f * 2.2, up: 2.2, life: 0.5, s: 0.15 + f * 0.08, s1: 0.03, cols, a: 1, r: rad * 0.7, hemi: 1 });
-        if (px != null) { const u = document.createElement('u'); u.style.left = px + 'px'; u.style.top = py + 'px'; el.appendChild(u); setTimeout(() => u.remove(), 420); }
+        if (px != null && !LITE) { const u = document.createElement('u'); u.style.left = px + 'px'; u.style.top = py + 'px'; el.appendChild(u); setTimeout(() => u.remove(), 420); }
         if (n >= need) end();
       };
       const tap = e => { e.preventDefault(); e.stopPropagation(); const r = el.getBoundingClientRect(); hit(e.clientX - r.left, e.clientY - r.top); };
@@ -371,7 +372,7 @@
       const frame = () => {
         const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
         if (TT.paused) { t0 += dt * 1000; if (t1) t1 += dt * 1000; raf = requestAnimationFrame(frame); return; }
-        const f = Math.min(1, n / need), left = t1 ? 1 - (now - t1) / 1000 / span : 1; tm.style.transform = 'scaleX(' + Math.max(0, left) + ')';
+        const f = Math.min(1, n / need), left = t1 ? 1 - (now - t1) / 1000 / span : 1; { const stp = LITE ? 12 : 50, lv = Math.round(Math.max(0, left) * stp) / stp; if (lv !== tmV) { tmV = lv; tm.style.transform = 'scaleX(' + lv + ')'; } }
         ring.scale.setScalar(0.3 + f * rad * 1.6 + Math.sin(now * 0.02) * 0.04); ring.material.opacity = n ? 0.35 + f * 0.5 : 0;
         if (sh) { sh.scale.setScalar(rad * (0.5 + f * 0.75)); sh.material.opacity = n ? 0.15 + f * 0.4 : 0; }
         acc += dt * (n ? 20 + 70 * f : 0) * FX.q;                                   // the glow around the Pokémon thickens as the bar fills

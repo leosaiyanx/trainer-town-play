@@ -1450,7 +1450,9 @@
     { const fx = Math.round(TT.Battle.active ? W.ARENA.x : mode === 'play' ? cam.x : 0), fz = Math.round(TT.Battle.active ? W.ARENA.z : mode === 'play' ? cam.z : 0); sun.position.set(fx + 18, 38, fz + 24); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld(); }
     for (const a of actors) { if (a.userData.human) TT.animHuman(a, t, 0); else TT.animCreature(a, t, 0); }
     for (const d of dust) if (d.visible) { d.userData.k += dt * 2.2; const k = d.userData.k; if (k >= 1) d.visible = false; else { d.scale.setScalar(0.12 + k * 0.4); d.position.y = (d.userData.y0 || 0) + 0.1 + k * 0.5; d.material.opacity = 0.5 * (1 - k); } }
-    if (inB !== TT.Battle.active) { inB = TT.Battle.active; document.body.classList.toggle('inbattle', inB); }
+    if (inB !== TT.Battle.active) { inB = TT.Battle.active; document.body.classList.toggle('inbattle', inB);
+      // a battle has its own copies of everyone: the trainer, partner, helpers and anything on the Sky Fortress left out in the world are switched off until it ends (their meshes are never culled by distance, so they would still cost a full draw)
+      if (inB) { player.root.visible = follower.root.visible = false; for (const c of comps) c.root.visible = false; W.fortShow(false); fortOn = false; } for (const a of actors) a.visible = !inB; }
     for (const n of npcs) {
       if (n.hidden) { n.root.visible = n.root.matrixWorldAutoUpdate = false; if (n.zz) n.zz.forEach(z => { z.visible = false; }); continue; }
       if (n.zz) n.zz.forEach((z, i) => { const k = (t * 0.35 + i / 3) % 1; z.visible = n.root.visible; z.position.set(n.x + 0.6 + k * 1.2, W.gy(n.x, n.z) + 3.1 + k * 1.8, n.z + 0.3); z.material.opacity = Math.sin(k * 3.14); z.scale.set(1.2 * (0.5 + k), 0.3 * (0.5 + k), 1); });
@@ -1525,7 +1527,7 @@
     } else { player.mv = 0; vel.x = vel.z = 0; }
 
     starObj.visible = S.stars.indexOf(3) < 0 && !S.wishes; starObj.rotation.y = t * 1.5; starObj.position.y = 0.7 + Math.sin(t * 2) * 0.12;
-    placeEnt(player, true); player.root.visible = true;
+    placeEnt(player, true); player.root.visible = !TT.Battle.active;
     if (!busy || !TT.Battle.active) {
       if (talkTo) { duoEnd(); follow(follower, player.x + (player.x >= talkTo.x ? 1.5 : -1.5), player.z - 0.9, dt, 0.25); }      // while talking, the partner steps to the far side so it never blocks the close-up
       else if (!duoTick(dt)) follow(follower, player.x, player.z, dt, 1.5);
