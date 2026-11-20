@@ -335,9 +335,10 @@
   }
   // ---------------- how hard a battle is ----------------
   // Each child picks Easy, Normal or Challenge in the menu. On top of that every battle gets a little sharper the further the story has gone (tier 0–4).
-  const hard = () => !!(TT.S && TT.S.hard) && !st.watch, easyOn = () => !!(TT.S && TT.S.easy);
+  const hard = () => !!(TT.S && TT.S.hard) && !st.watch, easyOn = () => !!(TT.S && TT.S.easy), master = () => hard() && TT.S.hard >= 2;          // S.hard: 1 = Challenge, 2 = Master
+  TT.tally = { mega: 0, max: 0, help: 0 };          // running counts the badge book and the side missions read
   const tier = () => { const f = TT.S.flags; return (f.city ? 1 : 0) + (f.world ? 1 : 0) + (f.tunnel ? 1 : 0) + (TT.S.wishes ? 1 : 0); };
-  const critP = side => side === 'foe' ? (easyOn() ? 0 : 0.03 + tier() * 0.012 + (hard() ? 0.05 : 0)) : 0.07 + tier() * 0.01;
+  const critP = side => side === 'foe' ? (easyOn() ? 0 : 0.03 + tier() * 0.012 + (hard() ? 0.05 : 0) + (master() ? 0.04 : 0)) : 0.07 + tier() * 0.01;
   // Power taps (every battle level; Easy needs the fewest taps): tap anywhere, as fast as you like, to fill a power bar. Every tap helps and nothing can be missed.
   // kind 'atk' powers up your Pokémon's attack; kind 'def' (Challenge only) raises a shield before some of the foe's hits. Resolves with how full the bar got, 0…1.
   function charge(kind, o, cols) {
@@ -346,7 +347,7 @@
       let el = $('tapRing'); if (!el) { el = document.createElement('div'); el.id = 'tapRing'; el.innerHTML = '<span></span><div class="bar"><i></i></div><em></em>'; $('battle').appendChild(el); }
       const def = kind === 'def', txt = el.querySelector('span'), bar = el.querySelector('.bar i'), tm = el.querySelector('em');
       const LITE = MEM <= 4 ? ' lite' : '';          // on the kids' tablets moving text on top of the 3D picture costs a third of the frame rate, so the bar stays still there: no pulsing words, no tap ripples
-      const need = def ? 6 : hard() ? 8 : easyOn() ? 5 : 6, span = def ? 1.3 : 1.6, wait0 = 1.5;          // taps for a full bar, seconds allowed from the first tap, seconds to wait for a first tap
+      const need = def ? 6 : master() ? 10 : hard() ? 8 : easyOn() ? 5 : 6, span = def ? 1.3 : 1.6, wait0 = 1.5;          // taps for a full bar, seconds allowed from the first tap, seconds to wait for a first tap
       const x = o.position.x, z = o.position.z, h = o.userData.h || 1, y = mid(o), rad = Math.max(0.5, h * 0.7);
       const sh = def ? P(TT.scene, 'sph', glowT(0x6ad8ff, 0), [x, y, z], rad) : null, ring = P(TT.scene, RING, glowT(cols[1] || cols[0], 0), [x, 0.07, z], 0.3, [1.57, 0, 0]);
       el.style.setProperty('--tc', def ? '#6ad8ff' : '#ffd23a'); txt.textContent = def ? 'Tap fast to shield!' : 'Tap fast!'; bar.style.transform = 'scaleX(0)'; tm.style.transform = 'scaleX(1)'; el.className = 'on' + LITE;
@@ -354,7 +355,7 @@
       const end = () => {
         if (done) return; done = true; cancelAnimationFrame(raf); el.removeEventListener('pointerdown', tap); removeEventListener('keydown', key, true);
         const f = Math.min(1, n / need), full = f >= 1;
-        if (full) { TT.sfx.star(); flash(def ? '#c8f0ff' : '#fff2b0', 0.45); B.shake = Math.max(B.shake, 0.5); fxBurst(34, x, y, z, { v: 5, life: 0.5, s: 0.2, s1: 0.03, cols, a: 1, g: 3 }); }
+        if (full) { if (!def) TT.tally.max++; TT.sfx.star(); flash(def ? '#c8f0ff' : '#fff2b0', 0.45); B.shake = Math.max(B.shake, 0.5); fxBurst(34, x, y, z, { v: 5, life: 0.5, s: 0.2, s1: 0.03, cols, a: 1, g: 3 }); }
         txt.textContent = full ? (def ? 'FULL SHIELD!' : 'MAX POWER!') : f >= 0.5 ? 'Great!' : n ? 'Nice!' : ''; el.className = 'on end' + (full ? ' max' : '') + LITE;
         const s0 = ring.scale.x;
         run(n ? 0.42 : 0.05, q => { ring.scale.setScalar(s0 + q * 1.2); ring.material.opacity *= 0.8; if (sh) sh.material.opacity = (0.15 + 0.4 * f) * (1 - q * q); }).then(() => { TT.scene.remove(ring); if (sh) TT.scene.remove(sh); el.className = ''; el.querySelectorAll('u').forEach(u => u.remove()); res(f); });
@@ -417,7 +418,7 @@
   // Once per battle, with the Key Stone: light gathers, the Pokémon spins inside a shining shell, and bursts out in its Mega form. It hits harder and takes less until it leaves the battle.
   const RAINBOW = [0xff6a9a, 0xffd23a, 0x6ad8ff, 0x9a6aff, 0x7ae87a, 0xffffff];
   async function megaEvolve() {
-    const m = st.me, M = TT.MEGA[m.sp], old = st.obj.me, x = old.position.x, z = old.position.z, y = mid(old), nm = TT.monName(m); st.megaUsed = (st.megaUsed || 0) + 1; fxInit();
+    const m = st.me, M = TT.MEGA[m.sp], old = st.obj.me, x = old.position.x, z = old.position.z, y = mid(old), nm = TT.monName(m); st.megaUsed = (st.megaUsed || 0) + 1; TT.tally.mega++; fxInit();
     gesture('cheer', 2.2); focus(-0.6, 0.4); await say('The Key Stone is shining!', 0.8);
     const glow = P(TT.scene, 'sph', glowT(0xffffff, 0), [x, y, z], 0.3), R = (old.userData.h || 1) * 0.85; TT.sfx.evo();
     await run(1.4, (q, dt) => {
@@ -437,7 +438,7 @@
   const foeMove = () => { const mv = TT.moves(st.foe), hit = mv.filter(v => !v[4]), M = modOf('foe'), tr = mv.filter(v => v[4] && !(v[4] === 'guard' && M.guard) && !(v[4] === 'heal' && st.foe.hp > mxOf(st.foe) * 0.6) && !(v[4] === 'para' && modOf('me').para) && !(v[4] === 'evade' && M.ev) && !(v[4] === 'atkup' && M.atk > 1.3));
     if (tr.length && hit.length && Math.random() < (easyOn() ? 0.06 : 0.12 + tier() * 0.03 + (hard() ? 0.1 : 0))) return TT.pick(tr);
     const pool = hit.length ? hit : mv, my = TT.DEX[st.me.sp][1], best = pool.slice().sort((a, b) => b[2] * TT.eff(b[1], my) - a[2] * TT.eff(a[1], my))[0];
-    return Math.random() < TT.clamp(0.2 + tier() * 0.13 + (hard() ? 0.25 : 0) - (easyOn() ? 0.2 : 0), 0, 0.92) ? best : TT.pick(pool); };
+    return Math.random() < TT.clamp(0.2 + tier() * 0.13 + (hard() ? 0.25 : 0) + (master() ? 0.25 : 0) - (easyOn() ? 0.2 : 0), 0, master() ? 0.98 : 0.92) ? best : TT.pick(pool); };
   // test hook: play one move's visuals in the current battle without changing anything, e.g. TT.Battle.fxTest('fire', 1.5)
   B.chargeTest = kind => st ? charge(kind || 'atk', st.obj.me, typeCols(TT.DEX[st.me.sp][1])) : null;
   B.fxTest = (type, pw, foe) => st ? animAtk(foe ? st.obj.foe : st.obj.me, foe ? st.obj.me : st.obj.foe, type, 12, 1, () => { }, pw) : null;
@@ -568,8 +569,8 @@
 
   // ---------------- XP, evolution, catching ----------------
   async function gainXp(m, amount) {
-    if (hard()) amount = Math.round(amount * 1.3);          // Challenge pays better
-    m.xp += amount; await say(TT.monName(m) + ' got ' + amount + ' XP!' + (hard() ? ' (Challenge bonus)' : ''), 0.8); bars();
+    if (hard()) amount = Math.round(amount * (master() ? 1.6 : 1.3));          // Challenge and Master pay better
+    m.xp += amount; await say(TT.monName(m) + ' got ' + amount + ' XP!' + (master() ? ' (Master bonus)' : hard() ? ' (Challenge bonus)' : ''), 0.8); bars();
     while (m.xp >= TT.xpNeed(m)) {
       m.xp -= TT.xpNeed(m); m.lvl++; m.hp = TT.maxHp(m); TT.sfx.level(); bars();
       const o = st.obj.me, x = o.position.x, z = o.position.z, sp = parts(10, [0xffe060, 0xffffff], x, 0, z, 0.09);
@@ -646,8 +647,9 @@
     await TT.wait(0.14); flash('#ffffff', 0.55);
     await TT.wipeTo(1, 0.5, 0);
     TT.camZoom = 1; W.ARENA = W.STAGES[stage]; W.applyStage(stage);
-    st = { noCatch: !!opts.noCatch, foes: opts.foes, fi: 0, wild: !!opts.wild, easy: !!opts.easy, obj: {}, extras: [], humans: [], assists: [], trainers: [], trainer: opts.trainer || '', people: opts.people || [], allies: (opts.allies || []).map(a => Object.assign({}, a)), stage, rageMul: 1, bt: 0, turn: 0, allyObjs: [] };
-    if (S.hard) for (const m of st.foes) { if (m.up) continue; m.up = 1; if (m.boss) { m.mx = Math.round(m.mx * 1.25); m.hp = m.mx; } else { m.lvl += st.wild ? 1 : 2; m.hp = TT.maxHp(m); } }          // Challenge: tougher foes
+    st = { noCatch: !!opts.noCatch, foes: opts.foes, fi: 0, wild: !!opts.wild, easy: !!opts.easy, obj: {}, extras: [], humans: [], assists: [], trainers: [], trainer: opts.trainer || '', people: opts.people || [], allies: (opts.allies || []).slice(-(S.hard >= 2 ? 1 : S.hard ? 2 : 3)).map(a => Object.assign({}, a)), stage,          // fewer helpers the harder the level: 3, 2 in Challenge, 1 in Master
+       rageMul: 1, bt: 0, turn: 0, allyObjs: [] };
+    if (S.hard) for (const m of st.foes) { if (m.up) continue; m.up = 1; if (m.boss) { m.mx = Math.round(m.mx * (S.hard >= 2 ? 1.4 : 1.25)); m.hp = m.mx; if (S.hard >= 2) m.lvl += 1; } else { m.lvl += (st.wild ? 1 : 2) + (S.hard >= 2 ? 2 : 0); m.hp = TT.maxHp(m); } }          // Challenge: tougher foes
     st.foe = st.foes[0]; st.me = S.party.find(m => m.hp > 0);
     fxInit(); fxAdd(A().x, 1, A().z, 0, 0, 0, 0.3, 0.05, 0.05, 0xffffff, null, 0.02);          // one faint speck: makes the graphics chip get the particle shader ready now
     B.active = true; camK = 0; cam.f = cam.tf = 0; cam.z = cam.tz = 0;
@@ -703,19 +705,19 @@
         else if (await throwBall()) { result = 'caught'; await gainXp(st.me, st.foe.lvl * 6 + 4); break; }
       } else {
         let tb = 1; if (!act.mv[4]) { setMsg('Tap fast to power up ' + TT.monName(st.me) + '!'); tb = 1 + 0.3 * await charge('atk', st.obj.me, typeCols(act.mv[1])); }
-        await attack(st.me, st.foe, act.mv, st.obj.me, st.obj.foe, (st.easy ? (hard() ? 1.15 : 1.5) : 1) * tb);
+        await attack(st.me, st.foe, act.mv, st.obj.me, st.obj.foe, (st.easy ? (master() ? 1 : hard() ? 1.15 : 1.5) : 1) * tb);
         if (st.foe.hp <= 0) { if (await foeDown()) { result = 'win'; break; } foeTurn = false; }
         else await checkRage();
       }
       // allies take turns joining in: one helps every turn when there are two, every other turn when there is one
       if (act.t !== 'assist' && st.allies.length && st.foe.hp > 0) { st.turn++; const a = st.allies.length > 1 ? st.allies[st.turn % st.allies.length] : st.turn % 2 ? st.allies[0] : null; if (a) st.assists.push(Object.assign({ lvl: st.me.lvl + 4 }, a)); }
       if (foeTurn) {
-        let mult = (hard() ? (st.easy ? 0.6 : 0.9) : st.easy ? 0.35 : 0.7) * st.rageMul;
+        let mult = (master() ? (st.easy ? 0.8 : 1.0) : hard() ? (st.easy ? 0.6 : 0.9) : st.easy ? 0.35 : 0.7) * st.rageMul;
         const fmx = mxOf(st.foe);
-        if (hard() && !st.wild && !st.foe.boss && !st.potion && st.foe.hp < fmx * 0.3 && Math.random() < 0.6) {            // Challenge: a trainer may use one potion
-          st.potion = 1; st.foe.hp = Math.min(fmx, st.foe.hp + Math.round(fmx * 0.4)); bars(); await arrowsFx(st.obj.foe, 1, 0x7ae87a); await say(st.trainer + ' used a Super Potion!', 1);
+        if (hard() && !st.wild && !st.foe.boss && (st.potion || 0) < (master() ? 2 : 1) && st.foe.hp < fmx * 0.3 && Math.random() < 0.6) {            // Challenge: a trainer may use one potion
+          st.potion = (st.potion || 0) + 1; st.foe.hp = Math.min(fmx, st.foe.hp + Math.round(fmx * 0.4)); bars(); await arrowsFx(st.obj.foe, 1, 0x7ae87a); await say(st.trainer + ' used a Super Potion!', 1);
         } else if (hard() && st.foe.boss && !st.wind && st.foe.hp < fmx * 0.25) {                                       // Challenge: a boss finds a second wind
-          st.wind = 1; st.foe.hp += Math.round(fmx * 0.2); bars(); TT.cry(st.foe.sp, 0.6); B.shake = 0.8; flash('#ffe0c0', 0.5); await arrowsFx(st.obj.foe, 1, 0xff6a3a); await say(TT.monName(st.foe) + ' found a second wind!', 1.1);
+          st.wind = 1; st.foe.hp += Math.round(fmx * (master() ? 0.3 : 0.2)); bars(); TT.cry(st.foe.sp, 0.6); B.shake = 0.8; flash('#ffe0c0', 0.5); await arrowsFx(st.obj.foe, 1, 0xff6a3a); await say(TT.monName(st.foe) + ' found a second wind!', 1.1);
         } else {
           const sig = st.foe.boss && ++st.bt % (hard() ? 2 : 3) === 0; st.br = (st.br || 0) + 1;
           if (hard() && (st.foe.boss ? sig || st.br === 1 : st.br % 2 === 1)) { setMsg(TT.monName(st.foe) + ' is winding up! Tap fast to shield ' + TT.monName(st.me) + '!'); mult *= 1 - 0.3 * await charge('def', st.obj.me, [0xffffff, 0x6ad8ff, 0xa8e8ff]); }          // Challenge: a shield against every other hit; against a boss, the first hit and every special-move turn
@@ -780,7 +782,7 @@
       const m = $('bmenu'); m.innerHTML = ''; m.classList.remove('off');
       TT.moves(lead).forEach(mv => {
         const b = document.createElement('button'); b.innerHTML = '⚡ Help: ' + mv[0] + '<small>' + TT.monName(lead) + ' · ' + mv[1] + '</small>'; b.style.background = hex(TT.TYPE_COL[mv[1]] || 0xa8a890);
-        b.addEventListener('pointerdown', e => { e.preventDefault(); if (m.classList.contains('off')) return; TT.sfx.blip(); helped = true; TT.Net.send({ e: 'b', t: 'assist', to: owner, sp: lead.sp, lvl: lead.lvl, mv, n: myName }); m.classList.add('off'); setTimeout(() => { if (st && st.watch) m.classList.remove('off'); }, 4000); });
+        b.addEventListener('pointerdown', e => { e.preventDefault(); if (m.classList.contains('off')) return; TT.sfx.blip(); helped = true; TT.tally.help++; TT.Net.send({ e: 'b', t: 'assist', to: owner, sp: lead.sp, lvl: lead.lvl, mv, n: myName }); m.classList.add('off'); setTimeout(() => { if (st && st.watch) m.classList.remove('off'); }, 4000); });
         m.appendChild(b);
       });
       const l = document.createElement('button'); l.className = 'alt'; l.textContent = 'Leave'; l.addEventListener('pointerdown', e => { e.preventDefault(); left('leave'); }); m.appendChild(l);

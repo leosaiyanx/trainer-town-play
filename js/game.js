@@ -113,7 +113,7 @@
       if (q.get('zoom')) setInterval(() => { if (!TT.Battle.active && !flying) TT.camZoom = +q.get('zoom'); }, 50);      // test: bring the camera close to check a model
       if (q.get('gest')) setInterval(() => { if (player.root) player.root.userData.model.userData.gesture = q.get('gest'); }, 100);
       const ev = q.get('evt');
-      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'space') pendingRide = 'namek'; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev === 'wish') { busy = true; wish().then(() => { busy = false; }); } if (ev && ev.startsWith('wipe:')) { const w = ev.split(':'); TT.wipeTo(+w[1], 0.01, +w[2], w[3] ? parseInt(w[3], 16) : null); } if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
+      setTimeout(() => { if (ev === 'battle') wildBattle(wilds[+q.get('w') || 0]); if (ev === 'rocket') nextRocket = 0; if (ev === 'space') pendingRide = 'namek'; if (ev === 'team') showTeam(); if (ev === 'map') showMap(); if (ev === 'town') showAreaMap('town'); if (ev === 'city') showAreaMap('city'); if (ev === 'world') showAreaMap('world'); if (ev && ev.startsWith('talk:')) { const n = npcs.find(n2 => n2.key === ev.slice(5)); if (n) { player.x = n.x - (n.reach || 2) + 0.4; player.z = n.z; talk(n); } } if (ev === 'menu') showMenu(); if (ev === 'badges') showBadges(); if (ev === 'missions') showMissions(); if (ev === 'rematch') showRematch(); if (ev === 'wish') { busy = true; wish().then(() => { busy = false; }); } if (ev && ev.startsWith('wipe:')) { const w = ev.split(':'); TT.wipeTo(+w[1], 0.01, +w[2], w[3] ? parseInt(w[3], 16) : null); } if (ev === 'egg') { S.egg = { have: true, warm: 97 }; } }, 600);
     }
     requestAnimationFrame(frame);
     setInterval(() => { if (performance.now() - lastReal > 400) G.tick(performance.now()); }, 200);
@@ -265,6 +265,7 @@
     if (ak === 'volcano' && !f.tunnel) { f.tunnel = 1; ch = true; }
     if (ak === 'peaks' || ak === 'island' || ak === 'fortress' || ak === 'namek') { if (!f.world) f.world = 1; if (!f[ak]) { f[ak] = 1; ch = true; } }
     if (ch) { f.profMet = f.profDone = 1; applyFlags(); hud(); save(); }
+    misFill(); checkBadges();
   }
   // ---- fair fights: bosses match the whole team, and ease off a little each time you lose to them ----
   const teamLvl = () => { const l = S.party.map(m => m.lvl).sort((a, b) => b - a); return Math.round(l.length > 1 ? l[0] * 0.5 + (l[1] + (l[2] != null ? l[2] : l[1])) / 2 * 0.5 : l[0]); };
@@ -527,8 +528,9 @@
     player.root.userData.model.userData.idleForce = null; follower.hidden = false; comps.forEach(c => { c.hidden = false; });
     player.x = cam.x = p[0]; player.z = cam.z = p[1]; player.lift = 0; camY = W.gy(p[0], p[1]); vel.x = vel.z = 0; follower.x = p[0] + 1; follower.z = p[1] + 0.8; comps.forEach((c, i) => { c.x = p[0] - 1 - i; c.z = p[1] + 1.5; });
     areaNow = k; arrive(k); TT.music(TT.areaMusic());
-    const n = F.got, all = F.rings.length, prize = n >= all ? 5 : n >= all / 2 ? 2 : 0; S.balls += prize; S.bestRings = Math.max(S.bestRings || 0, n);
+    const n = F.got, all = F.rings.length, prize = n >= all ? 5 : n >= all / 2 ? 2 : 0; S.balls += prize; S.bestRings = Math.max(S.bestRings || 0, n); if (n >= all) bump(F.space ? 'spaceAll' : 'skyAll'); if (n >= 9) misEvent('rings');
     await TT.wait(0.2); TT.wipeTo(0, 0.45, 1, wc); poof(p[0], p[1]); TT.sfx.pick();
+    checkBadges();
     TT.toast((F.space ? '🚀' : '🪽') + ' You flew through ' + n + ' of ' + all + ' rings!' + (prize ? ' You won ' + prize + ' Poké Balls!' : '')); busy = flying = false; hud(); save();
   }
 
@@ -581,6 +583,7 @@
   async function talk(n) {
     busy = true; talkTo = n; n.h = Math.atan2(player.x - n.x, player.z - n.z); player.h = Math.atan2(n.x - player.x, n.z - player.z);
     const mdl = n.root.userData.model; if (n.human) mdl.userData.gesture = 'talk';
+    { const lm = S.mis && S.mis.find(m => m.t === 'talk' && m.a === n.name); if (lm) { await TT.say([[n.name, 'A letter for me? Thank you for bringing it all this way!']]); misDone(lm); } }
     if (n.key === 'skye') await skye(); else if (n.key === 'grunt1') await grunt(1, n); else if (n.key === 'grunt2') await grunt(2, n); else if (n.key === 'rjj') await rjj(); else if (n.key === 'giovanni') await giovanni(); else if (n.key === 'dende') await dende(); else if (n.key === 'nguard') await nguard(n); else if (n.key === 'elder') await elder(); else if (n.key === 'piccolo') await piccolo(); else if (n.key === 'zarbon') await captain(n, 1); else if (n.key === 'dodoria') await captain(n, 2); else if (n.key === 'frieza') await frieza(n); else if (n.key === 'roshi') await roshi(); else if (n.key === 'krillin') await krillin(); else if (n.key === 'bulma') await bulma(); else if (n.key === 'vegeta') await vegetaTalk(); else if (n.key === 'prof') await prof(); else if (n.key === 'nurse') await nurse(); else if (n.key === 'guard') await gus(n); else if (n.key === 'gohan') await gohan(); else if (n.key === 'misty') await misty(); else if (n.key === 'clerk') await clerk(); else if (n.key === 'guard2') await gail(n); else if (n.key === 'ranger') await ranger(); else if (n.key === 'goku') await gokuTalk(); else if (n.key === 'hideout') await hideout(); else if (n.key === 'snorlax') await snorlaxTalk();
     else if (!n.human) {
       await TT.say([[n.name, n.lines[0]]]);
@@ -711,6 +714,126 @@
     else await TT.say([['Snorlax', 'Snorrr... (Snorlax yawned, stretched and waddled away!)']]);
     S.flags.snorlax = 1; applyFlags(); TT.sfx.star(); await TT.say([['', 'The path to the peak is open!']]); save();
   }
+  // ================= things to do again and again: boss rematches, the badge book and side missions =================
+  // Counters live in S.cnt, badges earned in S.ach, rematch stars in S.rem, the three open missions in S.mis.
+  const cnt = () => S.cnt || (S.cnt = {}), bump = (k, n) => { const c = cnt(); c[k] = (c[k] || 0) + (n == null ? 1 : n); return c[k]; };
+  const BM = (sp, L, mul) => TT.Battle.bossMon(sp, L, mul * (S.easy ? 0.75 : 1));
+  // --- boss rematches: every boss already beaten in the story can be fought again from the menu. Each win adds a star, and the boss comes back two levels stronger. ---
+  const REM = [
+    { k: 'misty', n: 'Leader Misty', ic: '💧', ok: f => f.gym, ppl: ['misty'], stage: 'gym', foes: L => [TT.mon('psyduck', L), TT.mon('wartortle', L), TT.mon('quaxly', L), TT.mon('gyarados', L + 1)] },
+    { k: 'robot', n: 'Jessie and James', ic: '🤖', ok: f => f.hideout, ppl: ['jessie', 'james'], stage: 'hideout', music: 'rocket', title: 'Mecha-Meowth', foes: L => [TT.mon('gourgeist', L), TT.mon('inkay', L), BM('mecha', L + 2, 2.0)] },
+    { k: 'goku', n: 'Goku', ic: '🟠', ok: f => f.goku, ppl: ['goku'], stage: 'plateau', music: 'goku', title: "Goku's legendary partner", foes: L => [TT.mon('machoke', L), TT.mon('dragonair', L), BM('rayquaza', L + 3, 2.2)] },
+    { k: 'vegeta', n: 'Vegeta', ic: '👑', ok: f => f.vegeta, ppl: ['vegeta'], stage: 'volcano', music: 'goku', title: "Vegeta's legendary partner", foes: L => [TT.mon('gyarados', L), TT.mon('machoke', L), BM('mewtwo', L + 2, 2.0)] },
+    { k: 'dragon', n: 'Shenron', ic: '🐉', ok: () => S.wishes > 0, ppl: [], stage: 'lair', music: 'dragon', title: 'The Eternal Dragon', foes: L => [BM('shenron', L + 3, 2.6)] },
+    { k: 'guardian', n: 'The Guardian of the Peaks', ic: '❄️', ok: f => f.guardian, ppl: [], stage: 'mountain', title: 'Guardian of the Peaks', foes: L => [BM('articuno', L + 2, 2.2)] },
+    { k: 'roshi', n: 'Master Roshi', ic: '🐢', ok: f => f.roshi, ppl: ['roshi'], stage: 'pond', title: "The Turtle Hermit's partner", foes: L => [TT.mon('poliwhirl', L), TT.mon('machoke', L), BM('blastoise', L + 2, 1.9)] },
+    { k: 'giovanni', n: 'Giovanni', ic: '🚀', ok: f => f.boss, ppl: ['giovanni'], stage: 'hideout', music: 'giovanni', title: "The Boss's strongest Pokémon", foes: L => [TT.mon('persian', L), TT.mon('nidoking', L), BM('rhydon', L + 2, 2.1)] },
+    { k: 'piccolo', n: 'Piccolo', ic: '💚', ok: f => f.piccolo, ppl: ['piccolo'], stage: 'namek', music: 'goku', title: "Piccolo's partner", foes: L => [TT.mon('elgyem', L), TT.mon('grovyle', L), BM('sceptile', L + 2, 1.8)] },
+    { k: 'frieza', n: 'Frieza', ic: '🛸', ok: f => f.nfrieza, ppl: ['frieza'], stage: 'namek', music: 'frieza', title: 'Deoxys, final shape', morph: ['Deoxys changed shape! Its spikes look sharp!', 'Deoxys changed shape again! It is faster than ever!'], foes: L => [TT.mon('deoxys', L), TT.mon('deoxys2', L + 1), BM('deoxys3', L + 2, 1.9)] }];
+  const remStars = k => (S.rem && S.rem[k]) || 0, starStr = n => '★'.repeat(Math.min(5, n)) + '☆'.repeat(Math.max(0, 5 - n)) + (n > 5 ? ' +' + (n - 5) : '');
+  function showRematch() {
+    const f = S.flags, open = REM.filter(r => r.ok(f)), L = k => Math.max(12, teamLvl() + 1 + Math.min(10, remStars(k)) * 2);
+    openPanel('<h3>⚔️ Boss rematches <button id="pClose">✕</button></h3><p class="xnote">Beat a boss again to earn a star. Every star makes that boss two levels stronger.</p>' +
+      (open.length ? open.map(r => '<button class="opt rem" data-rem="' + r.k + '">' + r.ic + ' ' + r.n + '<small>' + starStr(remStars(r.k)) + ' · level ' + L(r.k) + '</small></button>').join('') : '<p class="xnote">No boss beaten yet. Win the City Gym first!</p>') +
+      (open.length < REM.length ? '<p class="xnote">' + (REM.length - open.length) + ' more ' + (REM.length - open.length > 1 ? 'bosses' : 'boss') + ' will appear here as you beat them in the story.</p>' : ''));
+    document.querySelectorAll('[data-rem]').forEach(b => b.onclick = () => rematch(REM.find(r => r.k === b.dataset.rem)));
+  }
+  async function rematch(r) {
+    if (busy || TT.Battle.active || flight) return; closePanel();
+    if (!S.party.some(m => m.hp > 0)) { TT.toast('Your Pokémon need a rest first. Visit a Poké Center!'); return; }
+    busy = true; stopInput(); setDest(null); duoEnd();
+    const st = remStars(r.k), L = Math.max(12, teamLvl() + 1 + Math.min(10, st) * 2), solo = !r.ppl.length;
+    const res = await TT.Battle.start({ foes: r.foes(L), trainer: solo ? '' : r.n, people: r.ppl, wild: solo, noCatch: true, stage: r.stage, allies: allies().filter(h => r.ppl.indexOf(h.h) < 0), music: r.music || 'boss', bossMusic: r.music || 'boss', bossTitle: r.title, morph: r.morph, rematch: r.k });
+    if (follower.sp !== S.party[0].sp) setFollower(); S.party.forEach(m => m.hp = TT.maxHp(m)); TT.music(TT.areaMusic());
+    if (res === 'win') { S.rem = S.rem || {}; S.rem[r.k] = st + 1; const prize = 3 + Math.min(5, st); S.balls += prize; TT.sfx.star(); TT.toast('⭐ ' + r.n + ': ' + (st + 1) + (st ? ' stars' : ' star') + '! You won ' + prize + ' Poké Balls'); }
+    else TT.toast(res === 'run' ? 'You left the rematch.' : 'So close! ' + r.n + ' is ready whenever you are.');
+    busy = false; hud(); save(); checkBadges();
+  }
+  // --- the badge book ---
+  const kinds = () => S.caught.length, allRem = n => REM.filter(r => remStars(r.k) >= n).length, big = n => S.party.concat(S.box || []).some(m => m.lvl >= n);
+  const BADGES = [
+    ['friend', '🐣', 'First Friend', 'Catch a wild Pokémon', (f, c) => kinds() >= 2],
+    ['k10', '📗', 'Collector', 'Have 10 kinds of Pokémon', () => kinds() >= 10], ['k25', '📘', 'Great Collector', 'Have 25 kinds of Pokémon', () => kinds() >= 25], ['k40', '📕', 'Pokémon Professor', 'Have 40 kinds of Pokémon', () => kinds() >= 40],
+    ['six', '🎒', 'Full Team', 'Carry six Pokémon at once', () => S.party.length >= 6], ['l50', '💪', 'Powerhouse', 'Raise a Pokémon to level 50', () => big(50)], ['egg', '🥚', 'Egg Carer', 'Hatch an egg', f => f.hatched],
+    ['w10', '🥉', 'Battler', 'Win 10 battles', (f, c) => c.wins >= 10], ['w50', '🥈', 'Fighter', 'Win 50 battles', (f, c) => c.wins >= 50], ['w150', '🥇', 'Battle Legend', 'Win 150 battles', (f, c) => c.wins >= 150],
+    ['clean', '🛡️', 'Untouchable', 'Win 10 trainer or boss battles with no Pokémon fainting', (f, c) => c.noFaint >= 10],
+    ['rocket', '🎈', 'Rocket Buster', 'Send Team Rocket blasting off 5 times', () => S.rocket >= 5], ['wish', '🐉', 'Dragon Caller', 'Call the Dragon and make a wish', () => S.wishes > 0],
+    ['champ', '🏅', 'Champion', "Beat Team Rocket's Boss", f => f.boss], ['namek', '🪐', 'Hero of Namek', 'Beat Frieza and wake Porunga', f => f.porunga],
+    ['explore', '🧭', 'Explorer', 'Set foot in every land and on Namek', f => f.city && f.world && f.tunnel && f.peaks && f.island && f.fortress && f.namek],
+    ['sky', '🪽', 'Sky Ace', 'Fly through every ring in one Sky Pass ride', (f, c) => c.skyAll >= 1], ['space', '🚀', 'Space Ace', 'Fly through every ring in one space flight', (f, c) => c.spaceAll >= 1],
+    ['mega', '✨', 'Mega Master', 'Mega Evolve 10 times', (f, c) => c.mega >= 10], ['max', '⚡', 'Max Power', 'Fill the power bar to MAX POWER 25 times', (f, c) => c.max >= 25],
+    ['hard', '🔥', 'Brave Heart', 'Beat a boss on Challenge or Master', (f, c) => c.hardBoss >= 1], ['master', '👑', 'Master Trainer', 'Beat 5 bosses on Master', (f, c) => c.masterBoss >= 5],
+    ['rem1', '⚔️', 'Rival', 'Win a boss rematch', (f, c) => c.rem >= 1], ['rem5', '🌟', 'Five-Star Rival', 'Earn 5 stars against one boss', () => allRem(5) >= 1], ['rem3', '🏛️', 'Hall of Fame', 'Earn 3 stars against 5 different bosses', () => allRem(3) >= 5],
+    ['help3', '🤝', 'Good Helper', "Help in a family member's battle 3 times", (f, c) => c.help >= 3], ['help15', '💞', 'Best Teammate', "Help in a family member's battle 15 times", (f, c) => c.help >= 15],
+    ['m5', '📋', 'Helper', 'Finish 5 side missions', (f, c) => c.mis >= 5], ['m15', '🗂️', 'Mission Expert', 'Finish 15 side missions', (f, c) => c.mis >= 15], ['m40', '🎖️', 'Mission Master', 'Finish 40 side missions', (f, c) => c.mis >= 40]];
+  function checkBadges(quiet) {
+    if (!S || mode !== 'play') return; const have = S.ach || (S.ach = []), c = cnt(), got = [];
+    for (const b of BADGES) if (have.indexOf(b[0]) < 0) { let ok = false; try { ok = !!b[4](S.flags, new Proxy(c, { get: (o, k) => o[k] || 0 })); } catch (e) { } if (ok) { have.push(b[0]); got.push(b); } }
+    if (!got.length) return; S.balls += got.length * 3; hud(); save();
+    if (!quiet) { TT.sfx.star(); TT.toast(got.length > 2 ? '🏅 ' + got.length + ' new badges! Open the menu (☰) to see your badge book' : got.map(b => '🏅 New badge: ' + b[1] + ' ' + b[2]).join('   ')); }
+  }
+  function showBadges() {
+    checkBadges(true); const have = S.ach || [];
+    openPanel('<h3>🏅 Badge book <button id="pClose">✕</button></h3><p class="xnote">' + have.length + ' of ' + BADGES.length + ' badges earned. Every badge gives 3 Poké Balls.</p><div class="badges">' +
+      BADGES.map(b => '<div class="badge' + (have.indexOf(b[0]) >= 0 ? ' got' : '') + '"><i>' + b[1] + '</i><b>' + b[2] + '</b><small>' + b[3] + '</small></div>').join('') + '</div>');
+  }
+  // --- side missions: three at a time; finishing one brings a new one ---
+  const AREA_OK = { town: () => 1, city: f => f.city, world: f => f.world, volcano: f => f.tunnel, peaks: f => f.peaks, island: f => f.island, fortress: f => f.fortress, namek: f => f.namek };
+  const PLS = { town: () => W.PLACES, city: () => W.CITY_PLACES, world: () => W.WORLD_PLACES, volcano: () => W.VOLC_PLACES, peaks: () => W.PEAKS_PLACES, island: () => W.ISLE_PLACES, fortress: () => W.FORT_PLACES, namek: () => W.NAMEK_PLACES };
+  const NOLETTER = ['hideout', 'grunt1', 'grunt2', 'rjj', 'giovanni', 'vegeta', 'goku', 'gohan', 'guard', 'guard2', 'snorlax'];
+  function newMission(avoid) {
+    const f = S.flags, open = AKEYS.filter(k => AREA_OK[k](f)), zones = W.zones.filter(z => open.indexOf(areaKey(z.x, z.z)) >= 0), ri = (a, b) => a + ((Math.random() * (b - a + 1)) | 0);
+    let types = ['catch', 'catchT', 'catchS', 'wild', 'visit', 'talk', 'max'];
+    if (REM.some(r => r.ok(f))) types.push('rem', 'clean'); if (f.keystone) types.push('mega'); if (f.peaks || f.namek) types.push('rings'); if (Net.count()) types.push('help', 'help');
+    types = types.filter(t => avoid.indexOf(t) < 0); const t = TT.pick(types.length ? types : ['catch']), m = { t, n: 1, p: 0, r: 5 };
+    if (t === 'catch') { m.n = ri(2, 3); m.txt = 'Catch ' + m.n + ' wild Pokémon'; m.r = 5; }
+    else if (t === 'catchT') { const ty = TT.DEX[TT.pick(TT.pick(zones).pool)][1]; m.a = ty; m.n = 2; m.txt = 'Catch 2 ' + ty + '-type Pokémon'; m.r = 6; }
+    else if (t === 'catchS') { const z = TT.pick(zones), sp = TT.pick(z.pool); m.a = sp; m.txt = 'Catch a wild ' + TT.DEX[sp][0] + ' (' + z.name + ', ' + AREA_NAME[areaKey(z.x, z.z)] + ')'; m.x = z.x; m.z = z.z; m.r = 6; }
+    else if (t === 'wild') { m.n = ri(3, 5); m.txt = 'Win ' + m.n + ' battles against wild Pokémon'; m.r = 5; }
+    else if (t === 'visit') { const ak = TT.pick(open), pl = TT.pick(PLS[ak]()); m.a = ak; m.txt = 'Visit ' + pl[0] + ' in ' + AREA_NAME[ak]; m.x = pl[5]; m.z = pl[6]; m.r = 4; }
+    else if (t === 'talk') { const list = W.NPCS.filter(d => NOLETTER.indexOf(d[0]) < 0 && open.indexOf(areaKey(d[3], d[4])) >= 0), d = TT.pick(list); m.a = d[2]; m.txt = 'Take a letter to ' + d[2] + ' in ' + AREA_NAME[areaKey(d[3], d[4])]; m.x = d[3]; m.z = d[4] + 1.6; m.r = 5; }
+    else if (t === 'max') { m.n = 5; m.txt = 'Fill the power bar to MAX POWER 5 times'; m.r = 5; }
+    else if (t === 'rem') { m.txt = 'Win a boss rematch (Menu ☰ → Boss rematches)'; m.r = 6; }
+    else if (t === 'clean') { m.txt = 'Win a boss rematch without any of your Pokémon fainting'; m.r = 8; }
+    else if (t === 'mega') { m.n = 2; m.txt = 'Mega Evolve 2 times'; m.r = 5; }
+    else if (t === 'rings') { m.txt = 'Fly through at least 9 rings in one ride'; m.r = 7; }
+    else { m.n = 2; m.txt = "Help in 2 of your family's battles (watch, then tap ⚡ Help)"; m.r = 8; }
+    return m;
+  }
+  function misFill() { if (!S || !S.flags.profDone) return; const L = S.mis || (S.mis = []); let guard = 0; while (L.length < 3 && guard++ < 12) L.push(newMission(L.map(m => m.t))); }
+  function misDone(m) {
+    const L = S.mis, i = L.indexOf(m); if (i < 0) return; L.splice(i, 1); S.balls += m.r; const n = bump('mis'), bonus = n % 5 === 0;
+    if (bonus) S.party.forEach(q => { q.lvl = Math.min(99, q.lvl + 1); q.hp = TT.maxHp(q); });
+    TT.sfx.star(); TT.toast('✅ Mission done: ' + m.txt + '. You won ' + m.r + ' Poké Balls' + (bonus ? ', and your whole team grew a level for finishing ' + n + ' missions!' : '!'));
+    if (dest && m.x != null && dest.x === m.x && dest.z === m.z) setDest(null);
+    misFill(); hud(); save(); checkBadges();
+  }
+  function misEvent(t, a, amt) { if (!S || !S.mis) return; for (const m of S.mis.slice()) if (m.t === t && (m.a == null || a == null || m.a === a)) { m.p += amt == null ? 1 : amt; if (m.p >= m.n) misDone(m); } }
+  let helpSeen = 0, misT = 0;
+  function misPoll(dt) {          // twice a second: a place reached, or a family battle helped
+    if ((misT += dt) < 0.5 || !S) return; misT = 0;
+    if (TT.tally.help > helpSeen) { const d = TT.tally.help - helpSeen; helpSeen = TT.tally.help; bump('help', d); misEvent('help', null, d); checkBadges(); }
+    if (!busy && S.mis) for (const m of S.mis) if (m.t === 'visit' && areaKey(player.x, player.z) === m.a && Math.hypot(player.x - m.x, player.z - m.z) < 5.5) { misDone(m); break; }
+  }
+  function showMissions() {
+    misFill(); const L = S.mis || [];
+    openPanel('<h3>📋 Side missions <button id="pClose">✕</button></h3><p class="xnote">' + (S.flags.profDone ? 'Three at a time. Finish one and a new one arrives. Missions finished: ' + (cnt().mis || 0) : "Help Professor Oak first. Then missions will start arriving.") + '</p>' +
+      L.map((m, i) => '<div class="mis"><b>' + m.txt + '</b><span class="pbar"><i style="width:' + Math.round(m.p / m.n * 100) + '%"></i></span><small>' + m.p + ' of ' + m.n + ' · reward: ' + m.r + ' Poké Balls</small><span class="prow">' + (m.x != null ? '<button class="fly" data-mgo="' + i + '">📍 Show the way</button>' : '') + '<button class="fly alt" data-mswap="' + i + '">🔄 Swap</button></span></div>').join(''));
+    document.querySelectorAll('[data-mgo]').forEach(b => b.onclick = () => { const m = L[+b.dataset.mgo]; closePanel(); setDest({ x: m.x, z: m.z, n: m.txt }); TT.toast(areaKey(m.x, m.z) === areaKey(player.x, player.z) ? '📍 Follow the dotted line on the little map' : '📍 That is in ' + AREA_NAME[areaKey(m.x, m.z)] + '. Fly there with the World Map first.'); });
+    document.querySelectorAll('[data-mswap]').forEach(b => b.onclick = () => { const i = +b.dataset.mswap, old = L[i]; L.splice(i, 1, newMission(L.map(m => m.t))); if (dest && old.x === dest.x && old.z === dest.z) setDest(null); TT.sfx.blip(); save(); hud(); showMissions(); });
+  }
+  // every battle, whoever started it, reports here when it ends
+  function afterBattle(o, r, s0) {
+    if (!S) return; const dm = TT.tally.mega - s0.mega, dx = TT.tally.max - s0.max, boss = (o.foes || []).some(m => m.boss), wild = !!o.wild && !boss;
+    if (dm > 0) { bump('mega', dm); misEvent('mega', null, dm); } if (dx > 0) { bump('max', dx); misEvent('max', null, dx); }
+    if (r === 'caught') { const sp = o.foes[0].sp; bump('catch'); misEvent('catch'); misEvent('catchT', TT.DEX[sp][1]); misEvent('catchS', sp); }
+    if (r === 'win') { bump('wins'); if (wild) misEvent('wild');
+      const clean = S.party.every(m => m.hp > 0); if (!wild && clean) bump('noFaint');
+      if (boss) { if (S.hard) bump('hardBoss'); if (S.hard >= 2) bump('masterBoss'); }
+      if (o.rematch) { bump('rem'); misEvent('rem'); if (clean) misEvent('clean'); } }
+    misFill(); checkBadges();
+  }
+  { const b0 = TT.Battle.start; TT.Battle.start = async o => { const s0 = Object.assign({}, TT.tally), r = await b0(o); try { afterBattle(o, r, s0); } catch (e) { console.warn('afterBattle', e); } return r; }; }
   // ---------- Chapter 2: Planet Namek ----------
   // Seven Namekian Dragon Balls: 1 Elder Moori, 2 and 3 hidden, 4 Piccolo, 5 Zarbon, 6 Dodoria, 7 Frieza. S.nb lists the ones this trainer holds.
   let nkBalls = [], nkAltarCd = 0;
@@ -1266,7 +1389,8 @@
     if (!S) return;
     $('nBall').textContent = S.balls; $('nStar').textContent = player && player.x > 1500 && !S.flags.porunga ? (S.nb || []).length : S.stars.length; $('chipMedal').classList.toggle('hide', !S.flags.boss); $('chipStar').classList.toggle('radar', radarOn());
     $('chipEgg').classList.toggle('hide', !S.egg.have); { const wv = Math.round(Math.min(100, S.egg.warm)); if (wv !== eggShown) { eggShown = wv; $('eggBar').style.width = wv + '%'; } }
-    const qg = questOf(S); let q = qg[0]; const g = qg[1];
+    const qg = questOf(S); let q = qg[0], g = qg[1];
+    if (q.indexOf('★ Keep exploring') === 0 && S.mis && S.mis.length) { const m = S.mis[0]; q = '★ Mission: ' + m.txt + (m.n > 1 ? ' (' + m.p + '/' + m.n + ')' : ''); g = m.x != null && areaKey(m.x, m.z) === areaKey(player.x, player.z) ? { x: m.x, z: m.z, n: m.txt } : null; }
     goal = g; if (g) q += '  📍';
     $('quest').textContent = q;
   }
@@ -1385,14 +1509,14 @@
     $('mvBack').onclick = showTeam;
   }
   function showMenu() {
-    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = S.easy ? '🛟 Battles: Easy — stronger hits, gentler bosses, free healing' : S.hard ? '🔥 Battles: Challenge — smarter, tougher foes, timing taps, more XP' : '⚔ Battles: Normal'; $('mCam').textContent = '🎥 Camera: ' + (S.camFar ? 'Far (see more)' : 'Close (bigger characters)'); };
-    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt" id="mCam"></button><button class="opt" id="mHelp">🧰 Grown-up help (radar, healing, unstick)</button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
+    const lab = () => { $('mSound').textContent = (TT.muted ? '🔇' : '🔊') + ' Sound & music: ' + (TT.muted ? 'Off' : 'On'); $('mVoice').textContent = '🗣 Voices: ' + (TT.voiceOn ? 'On' : 'Off'); $('mMini').textContent = '🗺 Mini-map: ' + (miniOn ? 'On' : 'Off'); $('mEasy').textContent = S.easy ? '🛟 Battles: Easy — stronger hits, gentler bosses, free healing' : S.hard >= 2 ? '👑 Battles: Master — one helper, far tougher foes, the most XP' : S.hard ? '🔥 Battles: Challenge — smarter, tougher foes, two helpers, more XP' : '⚔ Battles: Normal'; $('mCam').textContent = '🎥 Camera: ' + (S.camFar ? 'Far (see more)' : 'Close (bigger characters)'); };
+    openPanel('<h3>Menu <button id="pClose">✕</button></h3><button class="opt" id="mResume">▶ Keep playing</button><span class="mrow"><button class="opt" id="mMis">📋 Missions</button><button class="opt" id="mBadge">🏅 Badges</button><button class="opt" id="mRem">⚔️ Rematches</button></span><button class="opt" id="mSound"></button><button class="opt" id="mVoice"></button><button class="opt" id="mMini"></button><button class="opt" id="mEasy"></button><button class="opt" id="mCam"></button><button class="opt" id="mHelp">🧰 Grown-up help (radar, healing, unstick)</button><button class="opt red" id="mTitle">🏠 Main menu</button><p style="font-size:13px;opacity:.7;margin:4px 0 0;text-align:center">Your game saves by itself.</p>');
     lab();
-    $('mResume').onclick = closePanel;
+    $('mResume').onclick = closePanel; $('mMis').onclick = showMissions; $('mBadge').onclick = showBadges; $('mRem').onclick = showRematch;
     $('mSound').onclick = () => { TT.setMuted(!TT.muted); lab(); };
     $('mVoice').onclick = () => { TT.setVoice(!TT.voiceOn); lab(); if (TT.voiceOn) TT.cry(S.party[0].sp); };
     $('mMini').onclick = () => { setMini(!miniOn); lab(); };
-    $('mEasy').onclick = () => { if (S.easy) { S.easy = 0; S.hard = 0; } else if (S.hard) { S.hard = 0; S.easy = 1; S.party.forEach(m => m.hp = TT.maxHp(m)); } else S.hard = 1; save(); lab(); TT.sfx.pick(); };          // Easy → Normal → Challenge → Easy
+    $('mEasy').onclick = () => { if (S.easy) { S.easy = 0; S.hard = 0; } else if (!S.hard) S.hard = 1; else if (S.hard === 1) S.hard = 2; else { S.hard = 0; S.easy = 1; S.party.forEach(m => m.hp = TT.maxHp(m)); } save(); lab(); TT.sfx.pick(); };          // Easy → Normal → Challenge → Master → Easy
     $('mCam').onclick = () => { S.camFar = S.camFar ? 0 : 1; save(); lab(); TT.sfx.blip(); };
     $('mHelp').onclick = showHelp;
     $('mTitle').onclick = toTitle;
@@ -1721,6 +1845,7 @@
       if (!S.wishes && S.flags.vegeta && S.stars.indexOf(1) < 0 && nextRocket > playT + 25) nextRocket = playT + 25;
       if (!busy && playT > nextRocket && areaNow !== 'fortress' && areaNow !== 'namek') rocketEvent();
       if (areaNow === 'namek' && nextRocket < playT + 120) nextRocket = playT + 120;
+      misPoll(dt);
       if (!busy && !TT.dialogOpen && pendingRide) { const r = pendingRide; pendingRide = null; rideTo(r, true); }
       { const on = player.x > 800 && !TT.Battle.active && !flight; if (on !== fortOn) { fortOn = on; W.fortShow(on); } if (on) { W.fortTick(playT); if (nextRocket < playT + 120) nextRocket = playT + 120; } }      // and their balloon stays away for a while after you leave
       if ((saveT += dt) > 20) { saveT = 0; save(); cloudPush(); }
@@ -1810,7 +1935,7 @@
   G.areaProgress = k => areaProgress(k);
   // test hooks
   G.toTitle = toTitle; G.setPause = setPause;
-  G.dbg = () => ({ endCard, rideTo, flyTo, areaSwap, nkAltar, CAMV, view: () => [viewX, viewZ, viewS, camD, camP], S, player, camera, renderer, quality, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
+  G.dbg = () => ({ endCard, rideTo, flyTo, areaSwap, nkAltar, showMissions, showBadges, showRematch, checkBadges, misFill, misEvent, CAMV, view: () => [viewX, viewZ, viewS, camD, camP], S, player, camera, renderer, quality, wilds, npcs, follower, mode, busy, playT, setRocket: v => { nextRocket = v; }, input, start: startGame, comps, applyFlags, vel });
 
   // The town takes a few seconds to build on a tablet. Let the title paint first, accept taps right away,
   // and start the chosen character the moment the world is ready.

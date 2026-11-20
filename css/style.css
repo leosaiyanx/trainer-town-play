@@ -303,3 +303,14 @@ small.pct{display:block;font-weight:800;font-size:13px;margin-top:2px}
 #endCard button{font:900 22px/1 Fredoka,system-ui,sans-serif;padding:14px 30px;border-radius:30px;background:#ffd23a;color:#23324a;border:4px solid #fff;box-shadow:0 5px 0 #23324a}
 @keyframes endIn{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
 @media (max-height:520px){#endCard .medal{font-size:44px}#endCard h1{font-size:40px}#endCard h2{font-size:28px}#endCard p{font-size:16px;margin-bottom:8px}#endCard h3{font-size:22px}#endCard small{margin-bottom:10px}}
+
+/* rematches, badge book and side missions */
+.xnote{font-size:14px;font-weight:700;opacity:.75;margin:0 0 8px}
+.mrow{display:flex;gap:6px}.mrow .opt{flex:1;padding-left:6px;padding-right:6px;text-align:center;font-size:15px}
+.opt.rem small{display:block;font-size:13px;opacity:.8;letter-spacing:1px;color:#b07a00}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+.badge{border:3px solid #cfd6e4;border-radius:14px;padding:8px 6px;text-align:center;background:#eef1f6;opacity:.6;filter:grayscale(1)}
+.badge.got{opacity:1;filter:none;background:#fff7d6;border-color:#f2c230}
+.badge i{display:block;font-style:normal;font-size:30px;line-height:1.1}.badge b{display:block;font-size:14px}.badge small{display:block;font-size:11.5px;line-height:1.25;opacity:.8}
+.mis{border:3px solid #23324a;border-radius:14px;padding:8px 10px;margin-bottom:8px;background:#f4f8ff}.mis b{display:block;font-size:15px;margin-bottom:4px}.mis small{display:block;font-size:12.5px;opacity:.8;margin:2px 0 4px}
+.mis .pbar{display:block}.fly.alt{background:#e6ebf4}
