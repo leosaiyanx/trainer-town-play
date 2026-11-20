@@ -392,6 +392,13 @@
       'A5 - - C6 F6 - - . | E6 - - C6 G5 - - . | F5 - A5 . D6 - - . | D6 - - Bb5 F5 - - . | A5 - - C6 F6 - A6 . | G6 - - E6 C6 - - . | D6 - Bb5 . F5 - G5 . | G5 - - E5 C5 - - .' },
     island: { bpm: 126, style: 1, lv: 0.055, ch: 'C F G C Am F G G', lead:
       'E5 . G5 . C6 . G5 E5 | F5 . A5 . C6 - A5 . | G5 . B5 . D6 . B5 G5 | E6 - C6 . G5 - - . | A5 . C6 . E6 . C6 A5 | F5 . A5 . C6 - D6 . | D6 . B5 . G5 . B5 . | D6 - - . G5 - - .' },
+    // Planet Vegeta: a proud march for the planet, a driving fight tune for the arena, and something heavy for the Great Ape
+    pvegeta: { bpm: 112, style: 4, lv: 0.055, ch: 'Em C D Em Em C D B', lead:
+      'E5 . G5 . B5 - - . | C6 - B5 . G5 - - . | A5 . F#5 . D5 . A5 . | G5 - - . E5 - - . | E5 . G5 . B5 - E6 . | E6 - C6 . G5 - - . | F#5 . A5 . D6 - C6 A5 | B5 - - . F#5 - - .' },
+    arena: { bpm: 176, style: 1, lv: 0.065, bright: 7, ch: 'Em Em G D Em Em C B', lead:
+      'E5 . E5 G5 B5 . A5 G5 | F#5 . G5 . E5 . B4 . | G5 . G5 B5 D6 . C6 B5 | A5 . F#5 . D5 - - . | E5 . E5 G5 B5 . D6 B5 | E6 . D6 . B5 . G5 . | C6 . B5 . G5 . E5 . | D#5 . F#5 . B5 - - .' },
+    ape: { bpm: 150, style: 5, lv: 0.07, bright: 7, wave: ['sawtooth', 'sawtooth'], ch: 'Dm Dm Bb A Dm Dm Gm A', lead:
+      'D4 . D4 . F4 . D4 . | A4 - - . F4 - - . | Bb4 . Bb4 . D5 . Bb4 . | A4 - - . E4 - - . | D5 . D5 . F5 . D5 . | A5 - G5 . F5 . D5 . | G4 . Bb4 . D5 . G5 . | A5 - - . C#5 - - .' },
     // Chapter 2: floating through space (slow and wide), the green planet Namek (gentle and a little strange), and Frieza (cold and menacing)
     space: { bpm: 92, style: 3, lv: 0.055, ch: 'Am F C G Am F Dm E', lead:
       'A5 - - - E6 - - . | C6 - - A5 F5 - - . | E5 - G5 . C6 - - . | D6 - - B5 G5 - - . | A5 - - C6 E6 - A6 . | F6 - - C6 A5 - - . | D6 - F6 . A6 - - . | G#6 - - E6 B5 - - .' },

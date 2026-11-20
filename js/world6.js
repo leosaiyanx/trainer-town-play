@@ -48,8 +48,8 @@
 
   // wild Pokémon live in these two places. lazy: they are only put there while the planet is loaded.
   W.zones.push(
-    { name: 'Blue Meadow', noGrass: 1, lazy: 1, x: 1975, z: -110, r: 11, n: 4, lv: [33, 38], pool: ['treecko', 'clefairy', 'oddish', 'butterfree', 'elgyem', 'abra'], rare: ['grovyle', 0.14] },
-    { name: 'Green Shore', noGrass: 1, lazy: 1, x: 2029, z: -90, r: 10, n: 4, lv: [34, 39], pool: ['staryu', 'psyduck', 'poliwag', 'clefairy', 'dratini', 'elgyem'], rare: ['dragonair', 0.12] });
+    { name: 'Blue Meadow', noGrass: 1, lazy: 'namek', x: 1975, z: -110, r: 11, n: 4, lv: [33, 38], pool: ['treecko', 'clefairy', 'oddish', 'butterfree', 'elgyem', 'abra'], rare: ['grovyle', 0.14] },
+    { name: 'Green Shore', noGrass: 1, lazy: 'namek', x: 2029, z: -90, r: 10, n: 4, lv: [34, 39], pool: ['staryu', 'psyduck', 'poliwag', 'clefairy', 'dratini', 'elgyem'], rare: ['dragonair', 0.12] });
   // the people of Namek (and Frieza's crew). Like the scenery, they are only made when the planet is loaded.
   W.NAMEK_NPCS = [['dende', 'dende', 'Dende', K.DENDE.x, K.DENDE.z, 0, []], ['nguard', 'fsoldier', "Frieza's Soldier", K.GUARD.x, K.GUARD.z, 0, []], ['elder', 'elder', 'Elder Moori', K.ELDER.x, K.ELDER.z, 0, []],
     ['piccolo', 'piccolo', 'Piccolo', K.PICCOLO.x, K.PICCOLO.z, 0, []], ['zarbon', 'zarbon', 'Zarbon', K.ZARBON.x, K.ZARBON.z, 0, []], ['dodoria', 'dodoria', 'Dodoria', K.DODORIA.x, K.DODORIA.z, 0, []], ['frieza', 'frieza', 'Frieza', K.FRIEZA.x, K.FRIEZA.z, 0, []]];
@@ -129,10 +129,9 @@
   };
 
   // the mood of each new place: a green sky for Namek, black for space
-  const oldWorld = W.buildWorld;
-  W.buildWorld = function* (scene) {
-    if (oldWorld) yield* oldWorld(scene);
-    yield 'Charting the stars';
+  const oldStages = W.buildStages;          // the battle arenas are made after the world, so this is where the new ones are added
+  W.buildStages = function (scene) {
+    oldStages(scene);
     const ST = W.STAGES;
     ST.namekArea = { tint: { sky: 0x9af0b4, fog: 0xb4f2c8, hemi: [0xe2ffe8, 0x4a9a8c, 0.64], sun: [0xfff8d8, 0.5], near: 60, far: 210 } };
     ST.space = { tint: { sky: 0x161a38, fog: 0x0a0c1c, hemi: [0x9aa8e8, 0x202448, 0.62], sun: [0xffffff, 0.55], near: 90, far: 420 } };
